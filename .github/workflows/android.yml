@@ -233,14 +233,32 @@ jobs:
           if-no-files-found: error
 
       # ==================== 自动发版（仅 tag 触发）====================
+      # 用 gh CLI 直发：softprops/action-gh-release@v2 在 Draft 模式下经常无明显错误地
+      # 静默吞掉失败（exit 0 但 release 没创建）。gh CLI 失败会显示 error 且非 0。
       - name: Create GitHub Release (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true                    # 保留 draft 状态，等人审核
-          generate_release_notes: true
-          # 从 artifact URL 拉 ZIP 然后 unzip 取 APK 上传到 release
-          files: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release.apk
-          fail_on_unmatched_files: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "Creating draft release for tag: $TAG"
+          # 先准备 release notes（从本地 file 读）
+          if [ -f release-notes-v0.5.0-alpha.md ]; then
+            NOTES="$(cat release-notes-v0.5.0-alpha.md)"
+          else
+            NOTES="Release $TAG"
+          fi
+          # 1) create draft release
+          gh release create "$TAG" \
+            --draft \
+            --title "$TAG" \
+            --notes "$NOTES" \
+            --target "$GITHUB_SHA"
+          # 2) 上传两个 APK
+          gh release upload "$TAG" \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/release/app-release.apk \
+            --clobber
+          echo "Release created: https://github.com/${{ github.repository }}/releases/tag/$TAG"
+          gh release view "$TAG" --json tagName,name,draft,assets --jq '. | "tag=\(.tagName) name=\(.name) draft=\(.draft) assets=\(.assets | length)"'
