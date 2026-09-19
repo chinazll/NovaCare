@@ -68,8 +68,9 @@ jobs:
           components: rustfmt, clippy
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
+      # 注意：不要 pin 到 3.5.6 —— 该版本已被 crates.io yanked，安装会失败
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --version 3.5.6 --locked
+        run: cargo install cargo-ndk --locked
 
       - name: Cache cargo registry & target
         uses: actions/cache@v4
