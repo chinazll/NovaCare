@@ -3,6 +3,7 @@ package com.novacare.optimizer.core
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Environment
@@ -41,8 +42,10 @@ class DeviceRepository @Inject constructor(
 ) {
     suspend fun getDeviceStatus(): DeviceStatus = withContext(Dispatchers.IO) {
         val stat = StatFs(Environment.getDataDirectory().path)
-        val totalGb = stat.totalBytes / GB
-        val availGb = stat.availableBytes / GB
+        val totalBytes = stat.totalBytes
+        val availBytes = stat.availableBytes
+        val totalGb = totalBytes / GB_F
+        val usedGb = (totalBytes - availBytes) / GB_F
 
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memInfo = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
@@ -51,13 +54,14 @@ class DeviceRepository @Inject constructor(
 
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        val temp = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_TEMPERATURE) / 10f
-        val charging = context.registerReceiver(null, Intent.ACTION_BATTERY_CHANGED)
-            ?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-            ?.let { it == BatteryManager.BATTERY_STATUS_CHARGING } ?: false
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val temp = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)?.div(10f) ?: 0f
+        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
 
         DeviceStatus(
-            usedStorageGb = totalGb - availGb,
+            usedStorageGb = usedGb,
             totalStorageGb = totalGb,
             usedRamMb = usedRamMb,
             totalRamMb = totalRamMb,
@@ -78,7 +82,7 @@ class DeviceRepository @Inject constructor(
         val ext = Environment.getExternalStorageDirectory()
 
         fun dirSize(dir: File?): Long {
-            if (dir == null || !dir.exists()) return 0
+            if (dir == null || !dir.exists()) return 0L
             return dir.walkBottomUp().filter { it.isFile }
                 .fold(0L) { acc, f -> acc + f.length() }
         }
@@ -87,15 +91,15 @@ class DeviceRepository @Inject constructor(
         val videos = dirSize(File(ext, "Movies"))
         val music = dirSize(File(ext, "Music")) + dirSize(File(ext, "Podcasts"))
         val docs = dirSize(File(ext, "Documents")) + dirSize(File(ext, "Download"))
-        val other = ((status.usedStorageGb * GB) - pictures - videos - music - docs)
-            .coerceAtLeast(0L)
+        val usedBytes = (status.usedStorageGb * GB_F).toLong()
+        val other = (usedBytes - pictures - videos - music - docs).coerceAtLeast(0L)
 
         listOf(
-            StorageCategory("照片", pictures / GB, 0xFF5B8DEF),
-            StorageCategory("视频", videos / GB, 0xFF9B6BDF),
-            StorageCategory("音频", music / GB, 0xFFE8912D),
-            StorageCategory("文档", docs / GB, 0xFF2FA36B),
-            StorageCategory("应用与系统", other / GB, 0xFF8A8F98),
+            StorageCategory("照片", pictures / GB_F, 0xFF5B8DEF),
+            StorageCategory("视频", videos / GB_F, 0xFF9B6BDF),
+            StorageCategory("音频", music / GB_F, 0xFFE8912D),
+            StorageCategory("文档", docs / GB_F, 0xFF2FA36B),
+            StorageCategory("应用与系统", other / GB_F, 0xFF8A8F98),
         )
     }
 
@@ -105,26 +109,18 @@ class DeviceRepository @Inject constructor(
     suspend fun scanApps(): List<AppInfo> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
         val usageMap = queryUsageStatsDays()
-        pm.getInstalledPackages(PackageManager.GET_META_DATA).map { pkg ->
-            val appInfo = pkg.applicationInfo
+        pm.getInstalledPackages(PackageManager.GET_META_DATA).mapNotNull { pkg ->
+            val appInfo = pkg.applicationInfo ?: return@mapNotNull null
             val isSystem = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-            // 缓存目录体积估算（免 Root 场景下的公开目录 + DataDir 采样）
-            val cacheBytes = try {
-                dirSizeOrNull(File(appInfo.cacheDir ?: "")) ?: 0L
-            } catch (_: Exception) { 0L }
+            // 缓存估算（无 root 时无法读取他应用 cacheDir,显示 0）
             AppInfo(
                 packageName = pkg.packageName,
-                label = pm.getApplicationLabel(pkg.applicationInfo).toString(),
+                label = pm.getApplicationLabel(appInfo).toString(),
                 isSystemApp = isSystem,
-                cacheSizeMb = cacheBytes / MBf,
+                cacheSizeMb = 0f,
                 lastUsedDays = usageMap[pkg.packageName] ?: -1,
             )
         }.sortedByDescending { it.cacheSizeMb }
-    }
-
-    private fun dirSizeOrNull(dir: File): Long? {
-        if (!dir.exists()) return null
-        return dir.walkBottomUp().filter { it.isFile }.fold(0L) { acc, f -> acc + f.length() }
     }
 
     private fun queryUsageStatsDays(): Map<String, Int> {
@@ -140,7 +136,7 @@ class DeviceRepository @Inject constructor(
                 it.packageName to ((now - it.lastTimeUsed) / (24L * 3600 * 1000)).toInt()
             }
         } catch (_: SecurityException) {
-            emptyMap() // 未授予使用情况权限时降级
+            emptyMap()
         }
     }
 
@@ -150,11 +146,18 @@ class DeviceRepository @Inject constructor(
      */
     data class JunkItem(val path: String, val label: String, val sizeMb: Float, val isSafe: Boolean)
 
+    data class JunkCandidate(val dir: File, val label: String, val isSafe: Boolean)
+
+    private fun dirSizeMb(dir: File?): Float? {
+        if (dir == null || !dir.exists()) return null
+        return dir.walkBottomUp().filter { it.isFile }
+            .fold(0L) { acc, f -> acc + f.length() } / MB_F
+    }
+
     suspend fun scanJunk(): List<JunkItem> = withContext(Dispatchers.IO) {
         val items = mutableListOf<JunkItem>()
         val ext = Environment.getExternalStorageDirectory()
 
-        data class JunkCandidate(val dir: File, val label: String, val isSafe: Boolean)
         val candidates = listOf(
             JunkCandidate(File(ext, "Android/data/cache"), "公共缓存", true),
             JunkCandidate(File(ext, "Download/.tmp"), "下载临时文件", true),
@@ -164,23 +167,23 @@ class DeviceRepository @Inject constructor(
             JunkCandidate(File(ext, "log"), "应用日志", false),
         )
         for (c in candidates) {
-            val size = dirSizeOrNull(c.dir) ?: continue
-            if (size > 0) {
-                items += JunkItem(c.dir.absolutePath, c.label, size / MBf, c.isSafe)
+            val sizeMb = dirSizeMb(c.dir) ?: continue
+            if (sizeMb > 0) {
+                items += JunkItem(c.dir.absolutePath, c.label, sizeMb, c.isSafe)
             }
         }
-        // 残留检测：Android/data 下无对应已安装应用的目录
+        // 残留检测
         try {
             val dataDir = File(ext, "Android/data")
             val installed = context.packageManager.getInstalledPackages(0)
                 .map { it.packageName }.toSet()
             dataDir.listFiles()?.forEach { f ->
-                if (f.isDirectory && f.name.startsWith(".") == false) {
-                    val pkg = f.name.removeSuffix("")
+                if (f.isDirectory && !f.name.startsWith(".")) {
+                    val pkg = f.name
                     if (pkg !in installed && pkg.isNotBlank()) {
-                        val size = dirSizeOrNull(f) ?: 0L
-                        if (size > 512 * 1024) {
-                            items += JunkItem(f.absolutePath, "残留数据：$pkg", size / MBf, false)
+                        val sizeMb = dirSizeMb(f) ?: 0f
+                        if (sizeMb > 0.5f) {
+                            items += JunkItem(f.absolutePath, "残留数据：$pkg", sizeMb, false)
                         }
                     }
                 }
@@ -193,18 +196,20 @@ class DeviceRepository @Inject constructor(
         var freed = 0L
         for (item in items) {
             val dir = File(item.path)
-            val size = dirSizeOrNull(dir) ?: continue
+            val size = dirSizeMb(dir) ?: continue
             if (item.isSafe || dir.absolutePath.startsWith(context.cacheDir.absolutePath)) {
-                dir.deleteRecursively()
-                freed += size
+                if (dir.deleteRecursively()) {
+                    freed += (size * MB_F).toLong()
+                }
             }
         }
         freed
     }
 
     companion object {
-        const val GB = 1024L * 1024 * 1024
-        const val MB = 1024L * 1024
-        const val MBf = 1024f * 1024
+        const val GB: Long = 1024L * 1024 * 1024
+        const val MB: Long = 1024L * 1024
+        const val GB_F: Float = 1024f * 1024f * 1024f
+        const val MB_F: Float = 1024f * 1024f
     }
 }
