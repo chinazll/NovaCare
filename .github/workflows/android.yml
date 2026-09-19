@@ -64,7 +64,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.85.0
+          # 用最新 stable（不锁死旧版本）：
+          # - 依赖 cpufeatures 需要 edition2024（≥1.85）
+          # - cargo-ndk 4.x 需要 ≥1.86
+          toolchain: stable
           components: rustfmt, clippy
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
