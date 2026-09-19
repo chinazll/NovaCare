@@ -2,9 +2,10 @@
 //!
 //! 按公共目录归类媒体/文档/应用/系统
 
-use crate::errors::{NovaError, NovaResult};
+use crate::errors::NovaResult;
 use crate::models::{StorageCategory, StorageReport};
 use crate::scanner::{scan, ScanOptions};
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
