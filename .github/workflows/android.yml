@@ -17,6 +17,9 @@ jobs:
     name: Build · Test · Sign (JDK 17 · Rust NDK)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # GITHUB_TOKEN 默认是 read-only；显式声明 write 让 softprops/action-gh-release 能创建 release
+    permissions:
+      contents: write
 
     env:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
