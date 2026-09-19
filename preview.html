@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaCare · One UI 9 风格预览</title>
+<style>
+  :root{
+    --bg:#F7F7FA; --card:#FFFFFF; --nav:#F2F2F7;
+    --ink:#1A1B20; --ink2:#6B6E78;
+    --primary:#3B5BDB; --primary-c:#DEE3FF;
+    --good:#2FA36B; --mid:#E8912D; --bad:#E05252;
+    --blue:#5B8DEF; --purple:#9B6BDF; --green:#2FA36B; --orange:#E8912D;
+    --radius:26px; --radius-m:20px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"One UI Sans","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+  body{
+    background:linear-gradient(135deg,#e9ecf5 0%,#dfe4f2 100%);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    gap:48px;padding:40px 24px;flex-wrap:wrap;
+  }
+  /* ---- 手机外壳 ---- */
+  .phone{
+    width:390px;height:820px;background:var(--bg);border-radius:48px;
+    box-shadow:0 30px 80px rgba(30,40,90,.28),0 0 0 12px #111318,0 0 0 14px #2a2d34;
+    overflow:hidden;position:relative;display:flex;flex-direction:column;
+  }
+  .punch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:#0a0a0c;z-index:9;}
+  .screens{flex:1;position:relative;overflow:hidden;}
+  .screen{position:absolute;inset:0;overflow-y:auto;opacity:0;transform:translateX(28px);pointer-events:none;transition:opacity .3s,transform .35s cubic-bezier(.2,.7,.3,1);padding-bottom:110px;}
+  .screen.active{opacity:1;transform:none;pointer-events:auto;}
+  .screen::-webkit-scrollbar{display:none;}
+  /* ---- One UI 大标题 ---- */
+  .header{padding:56px 20px 8px;}
+  .header h1{font-size:32px;font-weight:700;color:var(--ink);letter-spacing:-.3px;}
+  .header p{font-size:14px;color:var(--ink2);margin-top:6px;}
+  /* ---- 卡片 ---- */
+  .card{background:var(--card);border-radius:var(--radius);padding:20px;margin:0 20px 12px;}
+  .section{font-size:17px;font-weight:700;color:var(--ink);padding:14px 20px 8px;}
+  /* ---- 得分环 ---- */
+  .ring-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px;}
+  .ring{width:168px;height:168px;position:relative;}
+  .ring svg{transform:rotate(-90deg);}
+  .ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring .num{font-size:36px;font-weight:700;color:var(--good);}
+  .ring .cap{font-size:12px;color:var(--ink2);margin-top:2px;}
+  .verdict{margin-top:12px;font-size:16px;font-weight:700;color:var(--good);}
+  /* ---- 健康卡 ---- */
+  .hcard{display:flex;align-items:center;gap:16px;cursor:pointer;transition:transform .15s;}
+  .hcard:active{transform:scale(.98);}
+  .hicon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+  .hcard .t{font-size:17px;font-weight:600;color:var(--ink);}
+  .hcard .s{font-size:13px;color:var(--ink2);margin-top:2px;}
+  .bar{height:6px;border-radius:99px;margin-top:14px;overflow:hidden;}
+  .bar i{display:block;height:100%;border-radius:99px;transition:width 1s cubic-bezier(.2,.7,.3,1);}
+  .chev{margin-left:auto;color:#B9BBC4;font-size:20px;}
+  /* ---- 按钮 ---- */
+  .pill{
+    display:block;width:calc(100% - 40px);margin:20px 20px 8px;height:52px;border:none;border-radius:99px;
+    background:var(--primary);color:#fff;font-size:16px;font-weight:600;cursor:pointer;
+    transition:transform .15s,opacity .2s;
+  }
+  .pill:active{transform:scale(.97);}
+  .pill:disabled{opacity:.55;cursor:default;}
+  .pill.ghost{background:#E3E3EA;color:var(--ink);}
+  /* ---- 底部导航 ---- */
+  .navbar{
+    position:absolute;bottom:0;left:0;right:0;height:84px;background:var(--nav);
+    display:flex;padding:8px 8px 22px;z-index:8;
+  }
+  .navitem{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    cursor:pointer;color:#8a8d96;font-size:11px;font-weight:600;border-radius:18px;transition:.2s;
+  }
+  .navitem .ic{font-size:21px;line-height:1;}
+  .navitem.on{color:var(--primary);}
+  .navitem.on .ic{background:var(--primary-c);padding:5px 16px;border-radius:99px;}
+  /* ---- 列表行 ---- */
+  .row{display:flex;align-items:center;gap:14px;padding:12px 4px;}
+  .row .ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+  .row .t{font-size:15px;color:var(--ink);}
+  .row .s{font-size:12px;color:var(--ink2);margin-top:2px;}
+  .switch{margin-left:auto;width:44px;height:26px;border-radius:99px;background:#D3D5DE;position:relative;cursor:pointer;transition:.2s;flex-shrink:0;}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .switch.on{background:var(--primary);}
+  .switch.on::after{left:21px;}
+  /* ---- 色带 ---- */
+  .band{display:flex;height:14px;border-radius:99px;overflow:hidden;margin-bottom:18px;}
+  .band i{height:100%;}
+  /* ---- 说明面板 ---- */
+  .side{max-width:420px;}
+  .side h2{font-size:30px;color:#1a1c2e;font-weight:800;letter-spacing:-.5px;}
+  .side .tag{display:inline-block;background:#1a1c2e;color:#fff;font-size:12px;padding:5px 14px;border-radius:99px;margin-bottom:14px;letter-spacing:1px;}
+  .side ul{list-style:none;margin-top:18px;}
+  .side li{padding:10px 0;font-size:14.5px;color:#3c3f4d;border-bottom:1px solid #e3e6f0;line-height:1.6;}
+  .side li b{color:#1a1c2e;}
+  .toast{
+    position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);
+    background:#1a1c2e;color:#fff;font-size:14px;padding:12px 24px;border-radius:99px;
+    opacity:0;transition:.35s;pointer-events:none;white-space:nowrap;z-index:20;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%);}
+  @media (max-width:900px){ .side{display:none;} }
+</style>
+</head>
+<body>
+
+<div class="side">
+  <span class="tag">ONE UI 9 · 设计灵魂预览</span>
+  <h2>NovaCare 管家</h2>
+  <p style="color:#5a5d6a;font-size:15px;margin-top:8px;line-height:1.7;">安卓系统优化 App · 按右侧手机交互体验</p>
+  <ul>
+    <li><b>上观看 · 下操作</b> — 大标题在观看区，按钮沉到拇指区，滚动时留意层级呼吸感</li>
+    <li><b>六区色调表面</b> — 背景/导航/卡片/组件分层着色，One UI 9 独有体系</li>
+    <li><b>无阴影哲学</b> — 26dp 大圆角卡片靠留白分层，One UI 9 去掉了厚重毛玻璃与多层投影</li>
+    <li><b>克制动效</b> — 线性插值页面切换、得分环数字滚动、按钮按压回弹</li>
+    <li><b>隐私红线</b> — 所有分析 100% 本机完成，零云端上报（Galaxy AI 时代的坚持）</li>
+  </ul>
+</div>
+
+<div class="phone">
+  <div class="punch"></div>
+  <div class="screens">
+
+    <!-- 管家 -->
+    <div class="screen active" id="s-home">
+      <div class="header"><h1>设备管家</h1><p>全部分析在本机完成，不上传任何数据</p></div>
+      <div class="ring-wrap">
+        <div class="ring">
+          <svg width="168" height="168" viewBox="0 0 168 168">
+            <circle cx="84" cy="84" r="74" fill="none" stroke="#2FA36B" stroke-opacity=".14" stroke-width="12" stroke-linecap="round"/>
+            <circle id="ringArc" cx="84" cy="84" r="74" fill="none" stroke="#2FA36B" stroke-width="12" stroke-linecap="round" stroke-dasharray="465" stroke-dashoffset="465"/>
+          </svg>
+          <div class="val"><span class="num" id="scoreNum">0</span><span class="cap">设备得分</span></div>
+        </div>
+        <div class="verdict" id="verdict">状态良好</div>
+      </div>
+      <div class="section">健康状况</div>
+      <div class="card hcard" onclick="toast('存储管家 · 页面动效：水平滑入')">
+        <div class="hicon" style="background:#5B8DEF22">📦</div>
+        <div style="flex:1">
+          <div class="t">存储</div><div class="s">96.3 GB / 256 GB</div>
+          <div class="bar" style="background:#5B8DEF1f"><i style="width:38%;background:#5B8DEF"></i></div>
+        </div><span class="chev">›</span>
+      </div>
+      <div class="card hcard" onclick="toast('内存管理 · 高频应用智能驻留')">
+        <div class="hicon" style="background:#9B6BDF22">🧠</div>
+        <div style="flex:1">
+          <div class="t">内存</div><div class="s">5.2 GB / 12 GB</div>
+          <div class="bar" style="background:#9B6BDF1f"><i style="width:43%;background:#9B6BDF"></i></div>
+        </div><span class="chev">›</span>
+      </div>
+      <div class="card hcard" onclick="toast('电池卫士 · 全本地功耗分析')">
+        <div class="hicon" style="background:#2FA36B22">🔋</div>
+        <div style="flex:1">
+          <div class="t">电池</div><div class="s">78% · 温度正常</div>
+          <div class="bar" style="background:#2FA36B1f"><i style="width:78%;background:#2FA36B"></i></div>
+        </div><span class="chev">›</span>
+      </div>
+      <div class="card hcard" onclick="toast('应用防护 · UAD 三级安全评级')">
+        <div class="hicon" style="background:#E8912D22">🛡️</div>
+        <div style="flex:1"><div class="t">应用防护</div><div class="s">垃圾与臃肿应用检测</div></div>
+        <span class="chev">›</span>
+      </div>
+      <button class="pill" id="optBtn" onclick="optimize(this)">立即优化</button>
+    </div>
+
+    <!-- 存储 -->
+    <div class="screen" id="s-storage">
+      <div class="header"><h1>存储管家</h1><p>96.3 GB / 256 GB</p></div>
+      <div class="card">
+        <div class="band">
+          <i style="width:26%;background:#5B8DEF"></i>
+          <i style="width:22%;background:#9B6BDF"></i>
+          <i style="width:10%;background:#E8912D"></i>
+          <i style="width:14%;background:#2FA36B"></i>
+          <i style="width:28%;background:#8A8F98"></i>
+        </div>
+        <div class="row"><div class="ic" style="background:#5B8DEF22">🖼️</div><div><div class="t">照片</div><div class="s">25.1 GB</div></div></div>
+        <div class="row"><div class="ic" style="background:#9B6BDF22">🎬</div><div><div class="t">视频</div><div class="s">21.2 GB</div></div></div>
+        <div class="row"><div class="ic" style="background:#E8912D22">🎵</div><div><div class="t">音频</div><div class="s">9.6 GB</div></div></div>
+        <div class="row"><div class="ic" style="background:#2FA36B22">📄</div><div><div class="t">文档</div><div class="s">13.5 GB</div></div></div>
+        <div class="row"><div class="ic" style="background:#8A8F9822">📱</div><div><div class="t">应用与系统</div><div class="s">26.9 GB</div></div></div>
+      </div>
+    </div>
+
+    <!-- 清理 -->
+    <div class="screen" id="s-clean">
+      <div class="header"><h1>垃圾清理</h1><p>扫描结果 4 项</p></div>
+      <div class="section">可清理项目</div>
+      <div class="card">
+        <div class="row"><div class="ic" style="background:#3B5BDB22">🧹</div><div><div class="t">公共缓存</div><div class="s">812.4 MB · 安全</div></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="row"><div class="ic" style="background:#3B5BDB22">🖼️</div><div><div class="t">相册缩略图</div><div class="s">96.2 MB · 安全</div></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="row"><div class="ic" style="background:#E0525222">📋</div><div><div class="t">应用日志</div><div class="s">41.8 MB · 建议检查后清理</div></div><div class="switch" onclick="this.classList.toggle('on')"></div></div>
+        <div class="row"><div class="ic" style="background:#E0525222">👻</div><div><div class="t">残留数据：com.game.demo</div><div class="s">203.5 MB · 已卸载应用残留</div></div><div class="switch" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+      <button class="pill" onclick="toast('已清理 908.6 MB ✓')">清理 908 MB</button>
+      <button class="pill ghost" onclick="toast('重新扫描中…')">重新扫描</button>
+    </div>
+
+    <!-- 应用 -->
+    <div class="screen" id="s-apps">
+      <div class="header"><h1>应用管理</h1><p>冻结不卸载，随时可恢复</p></div>
+      <div class="card" style="padding:16px">
+        <div class="row"><div class="ic" style="background:#3B5BDB22">❄️</div><div><div class="t" style="font-size:14px">已冻结 3 个应用（已从后台与桌面隐藏，数据保留）</div></div></div>
+      </div>
+      <div class="section">全部应用 · 128</div>
+      <div class="card">
+        <div class="row"><div class="ic" style="background:#8A8F9822">🎮</div><div><div class="t">演示游戏</div><div class="s">系统应用 · 缓存 412.0 MB</div></div><div class="switch" onclick="toggleFreeze(this)"></div></div>
+        <div class="row"><div class="ic" style="background:#8A8F9822">📺</div><div><div class="t">预装视频</div><div class="s">系统应用 · 缓存 158.3 MB</div></div><div class="switch" onclick="toggleFreeze(this)"></div></div>
+        <div class="row"><div class="ic" style="background:#8A8F9822">💬</div><div><div class="t">社交通讯</div><div class="s">缓存 23.1 MB</div></div><div class="switch" onclick="toggleFreeze(this)"></div></div>
+        <div class="row"><div class="ic" style="background:#8A8F9822">📷</div><div><div class="t">相机</div><div class="s">系统应用 · 缓存极小</div></div><div class="switch" onclick="toggleFreeze(this)"></div></div>
+      </div>
+    </div>
+
+    <!-- 电池 -->
+    <div class="screen" id="s-battery">
+      <div class="header"><h1>电池卫士</h1><p>所有分析在本机完成</p></div>
+      <div class="card" style="display:flex;align-items:center;gap:16px">
+        <div style="font-size:36px">⚡</div>
+        <div><div style="font-size:32px;font-weight:700;color:#2FA36B">78%</div><div style="font-size:13px;color:var(--ink2)">电量充足</div></div>
+      </div>
+      <div class="card">
+        <div class="row"><div class="ic" style="background:#E8912D22">🌡️</div><div><div class="t">电池温度</div><div class="s">33.2 ℃ · 正常</div></div></div>
+        <div class="row"><div class="ic" style="background:#9B6BDF22">🌙</div><div><div class="t">预估耗电速度</div><div class="s">4.5 %/小时</div></div></div>
+      </div>
+      <div class="section">优化建议</div>
+      <div class="card">
+        <div class="row"><div><div class="t" style="font-size:14px">限制不常用应用的后台活动（应用管理 → 冻结）</div></div></div>
+        <div class="row"><div><div class="t" style="font-size:14px">夜间 3 点自动维护（fstrim + 安全垃圾清理）</div></div></div>
+        <div class="row"><div><div class="t" style="font-size:14px">屏幕亮度设为自适应</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="navbar">
+    <div class="navitem on" data-s="s-home"><span class="ic">🛡️</span>管家</div>
+    <div class="navitem" data-s="s-storage"><span class="ic">📊</span>存储</div>
+    <div class="navitem" data-s="s-clean"><span class="ic">🧹</span>清理</div>
+    <div class="navitem" data-s="s-apps"><span class="ic">📱</span>应用</div>
+    <div class="navitem" data-s="s-battery"><span class="ic">🔋</span>电池</div>
+  </div>
+</div>
+
+<script>
+  // 页面切换：One UI 9 线性插值动效
+  document.querySelectorAll('.navitem').forEach(n=>{
+    n.addEventListener('click',()=>{
+      document.querySelectorAll('.navitem').forEach(x=>x.classList.remove('on'));
+      document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+      n.classList.add('on');
+      document.getElementById(n.dataset.s).classList.add('active');
+    });
+  });
+  // 得分环动画：数字滚动 + 圆环推进
+  const arc=document.getElementById('ringArc'),num=document.getElementById('scoreNum');
+  let done=false;
+  new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(e.isIntersecting&&!done){
+        done=true;
+        let s=0,t=86;
+        const iv=setInterval(()=>{
+          s+=Math.ceil(t/40);
+          if(s>=t){s=t;clearInterval(iv);}
+          num.textContent=s;arc.setAttribute('stroke-dashoffset',465-465*s/100);
+        },28);
+      }
+    });
+  },{threshold:.3}).observe(document.querySelector('.ring'));
+  // 一键优化
+  function optimize(btn){
+    btn.disabled=true;
+    const steps=['正在扫描垃圾文件…','正在清理 6 项…','已释放 1.24 GB ✓ 优化完成'];
+    let i=0;btn.textContent=steps[0];
+    const iv=setInterval(()=>{i++;if(i<steps.length){btn.textContent=steps[i];}else{clearInterval(iv);btn.disabled=false;btn.textContent='立即优化';toast('得分 +6 → 92 分');}},900);
+  }
+  function toggleFreeze(el){el.classList.toggle('on');toast(el.classList.contains('on')?'已冻结（pm suspend，可逆）':'已解除冻结');}
+  let tid;
+  function toast(msg){
+    const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+    clearTimeout(tid);tid=setTimeout(()=>t.classList.remove('show'),2000);
+  }
+</script>
+</body>
+</html>

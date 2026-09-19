@@ -1,0 +1,39 @@
+# ===== Gradle =====
+.gradle/
+build/
+**/build/
+local.properties
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+.kotlin/
+
+# ===== Android =====
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===== Secrets =====
+google-services.json
+*.keystore
+*.jks
+key.properties
+
+# ===== Logs =====
+*.log
+hs_err_pid*
+
+# ===== Misc =====
+*.hprof
