@@ -85,14 +85,14 @@ jobs:
               -dname "CN=NovaCare, OU=CI, O=NovaCare, L=NA, ST=NA, C=NA" 2>&1 | tail -2
           fi
 
-      # ===== Sanity check：cargo check 真的能编 Rust =====
+      # ===== Sanity check：cargo check Android target =====
       - name: Sanity check Rust compilation
         run: |
           cd app/src/main/rust
-          cargo check --target x86_64-linux-android --release 2>&1 | tail -5
+          cargo check --target aarch64-linux-android --release 2>&1 | tail -10
         env:
-          CC_x86_64_linux_android: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
-          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
+          CC_aarch64_linux_android: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
 
       # ===== 构建 APK（Gradle 会通过 CMake 真的调用 cargo） =====
       - name: Build Debug APK

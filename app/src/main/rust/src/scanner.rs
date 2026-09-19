@@ -41,7 +41,7 @@ fn collect_files<'a>(node: &'a FileNode, out: &mut Vec<&'a FileNode>) {
 }
 
 /// 扫描选项
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ScanOptions {
     /// 最大深度（None = 无限制）
     pub max_depth: Option<usize>,
@@ -51,6 +51,18 @@ pub struct ScanOptions {
     pub collect_tree: bool,
     /// 进度回调（可选）
     pub progress: Option<Box<dyn Fn(u64) + Send + Sync>>,
+}
+
+// 手动实现 Debug
+impl std::fmt::Debug for ScanOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScanOptions")
+            .field("max_depth", &self.max_depth)
+            .field("follow_links", &self.follow_links)
+            .field("collect_tree", &self.collect_tree)
+            .field("progress", &"<callback>")
+            .finish()
+    }
 }
 
 impl Default for ScanOptions {

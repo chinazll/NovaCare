@@ -28,10 +28,6 @@ pub enum NovaError {
     #[error("路径无效: {0}")]
     InvalidPath(String),
 
-    /// JNI 错误
-    #[error("JNI 错误: {0}")]
-    Jni(String),
-
     /// WalkDir 错误
     #[error("遍历错误: {0}")]
     Walk(String),
@@ -47,6 +43,11 @@ pub enum NovaError {
     /// 内部断言失败
     #[error("内部错误: {0}")]
     Internal(String),
+
+    /// JNI 错误（Android 平台）
+    #[cfg(target_os = "android")]
+    #[error("JNI 错误: {0}")]
+    Jni(#[from] jni::errors::Error),
 }
 
 pub type NovaResult<T> = Result<T, NovaError>;
