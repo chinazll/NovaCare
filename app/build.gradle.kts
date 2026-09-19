@@ -13,9 +13,9 @@ android {
     defaultConfig {
         applicationId = "com.novacare.optimizer"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "0.1.0-alpha"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -24,6 +24,19 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // 自动签名：从 CI 环境读取 keystore 配置
+            signingConfig = signingConfigs.maybeCreate("release").apply {
+                val ksFile = System.getenv("KEYSTORE_FILE")
+                if (ksFile != null && java.io.File(ksFile).exists()) {
+                    storeFile = java.io.File(ksFile)
+                    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                    keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                    keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                }
+            }
+        }
+        debug {
+            // debug 用 AGP 默认 debug.keystore 自动签名（保证可安装）
         }
     }
     compileOptions {

@@ -2,10 +2,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
+    <!--
+        ⚠️ 严格遵守 Google Play 政策：
+        - QUERY_ALL_PACKAGES 不在默认清单（仅在 Shizuku 高级模式按需启用）
+        - 用 <queries> 声明可见包范围（最小权限原则）
+        - PACKAGE_USAGE_STATS 仅在用户主动授权后启用
+    -->
+
+    <!-- 应用扫描：使用 <queries> 声明可见范围（Android 11+） -->
+    <queries>
+        <!-- 启动器可见的应用 -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Shizuku 服务 -->
+        <package android:name="dev.rikka.shizuku" />
+        <package android:name="moe.shizuku.manager" />
+        <!-- 跳转系统设置入口 -->
+        <intent>
+            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
+            <data android:scheme="package" />
+        </intent>
+    </queries>
+
+    <!-- 运行时按需申请的敏感权限（不强制声明在 uses-permission） -->
+    <!-- 这些权限仅在使用对应高级功能时由代码动态申请 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

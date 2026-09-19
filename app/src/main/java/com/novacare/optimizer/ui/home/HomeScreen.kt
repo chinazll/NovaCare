@@ -36,18 +36,23 @@ data class HomeUiState(
     val battery: Int = 100,
     val optimizing: Boolean = false,
     val optimizeMessage: String? = null,
+    val needsUsageStatsPermission: Boolean = false,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repo: DeviceRepository,
     private val scorer: HealthScorer,
+    private val permissions: com.novacare.optimizer.core.PermissionHelper,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
     val state = _state.asStateFlow()
 
-    init { refresh() }
+    init {
+        refresh()
+        _state.value = _state.value.copy(needsUsageStatsPermission = !permissions.hasUsageStatsPermission())
+    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -120,6 +125,43 @@ fun HomeScreen(vm: HomeViewModel = hiltViewModel()) {
         )
 
         Spacer(Modifier.height(24.dp))
+
+        // 权限申请卡片（透明披露原则）
+        if (state.needsUsageStatsPermission) {
+            val localContext = androidx.compose.ui.platform.LocalContext.current
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                OneUiCard(Modifier.fillMaxWidth()) {
+                    Text(
+                        "需要使用情况权限",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "用于识别'不常用应用'。本权限仅读取使用统计，不会上传任何数据。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            try {
+                                localContext.startActivity(
+                                    android.content.Intent(
+                                        android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS
+                                    ).apply {
+                                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                )
+                            } catch (_: Exception) { /* 跳转失败静默 */ }
+                        },
+                    ) {
+                        Text("去设置授权")
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
 
         // ---- 四维模块（One UI 卡片语法：26dp 圆角 + 留白分隔）----
         SectionTitle("健康状况")
