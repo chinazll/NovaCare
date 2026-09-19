@@ -27,30 +27,20 @@ pub fn jstring_to_string(env: &JNIEnv, js: JString) -> NovaResult<String> {
     }
     env.get_string(&js)
         .map(|s| s.into())
-        .map_err(|e| NovaError::Jni(format!("get_string: {}", e)))
+        .map_err(|e| NovaError::Jni(e))
 }
 
 /// 安全地从 Rust String 创建 jstring
 pub fn string_to_jstring<'a>(env: &JNIEnv<'a>, s: &str) -> NovaResult<jstring> {
     env.new_string(s)
         .map(|s| s.into_raw())
-        .map_err(|e| NovaError::Jni(format!("new_string: {}", e)))
+        .map_err(|e| NovaError::Jni(e))
 }
 
 /// 安全地从 jbyteArray 读取字节
 pub fn jbyte_array_to_vec(env: &JNIEnv, arr: JByteArray) -> NovaResult<Vec<u8>> {
     env.convert_byte_array(arr)
-        .map_err(|e| NovaError::Jni(format!("convert_byte_array: {}", e)))
-}
-
-/// 检查对象是否非空
-pub fn check_null<T: Into<JObject<'a>>, 'a>(obj: T) -> NovaResult<()> {
-    let o: JObject = obj.into();
-    if o.is_null() {
-        Err(NovaError::Internal("NullPointerException".into()))
-    } else {
-        Ok(())
-    }
+        .map_err(|e| NovaError::Jni(e))
 }
 
 /// 将 NovaResult 转换为 JNI 风格返回：
