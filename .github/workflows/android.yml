@@ -238,27 +238,38 @@ jobs:
       - name: Create GitHub Release (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
+          # gh CLI 同时认 GH_TOKEN 和 GITHUB_TOKEN（无需 setup-git）
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           TAG="${GITHUB_REF#refs/tags/}"
-          echo "Creating draft release for tag: $TAG"
-          # 先准备 release notes（从本地 file 读）
-          if [ -f release-notes-v0.5.0-alpha.md ]; then
-            NOTES="$(cat release-notes-v0.5.0-alpha.md)"
+          echo "=== gh auth status ==="
+          gh auth status 2>&1 || true
+          echo "=== current refs/tags ==="
+          git tag --list | grep -F "$TAG" || true
+          # 如果 release 已存在（重试场景），直接走 update 路径
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — uploading assets only"
+            gh release upload "$TAG" \
+              app/build/outputs/apk/debug/app-debug.apk \
+              app/build/outputs/apk/release/app-release.apk \
+              --clobber
           else
-            NOTES="Release $TAG"
+            echo "=== creating draft release for $TAG ==="
+            if [ -f release-notes-v0.5.0-alpha.md ]; then
+              NOTES="$(cat release-notes-v0.5.0-alpha.md)"
+            else
+              NOTES="Release $TAG"
+            fi
+            gh release create "$TAG" \
+              --draft \
+              --title "$TAG" \
+              --notes "$NOTES" \
+              --target "$GITHUB_SHA" \
+              app/build/outputs/apk/debug/app-debug.apk \
+              app/build/outputs/apk/release/app-release.apk
           fi
-          # 1) create draft release
-          gh release create "$TAG" \
-            --draft \
-            --title "$TAG" \
-            --notes "$NOTES" \
-            --target "$GITHUB_SHA"
-          # 2) 上传两个 APK
-          gh release upload "$TAG" \
-            app/build/outputs/apk/debug/app-debug.apk \
-            app/build/outputs/apk/release/app-release.apk \
-            --clobber
-          echo "Release created: https://github.com/${{ github.repository }}/releases/tag/$TAG"
+          echo "=== final state ==="
           gh release view "$TAG" --json tagName,name,draft,assets --jq '. | "tag=\(.tagName) name=\(.name) draft=\(.draft) assets=\(.assets | length)"'
+          echo "URL: https://github.com/${{ github.repository }}/releases/tag/$TAG"
