@@ -22,10 +22,13 @@ android {
 
     signingConfigs {
         // 签名信息全部来自环境变量（CI Secrets），**不含任何明文密码**
+        // rootProject.file() 关键：在多模块工程里，app 子模块的 file() 会按子模块目录
+        // 解析，导致 `KEYSTORE_FILE=.ci-keystore/novacare.jks` 变成
+        // `app/.ci-keystore/novacare.jks`（找不到）。rootProject.file() 强制按根目录解析。
         create("release") {
             val ksFile = System.getenv("KEYSTORE_FILE")
-            if (!ksFile.isNullOrBlank() && file(ksFile).exists()) {
-                storeFile = file(ksFile)
+            if (!ksFile.isNullOrBlank() && rootProject.file(ksFile).exists()) {
+                storeFile = rootProject.file(ksFile)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
