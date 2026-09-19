@@ -17,7 +17,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PermissionHelper @Inject constructor(
-    private val context: Context,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
 ) {
     /** 检测是否已获得使用情况访问权限 */
     fun hasUsageStatsPermission(): Boolean {
