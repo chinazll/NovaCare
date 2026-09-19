@@ -75,7 +75,7 @@ fun OneUiCard(
             .then(
                 if (onClick != null) Modifier.clickable(
                     interactionSource = interactionSource,
-                    indication = rememberRipple(),
+                    indication = ripple(),
                     onClick = onClick,
                 ) else Modifier
             ),
@@ -317,7 +317,7 @@ fun OneUiListRow(
             .then(
                 if (onClick != null) Modifier.clickable(
                     interactionSource = interactionSource,
-                    indication = rememberRipple(),
+                    indication = ripple(),
                     onClick = onClick,
                 ) else Modifier
             )
