@@ -209,8 +209,8 @@ class DeviceRepository @Inject constructor(
 
             // 风险项（用户需手动确认）
             listOf(
-                File(ext, "tombstones") to "系统崩溃转储" to "可能含调试信息",
-                File(ext, "log") to "系统日志" to "诊断信息",
+                Triple(File(ext, "tombstones"), "系统崩溃转储", "可能含调试信息"),
+                Triple(File(ext, "log"), "系统日志", "诊断信息"),
             ).forEach { (dir, label, risk) ->
                 safeDirSizeMb(dir)?.let { mb ->
                     if (mb > 0.1f) items += JunkItem(

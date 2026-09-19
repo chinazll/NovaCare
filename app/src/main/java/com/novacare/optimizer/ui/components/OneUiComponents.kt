@@ -33,7 +33,7 @@ import com.novacare.optimizer.ui.theme.OneUiSpacing
 import com.novacare.optimizer.ui.theme.ScoreBad
 import com.novacare.optimizer.ui.theme.ScoreGood
 import com.novacare.optimizer.ui.theme.ScoreMid
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ripple
 
 /**
  * One UI 9 + M3 Expressive 组件库
