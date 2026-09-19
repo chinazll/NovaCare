@@ -232,31 +232,29 @@ fn detect_duplicates(root: &Path, min_size: u64) -> NovaResult<Vec<JunkItem>> {
 
     // 第二遍：对每个组计算哈希
     let mut items = Vec::new();
-    for (size, paths) in &mut dup_groups {
+    for (size, paths) in dup_groups.iter() {
         let mut hash_groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
         for p in paths.iter() {
             if let Ok(h) = blake3_file(p) {
                 hash_groups.entry(h).or_default().push(p.clone());
             }
         }
-        for (h, group) in hash_groups {
+        for (h, group) in hash_groups.iter() {
             if group.len() >= 2 {
                 // 重复组：第一份保留，其余为重复
-                let total_waste = size * (group.len() as u64 - 1);
                 for (i, p) in group.iter().enumerate() {
                     if i == 0 {
-                        continue; // 保留
+                        continue; // 保留第一份
                     }
                     items.push(JunkItem {
                         path: p.to_string_lossy().to_string(),
                         label: format!("重复文件 (BLAKE3:{})", &h[..8]),
-                        size,
+                        size: *size,
                         kind: JunkKind::Duplicate.as_str().to_string(),
                         is_safe: true, // 重复文件可安全删除（保留一份）
                         risk: String::new(),
                     });
                 }
-                let _ = total_waste;
             }
         }
     }
