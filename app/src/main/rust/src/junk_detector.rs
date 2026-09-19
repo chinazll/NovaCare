@@ -211,7 +211,7 @@ fn detect_duplicates(root: &Path, min_size: u64) -> NovaResult<Vec<JunkItem>> {
             || HashMap::new(),
             |mut acc: HashMap<u64, Vec<PathBuf>>, (size, path)| {
                 acc.entry(size).or_default().push(path);
-                acc,
+                acc
             },
         )
         .reduce(
