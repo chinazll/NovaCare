@@ -34,8 +34,9 @@ jobs:
           packages: |
             platform-tools
             platforms;android-35
+            platforms;android-34
             build-tools;35.0.0
-            ndk;27.0.12077973
+            ndk;26.1.10909125
             cmake;3.22.1
 
       # ===== Rust 工具链 =====
@@ -86,14 +87,14 @@ jobs:
           cd app/src/main/rust
           cargo check --target x86_64-linux-android --release 2>&1 | tail -20
         env:
-          CC_x86_64_linux_android: $ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
-          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: $ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
+          CC_x86_64_linux_android: $ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
+          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: $ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
 
       # ===== 构建 APK（Gradle 会自动通过 CMake 调用 cargo） =====
       - name: Build Debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
 
       - name: Build Signed Release APK
         run: gradle :app:assembleRelease --no-daemon --stacktrace
@@ -102,7 +103,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'novacare123' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'novacare' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'novacare123' }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
 
       # ===== 验证产物 =====
       - name: Verify APK signature
