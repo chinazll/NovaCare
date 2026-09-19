@@ -17,7 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.optimizer.core.DeviceRepository
-import com.novacare.optimizer.core.JunkItem
+import com.novacare.optimizer.core.DeviceRepository.JunkItem
 import com.novacare.optimizer.ui.components.*
 import com.novacare.optimizer.ui.theme.OneUiSpacing
 import dagger.hilt.android.lifecycle.HiltViewModel

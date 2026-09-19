@@ -57,6 +57,10 @@ data class HomeState(
     val optimizing: Boolean = false,
     val optimizeMessage: String? = null,
     val errorMessage: String? = null,
+    /** P1-12：未授予使用情况权限时，首页必须给出授权引导（此前该 UI 根本不存在） */
+    val needsUsagePermission: Boolean = false,
+    /** Rust 引擎是否可用（不可用时明确告知，而非静默给出假数据） */
+    val engineAvailable: Boolean = true,
 )
 
 data class HealthItem(
@@ -144,6 +148,9 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
+
+    /** 跳转到系统「使用情况访问权限」设置页 */
+    fun usageStatsIntent(): android.content.Intent = repo.usageStatsSettingsIntent()
 
     fun oneTapOptimize() {
         viewModelScope.launch {
