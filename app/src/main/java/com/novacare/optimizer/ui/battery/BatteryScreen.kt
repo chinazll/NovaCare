@@ -6,7 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.DeviceThermal
+import androidx.compose.material.icons.rounded.DeviceThermostat
 import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -115,7 +115,7 @@ fun BatteryScreen(vm: BatteryViewModel = hiltViewModel()) {
                         state.temperature,
                         if (state.temperature < 38f) "正常" else "偏高，建议暂停高负载任务",
                     ),
-                    icon = { Icon(Icons.Rounded.DeviceThermal, null) },
+                    icon = { Icon(Icons.Rounded.DeviceThermostat, null) },
                 )
                 OneUiRow(
                     title = "预估耗电速度",

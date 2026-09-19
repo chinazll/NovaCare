@@ -49,7 +49,7 @@ class StorageViewModel @Inject constructor(
                 loading = false,
                 categories = cats,
                 usedGb = status.usedStorageGb,
-                totalGb = status.totalGb,
+                totalGb = status.totalStorageGb,
             )
         }
     }

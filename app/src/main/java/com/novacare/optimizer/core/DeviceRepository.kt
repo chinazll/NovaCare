@@ -154,18 +154,19 @@ class DeviceRepository @Inject constructor(
         val items = mutableListOf<JunkItem>()
         val ext = Environment.getExternalStorageDirectory()
 
+        data class JunkCandidate(val dir: File, val label: String, val isSafe: Boolean)
         val candidates = listOf(
-            File(ext, "Android/data/cache") to Triple("公共缓存", true),
-            File(ext, "Download/.tmp") to Triple("下载临时文件", true),
-            File(context.cacheDir, "thumbnails") to Triple("缩略图缓存", true),
-            File(ext, "DCIM/.thumbnails") to Triple("相册缩略图", true),
-            File(ext, "tombstones") to Triple("系统崩溃转储", false),
-            File(ext, "log") to Triple("应用日志", false),
+            JunkCandidate(File(ext, "Android/data/cache"), "公共缓存", true),
+            JunkCandidate(File(ext, "Download/.tmp"), "下载临时文件", true),
+            JunkCandidate(File(context.cacheDir, "thumbnails"), "缩略图缓存", true),
+            JunkCandidate(File(ext, "DCIM/.thumbnails"), "相册缩略图", true),
+            JunkCandidate(File(ext, "tombstones"), "系统崩溃转储", false),
+            JunkCandidate(File(ext, "log"), "应用日志", false),
         )
-        for ((dir, meta) in candidates) {
-            val size = dirSizeOrNull(dir) ?: continue
+        for (c in candidates) {
+            val size = dirSizeOrNull(c.dir) ?: continue
             if (size > 0) {
-                items += JunkItem(dir.absolutePath, meta.first, size / MBf, meta.second)
+                items += JunkItem(c.dir.absolutePath, c.label, size / MBf, c.isSafe)
             }
         }
         // 残留检测：Android/data 下无对应已安装应用的目录
