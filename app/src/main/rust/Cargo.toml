@@ -3,52 +3,28 @@ name = "novacare_core"
 version = "0.2.0"
 edition = "2021"
 authors = ["chinazll <noreply@github.com>"]
-description = "NovaCare 管家 Rust 核心引擎 — 真实文件扫描、垃圾检测、存储分析、电池分析"
+description = "NovaCare 管家 Rust 核心引擎"
 license = "MIT"
 repository = "https://github.com/chinazll/NovaCare"
 
 [lib]
-crate-type = ["cdylib"]  # 仅动态库，给 JNI 用
+crate-type = ["cdylib"]
 name = "novacare_core"
-
-# ===== Android 交叉编译 =====
-# 必须在编译前安装：
-#   rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
-# 链接器从 $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/<host>/bin 找
-
-[target.aarch64-linux-android]
-linker = "aarch64-linux-android24-clang"
-
-[target.armv7-linux-androideabi]
-linker = "armv7a-linux-androideabi24-clang"
-
-[target.x86_64-linux-android]
-linker = "x86_64-linux-android24-clang"
-
-[target.i686-linux-android]
-linker = "i686-linux-android24-clang"
 
 # ===== 依赖 =====
 [target.'cfg(target_os = "android")'.dependencies]
-# JNI 绑定（仅在 Android 目标编译）
+# JNI 绑定（仅 Android 目标）
 jni = { version = "0.21", default-features = false }
 
 [dependencies]
-# 序列化（与 Kotlin 通过 JSON 通信）
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-# 并行化
 rayon = "1.10"
-# 目录遍历
 walkdir = "2.5"
-# 错误处理
 thiserror = "1.0"
-# 内容哈希（垃圾检测去重）
 blake3 = "1.5"
-# 日志
 log = "0.4"
 android_logger = "0.14"
-# 一次初始化
 once_cell = "1.20"
 
 [dev-dependencies]
