@@ -10,12 +10,17 @@ on:
 
 jobs:
   build:
-    name: Build & Sign APK · JDK 17 · AGP 8.7 · SDK 35 · Rust NDK
+    name: Build & Sign APK · JDK 17 · Rust NDK
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # NDK + Rust 编译需要更多时间
+    timeout-minutes: 45
 
     permissions:
       contents: write
+
+    env:
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      ANDROID_NDK_HOME: /opt/android-sdk/ndk/26.1.10909125
 
     steps:
       - name: Checkout
@@ -27,17 +32,24 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          android-sdk-version: '35'
-          packages: |
-            platform-tools
-            platforms;android-35
-            platforms;android-34
-            build-tools;35.0.0
-            ndk;26.1.10909125
-            cmake;3.22.1
+      # ===== Android SDK + NDK 手动安装（最稳定） =====
+      - name: Install Android SDK & NDK
+        run: |
+          sudo mkdir -p $ANDROID_HOME
+          sudo chown -R $USER:$USER $ANDROID_HOME
+          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+            cd /tmp
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+            unzip -q cmdline-tools.zip
+            mkdir -p $ANDROID_HOME/cmdline-tools/latest
+            mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/ 2>/dev/null || true
+            rm -rf cmdline-tools cmdline-tools.zip
+          fi
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1" 2>&1 | tail -5
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls $ANDROID_HOME/ndk/
 
       # ===== Rust 工具链 =====
       - name: Install Rust toolchain
@@ -52,7 +64,7 @@ jobs:
           workspaces: 'app/src/main/rust -> target'
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
+        run: cargo install cargo-ndk --locked 2>&1 | tail -3
 
       # ===== Gradle =====
       - name: Setup Gradle
@@ -61,80 +73,69 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       # ===== 签名 keystore =====
-      - name: Decode keystore from base64 secret
-        if: env.ANDROID_KEYSTORE_BASE64 != ''
+      - name: Generate keystore (CI fallback)
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/novacare-release.jks
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          if [ ! -f app/novacare-release.jks ]; then
+            keytool -genkey -v \
+              -keystore app/novacare-release.jks \
+              -alias novacare \
+              -keyalg RSA -keysize 2048 \
+              -validity 10000 \
+              -storepass novacare123 -keypass novacare123 \
+              -dname "CN=NovaCare, OU=CI, O=NovaCare, L=NA, ST=NA, C=NA" 2>&1 | tail -2
+          fi
 
-      - name: Generate debug keystore (CI fallback)
-        if: env.ANDROID_KEYSTORE_BASE64 == ''
-        run: |
-          keytool -genkey -v \
-            -keystore app/novacare-release.jks \
-            -alias novacare \
-            -keyalg RSA -keysize 2048 \
-            -validity 10000 \
-            -storepass novacare123 -keypass novacare123 \
-            -dname "CN=NovaCare, OU=CI, O=NovaCare, L=NA, ST=NA, C=NA" 2>&1 | tail -2
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-
-      # ===== 验证 Rust 编译 =====
-      - name: Verify Rust source compiles (sanity check)
+      # ===== Sanity check：cargo check 真的能编 Rust =====
+      - name: Sanity check Rust compilation
         run: |
           cd app/src/main/rust
-          cargo check --target x86_64-linux-android --release 2>&1 | tail -20
+          cargo check --target x86_64-linux-android --release 2>&1 | tail -5
         env:
-          CC_x86_64_linux_android: $ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
-          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: $ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
+          CC_x86_64_linux_android: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
+          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang
 
-      # ===== 构建 APK（Gradle 会自动通过 CMake 调用 cargo） =====
+      # ===== 构建 APK（Gradle 会通过 CMake 真的调用 cargo） =====
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-
-      - name: Build Signed Release APK
-        run: gradle :app:assembleRelease --no-daemon --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tail -50
         env:
           KEYSTORE_FILE: app/novacare-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'novacare123' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'novacare' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'novacare123' }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+          KEYSTORE_PASSWORD: novacare123
+          KEY_ALIAS: novacare
+          KEY_PASSWORD: novacare123
 
-      # ===== 验证产物 =====
+      - name: Build Signed Release APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
+        env:
+          KEYSTORE_FILE: app/novacare-release.jks
+          KEYSTORE_PASSWORD: novacare123
+          KEY_ALIAS: novacare
+          KEY_PASSWORD: novacare123
+
+      # ===== 验证 =====
       - name: Verify APK signature
         run: |
           set +e
           APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner 2>/dev/null | head -1)
-          [ -z "$APKSIGNER" ] && { echo "apksigner not found"; exit 0; }
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
             $APKSIGNER verify --verbose app/build/outputs/apk/release/app-release.apk 2>&1 | head -10
-            echo "✅ Release APK signature OK"
           fi
           $APKSIGNER verify app/build/outputs/apk/debug/app-debug.apk 2>&1 | head -3
-          echo "✅ Debug APK signature OK"
         continue-on-error: true
 
-      - name: Inspect APK badging
+      - name: Inspect APK
         run: |
           set +e
           AAPT=$(find $ANDROID_HOME/build-tools -name aapt 2>/dev/null | head -1)
-          [ -z "$AAPT" ] && { echo "aapt not found"; exit 0; }
-          echo "=== Debug ==="
+          echo "=== Debug APK ==="
           $AAPT dump badging app/build/outputs/apk/debug/app-debug.apk 2>&1 | head -6
-          echo "=== Release ==="
+          echo "=== Release APK ==="
           $AAPT dump badging app/build/outputs/apk/release/app-release.apk 2>&1 | head -6
-          echo "=== Files ==="
-          ls -lh app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk 2>&1
-          echo "=== Native libs (must contain libnovacare_core.so) ==="
-          unzip -l app/build/outputs/apk/release/app-release.apk 2>&1 | grep -E "\.so" | head -10
+          echo "=== Native libs (must include libnovacare_core.so) ==="
+          unzip -l app/build/outputs/apk/release/app-release.apk 2>&1 | grep -E "lib/.*\.so$" | head -10
+          echo "=== Sizes ==="
+          ls -lh app/build/outputs/apk/{debug,release}/*.apk
         continue-on-error: true
 
-      # ===== 上传产物 =====
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -151,7 +152,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Create GitHub Release (on tag, only non-prerelease)
+      - name: Create GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'alpha') && !contains(github.ref, 'beta')
         uses: softprops/action-gh-release@v2
         with:
