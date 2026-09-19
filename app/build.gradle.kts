@@ -29,11 +29,14 @@ android {
             // 自动签名：从 CI 环境读取 keystore 配置
             signingConfig = signingConfigs.maybeCreate("release").apply {
                 val ksFile = System.getenv("KEYSTORE_FILE")
-                if (ksFile != null && File(ksFile).exists()) {
-                    storeFile = File(ksFile)
-                    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                    keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                    keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                if (ksFile != null) {
+                    val resolved = rootProject.file(ksFile)
+                    if (resolved.exists()) {
+                        storeFile = resolved
+                        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                        keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                    }
                 }
             }
         }
