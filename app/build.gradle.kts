@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -27,8 +29,8 @@ android {
             // 自动签名：从 CI 环境读取 keystore 配置
             signingConfig = signingConfigs.maybeCreate("release").apply {
                 val ksFile = System.getenv("KEYSTORE_FILE")
-                if (ksFile != null && java.io.File(ksFile).exists()) {
-                    storeFile = java.io.File(ksFile)
+                if (ksFile != null && File(ksFile).exists()) {
+                    storeFile = File(ksFile)
                     storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
                     keyAlias = System.getenv("KEY_ALIAS") ?: ""
                     keyPassword = System.getenv("KEY_PASSWORD") ?: ""
