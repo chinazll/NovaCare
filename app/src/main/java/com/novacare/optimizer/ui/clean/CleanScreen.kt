@@ -1,6 +1,5 @@
 package com.novacare.optimizer.ui.clean
 
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,10 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.RestoreFromTrash
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,155 +17,215 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.optimizer.core.DeviceRepository
-import com.novacare.optimizer.ui.components.OneUiCard
-import com.novacare.optimizer.ui.components.OneUiLargeHeader
-import com.novacare.optimizer.ui.components.OneUiRow
-import com.novacare.optimizer.ui.components.PillButton
-import com.novacare.optimizer.ui.components.SectionTitle
+import com.novacare.optimizer.core.JunkItem
+import com.novacare.optimizer.ui.components.*
+import com.novacare.optimizer.ui.theme.OneUiSpacing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class CleanUiState(
+data class CleanState(
     val scanning: Boolean = false,
     val cleaning: Boolean = false,
-    val junk: List<DeviceRepository.JunkItem> = emptyList(),
+    val items: List<JunkItem> = emptyList(),
     val selected: Set<String> = emptySet(),
     val freedMb: Float? = null,
+    val errorMessage: String? = null,
 )
 
 @HiltViewModel
 class CleanViewModel @Inject constructor(
     private val repo: DeviceRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(CleanUiState())
-    val state = _state.asStateFlow()
+    private val _state = MutableStateFlow(CleanState())
+    val state: StateFlow<CleanState> = _state.asStateFlow()
 
     init { scan() }
 
     fun scan() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(scanning = true, freedMb = null)
-            val junk = repo.scanJunk()
-            _state.value = _state.value.copy(
-                scanning = false,
-                junk = junk,
-                selected = junk.filter { it.isSafe }.map { it.path }.toSet(),
-            )
+            _state.update { it.copy(scanning = true, freedMb = null, errorMessage = null) }
+            try {
+                val junk = repo.scanJunk()
+                _state.update {
+                    it.copy(
+                        scanning = false,
+                        items = junk,
+                        selected = junk.filter { j -> j.isSafe }.map { j -> j.path }.toSet(),
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(scanning = false, errorMessage = "扫描失败：${e.message ?: "未知"}")
+                }
+            }
         }
     }
 
     fun toggle(path: String, checked: Boolean) {
         val s = _state.value.selected.toMutableSet()
         if (checked) s += path else s -= path
-        _state.value = _state.value.copy(selected = s)
+        _state.update { it.copy(selected = s) }
     }
 
     fun clean() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(cleaning = true)
-            val items = _state.value.junk.filter { it.path in _state.value.selected }
-            val freed = repo.cleanJunk(items)
-            _state.value = _state.value.copy(
-                cleaning = false,
-                freedMb = freed / 1024f,
-                junk = emptyList(),
-                selected = emptySet(),
-            )
+            _state.update { it.copy(cleaning = true) }
+            try {
+                val items = _state.value.items.filter { it.path in _state.value.selected }
+                val freed = repo.cleanJunk(items)
+                _state.update {
+                    it.copy(
+                        cleaning = false,
+                        freedMb = freed / 1024f / 1024f,
+                        items = emptyList(),
+                        selected = emptySet(),
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(cleaning = false, errorMessage = "清理失败：${e.message ?: "未知"}") }
+            }
         }
     }
 }
 
-/**
- * 垃圾清理（借鉴 SD Maid AppCleaner）：
- * 安全项默认勾选，风险项（崩溃转储/残留数据）需手动开启——UAD 三级安全评级思想
- */
 @Composable
 fun CleanScreen(vm: CleanViewModel = hiltViewModel()) {
     val state by vm.state.collectAsState()
-    val totalMb = state.junk.filter { it.path in state.selected }.sumOf { it.sizeMb.toDouble() }.toFloat()
-    val freedAnimated by animateIntAsState((state.freedMb ?: 0f).toInt(), label = "freed")
+    val totalMb = state.items.filter { it.path in state.selected }.sumOf { it.sizeMb.toDouble() }.toFloat()
 
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 32.dp),
+            .padding(bottom = OneUiSpacing.xxxl),
     ) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         OneUiLargeHeader(
             title = "垃圾清理",
-            subtitle = if (state.freedMb != null) "本次已释放 ${freedAnimated} MB" else "扫描结果 %d 项".format(state.junk.size),
+            subtitle = state.errorMessage ?: when {
+                state.freedMb != null -> "本次已释放 %.1f MB".format(state.freedMb)
+                state.scanning -> "正在扫描..."
+                else -> "共发现 ${state.items.size} 项"
+            },
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(OneUiSpacing.lg))
 
-        SectionTitle("可清理项目")
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            OneUiCard(Modifier.fillMaxWidth()) {
-                if (state.scanning) {
-                    Text("正在扫描缓存、临时文件与残留数据…", style = MaterialTheme.typography.bodyMedium)
-                } else if (state.junk.isEmpty() && state.freedMb == null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CleaningServices, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text("非常干净，没有发现垃圾", style = MaterialTheme.typography.bodyLarge)
-                    }
-                } else {
-                    state.junk.forEach { item ->
-                        OneUiRow(
-                            title = item.label,
-                            subtitle = "%.1f MB · ${if (item.isSafe) "安全" else "建议检查后清理"}".format(item.sizeMb),
-                            icon = {
-                                Icon(
-                                    if (item.isSafe) Icons.Rounded.DeleteSweep else Icons.Rounded.RestoreFromTrash,
-                                    null,
-                                    tint = if (item.isSafe) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.error,
-                                )
-                            },
-                            iconTint = if (item.isSafe) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
-                            trailing = {
-                                Switch(
-                                    checked = item.path in state.selected,
-                                    onCheckedChange = { vm.toggle(item.path, it) },
-                                )
-                            },
-                        )
+        if (state.scanning) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(OneUiSpacing.xxxl),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(strokeWidth = 3.dp)
+            }
+        } else if (state.items.isEmpty() && state.freedMb == null) {
+            Box(modifier = Modifier.padding(horizontal = OneUiSpacing.xl)) {
+                EmptyState(
+                    icon = Icons.Rounded.CleaningServices,
+                    title = "非常干净",
+                    description = "没有发现可清理的垃圾文件",
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.padding(horizontal = OneUiSpacing.xl),
+                verticalArrangement = Arrangement.spacedBy(OneUiSpacing.sm),
+            ) {
+                OneUiCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        state.items.forEach { item ->
+                            JunkRow(
+                                item = item,
+                                checked = item.path in state.selected,
+                                onToggle = { c -> vm.toggle(item.path, c) },
+                            )
+                        }
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(24.dp))
-        if (!state.scanning && state.junk.isNotEmpty()) {
-            Box(Modifier.fillMaxWidth()) {
+        if (state.freedMb != null) {
+            Spacer(Modifier.height(OneUiSpacing.lg))
+            Box(modifier = Modifier.padding(horizontal = OneUiSpacing.xl)) {
+                OneUiCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Text(
+                        "已成功释放 %.1f MB".format(state.freedMb),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+
+        if (state.items.isNotEmpty() && state.freedMb == null) {
+            Spacer(Modifier.height(OneUiSpacing.lg))
+            Box(modifier = Modifier.padding(horizontal = OneUiSpacing.xl)) {
                 PillButton(
-                    text = "清理 %.0f MB".format(totalMb),
+                    text = if (state.cleaning) "清理中..." else "清理 %.1f MB".format(totalMb),
                     onClick = { vm.clean() },
                     enabled = !state.cleaning && totalMb > 0,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Box(Modifier.fillMaxWidth()) {
-            PillButton(
-                text = "重新扫描",
+
+        Spacer(Modifier.height(OneUiSpacing.md))
+        Box(modifier = Modifier.padding(horizontal = OneUiSpacing.xl)) {
+            PillOutlineButton(
+                text = if (state.scanning) "扫描中..." else "重新扫描",
                 onClick = { vm.scan() },
-                enabled = !state.scanning && !state.cleaning,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                enabled = !state.scanning,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
+
+@Composable
+private fun JunkRow(
+    item: JunkItem,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = OneUiSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SquircleIconBg(
+            icon = if (item.isSafe) Icons.Rounded.DeleteSweep else Icons.Rounded.RestoreFromTrash,
+            tint = if (item.isSafe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            size = 40.dp,
+        )
+        Spacer(Modifier.width(OneUiSpacing.md))
+        Column(Modifier.weight(1f)) {
+            Text(
+                item.label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                buildString {
+                    append("%.1f MB".format(item.sizeMb))
+                    if (item.riskHint.isNotEmpty()) append(" · ${item.riskHint}")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (item.isSafe) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.error,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onToggle,
+        )
     }
 }

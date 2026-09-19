@@ -1,37 +1,58 @@
 package com.novacare.optimizer.ui.components
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
+import com.novacare.optimizer.ui.theme.OneUiShapes
+import com.novacare.optimizer.ui.theme.OneUiSpacing
+import com.novacare.optimizer.ui.theme.ScoreBad
+import com.novacare.optimizer.ui.theme.ScoreGood
+import com.novacare.optimizer.ui.theme.ScoreMid
+import androidx.compose.material.ripple.rememberRipple
 
 /**
- * One UI 9 组件库 —— 灵魂实现
+ * One UI 9 + M3 Expressive 组件库
  *
- * - OneUiCard: 26dp 大圆角、无投影（One UI 9 去多层阴影）、点击有涟漪
- * - OneUiLargeHeader: 大标题页头，滚动收缩（上观看/下操作的骨架）
- * - PillButton: 全胶囊按钮，置于拇指区
- * - ScoreRing: 设备管家式环形得分（蓝→绿渐变，数字滚动动效）
- * - OneUiRow: 标准列表行（squircle 图标背景 + 主/副文本 + 尾部操作）
+ * 灵魂组件：
+ * - OneUiCard 26dp 大圆角 / 无投影（One UI 9 去阴影）
+ * - OneUiLargeHeader 大标题观看区
+ * - PillButton 胶囊按钮（拇指区）
+ * - ScoreRing 设备管家式得分环
+ * - OneUiListRow 列表行
+ * - PrimaryActionButton 主操作按钮
+ * - SquircleIconBg squircle 图标背景
  */
 
+// ============= 卡片 =============
+
+/**
+ * One UI 9 标志性卡片：26dp 圆角 + 无阴影 + 留白分层
+ */
 @Composable
 fun OneUiCard(
     modifier: Modifier = Modifier,
@@ -39,28 +60,38 @@ fun OneUiCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = MaterialTheme.shapes.extraLarge // 26dp
-    if (onClick != null) {
-        Surface(
-            modifier = modifier.clip(shape).clickable(onClick = onClick),
-            shape = shape,
-            color = containerColor,
-            tonalElevation = 0.dp,   // 灵魂：不靠阴影靠留白
-            shadowElevation = 0.dp,
-        ) { Column(Modifier.padding(20.dp), content = content) }
-    } else {
-        Surface(
-            modifier = modifier,
-            shape = shape,
-            color = containerColor,
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
-        ) { Column(Modifier.padding(20.dp), content = content) }
+    val shape = OneUiShapes.extraLarge
+    val elevation = 0.dp  // One UI 9 灵魂：不靠阴影靠留白
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val animatedContainer by animateColorAsState(
+        targetValue = if (isPressed) containerColor.copy(alpha = 0.96f) else containerColor,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "cardPress",
+    )
+    Surface(
+        modifier = modifier
+            .clip(shape)
+            .then(
+                if (onClick != null) Modifier.clickable(
+                    interactionSource = interactionSource,
+                    indication = rememberRipple(),
+                    onClick = onClick,
+                ) else Modifier
+            ),
+        shape = shape,
+        color = animatedContainer,
+        tonalElevation = elevation,
+        shadowElevation = elevation,
+    ) {
+        Column(Modifier.padding(OneUiSpacing.xl), content = content)
     }
 }
 
+// ============= 大标题 =============
+
 /**
- * One UI 灵魂骨架：大标题在上半屏观看区，滚动时收缩
+ * 大标题页头：One UI 9 观看区，28sp Bold
  */
 @Composable
 fun OneUiLargeHeader(
@@ -69,34 +100,40 @@ fun OneUiLargeHeader(
     subtitle: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = OneUiSpacing.xl, vertical = OneUiSpacing.md),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge, // 28sp 大标题
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            if (subtitle != null) {
-                Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
+                if (subtitle != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
+            actions()
         }
-        actions()
     }
 }
 
+// ============= 按钮 =============
+
 /**
- * 胶囊按钮（One UI 按钮永远无棱角）
+ * 胶囊按钮：One UI 9 永远无棱角；高 52dp 适合拇指
  */
 @Composable
 fun PillButton(
@@ -107,49 +144,97 @@ fun PillButton(
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
+    val animatedContainer by animateColorAsState(
+        targetValue = if (enabled) containerColor else containerColor.copy(alpha = 0.38f),
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "btnBg",
+    )
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(52.dp),
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(26.dp),  // 999dp 胶囊
         colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
+            containerColor = animatedContainer,
             contentColor = contentColor,
+            disabledContainerColor = containerColor.copy(alpha = 0.38f),
+            disabledContentColor = contentColor.copy(alpha = 0.62f),
         ),
         contentPadding = PaddingValues(horizontal = 28.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * 描边按钮：用于次要操作
+ */
+@Composable
+fun PillOutlineButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
 
+// ============= 得分环 =============
+
 /**
- * 设备管家得分环：渐变圆环 + 数字滚动（One UI Device Care 灵魂组件）
+ * 设备管家式得分环
  */
 @Composable
 fun ScoreRing(
     score: Int,
     modifier: Modifier = Modifier,
-    diameter: Dp = 160.dp,
-    ringWidth: Dp = 12.dp,
-    color: Color = scoreColor(score),
+    diameter: Dp = 168.dp,
+    ringWidth: Dp = 14.dp,
+    label: String = "设备得分",
 ) {
     val animated by animateIntAsState(
-        targetValue = score,
-        animationSpec = tween(900, easing = FastOutSlowInEasing),
+        targetValue = score.coerceIn(0, 100),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow,
+        ),
         label = "score",
     )
-    val progress = animated.coerceIn(0, 100) / 100f
+    val color = scoreColor(score)
+    val progress = animated / 100f
+
     Box(modifier = modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = Stroke(width = ringWidth.toPx(), cap = StrokeCap.Round)
+            // 背景环
             drawArc(
-                color = color.copy(alpha = 0.15f),
-                startAngle = -90f, sweepAngle = 360f, useCenter = false,
+                color = color.copy(alpha = 0.12f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
                 style = stroke,
             )
+            // 进度环（渐变）
             drawArc(
-                brush = Brush.sweepGradient(listOf(color.copy(alpha = 0.6f), color)),
-                startAngle = -90f, sweepAngle = 360f * progress, useCenter = false,
+                brush = Brush.sweepGradient(
+                    colors = listOf(color.copy(alpha = 0.7f), color, color),
+                    center = Offset(size.width / 2, size.height / 2),
+                ),
+                startAngle = -90f,
+                sweepAngle = 360f * progress,
+                useCenter = false,
                 style = stroke,
             )
         }
@@ -160,9 +245,10 @@ fun ScoreRing(
                 fontWeight = FontWeight.Bold,
                 color = color,
             )
+            Spacer(Modifier.height(2.dp))
             Text(
-                text = "设备得分",
-                style = MaterialTheme.typography.bodySmall,
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -170,69 +256,177 @@ fun ScoreRing(
 }
 
 fun scoreColor(score: Int): Color = when {
-    score >= 80 -> Color(0xFF2FA36B)
-    score >= 50 -> Color(0xFFE8912D)
-    else -> Color(0xFFE05252)
+    score >= 80 -> ScoreGood
+    score >= 50 -> ScoreMid
+    else -> ScoreBad
 }
 
+// ============= 图标背景 =============
+
 /**
- * 标准列表行：squircle 图标背景（16dp 圆角 = One UI 图标曲率）
+ * Squircle 图标背景：16dp 曲率与 One UI 系统图标一致
  */
 @Composable
-fun OneUiRow(
-    title: String,
-    subtitle: String? = null,
-    icon: (@Composable () -> Unit)? = null,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
-    trailing: (@Composable () -> Unit)? = null,
+fun SquircleIconBg(
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    size: Dp = 44.dp,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    contentDescription: String? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(16.dp)
+    val box = Modifier
+        .size(size)
+        .clip(shape)
+        .background(tint.copy(alpha = 0.14f))
+    Box(
+        modifier = if (onClick != null) box.clickable(onClick = onClick) else box,
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(size * 0.5f),
+        )
+    }
+}
+
+// ============= 列表行 =============
+
+/**
+ * 标准列表行：squircle 图标 + 主/副文本 + 尾部
+ */
+@Composable
+fun OneUiListRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    leading: ImageVector? = null,
+    leadingTint: Color = MaterialTheme.colorScheme.primary,
+    trailing: (@Composable () -> Unit)? = null,
+    showChevron: Boolean = true,
+    onClick: (() -> Unit)? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .then(
                 if (onClick != null) Modifier.clickable(
-                    interactionSource = interaction,
-                    indication = ripple(),
+                    interactionSource = interactionSource,
+                    indication = rememberRipple(),
                     onClick = onClick,
                 ) else Modifier
             )
-            .padding(vertical = 12.dp, horizontal = 4.dp),
+            .padding(vertical = 14.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(16.dp)) // squircle 曲率
-                    .background(iconTint.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) { icon() }
+        if (leading != null) {
+            SquircleIconBg(icon = leading, tint = leadingTint, size = 44.dp)
             Spacer(Modifier.width(16.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+            )
             if (subtitle != null) {
                 Text(
-                    subtitle,
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        trailing?.invoke()
+        if (trailing != null) {
+            trailing()
+        } else if (showChevron && onClick != null) {
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
-/** 区块标题：One UI "重点区块"语法 */
+// ============= 分割线 =============
+
 @Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onBackground,
-        modifier = modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+fun OneUiDivider(
+    modifier: Modifier = Modifier,
+    paddingHorizontal: Dp = OneUiSpacing.xl,
+) {
+    HorizontalDivider(
+        modifier = modifier.padding(horizontal = paddingHorizontal),
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outlineVariant,
     )
+}
+
+// ============= 区块标题 =============
+
+@Composable
+fun SectionTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = OneUiSpacing.xl, vertical = OneUiSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        if (action != null) action()
+    }
+}
+
+// ============= 空状态 =============
+
+@Composable
+fun EmptyState(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = OneUiSpacing.xxl, vertical = OneUiSpacing.xxxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SquircleIconBg(
+            icon = icon,
+            tint = MaterialTheme.colorScheme.primary,
+            size = 64.dp,
+        )
+        Spacer(Modifier.height(OneUiSpacing.lg))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(OneUiSpacing.xs))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }

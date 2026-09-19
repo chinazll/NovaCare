@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 应用主主题（运行时使用） -->
     <style name="Theme.NovaCare" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/surface_background</item>
     </style>
+
+    <!-- 启动主题：展示品牌色 + 居中 Logo（One UI 风格启动屏） -->
+    <style name="Theme.NovaCare.Splash" parent="Theme.NovaCare">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+
 </resources>

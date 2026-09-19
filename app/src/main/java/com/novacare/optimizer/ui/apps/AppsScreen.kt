@@ -6,10 +6,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AcUnit
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -18,71 +19,71 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.optimizer.core.AppInfo
 import com.novacare.optimizer.core.DeviceRepository
-import com.novacare.optimizer.ui.components.OneUiCard
-import com.novacare.optimizer.ui.components.OneUiLargeHeader
-import com.novacare.optimizer.ui.components.OneUiRow
-import com.novacare.optimizer.ui.components.SectionTitle
+import com.novacare.optimizer.ui.components.*
+import com.novacare.optimizer.ui.theme.OneUiSpacing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class AppsUiState(
+data class AppsState(
     val loading: Boolean = true,
     val apps: List<AppInfo> = emptyList(),
     val frozen: Set<String> = emptySet(),
     val query: String = "",
+    val errorMessage: String? = null,
 )
 
 @HiltViewModel
 class AppsViewModel @Inject constructor(
     private val repo: DeviceRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(AppsUiState())
-    val state = _state.asStateFlow()
+    private val _state = MutableStateFlow(AppsState())
+    val state: StateFlow<AppsState> = _state.asStateFlow()
 
     init { scan() }
 
     fun scan() {
         viewModelScope.launch {
-            val apps = repo.scanApps()
-            _state.value = _state.value.copy(loading = false, apps = apps)
+            _state.update { it.copy(loading = true, errorMessage = null) }
+            try {
+                val apps = repo.scanApps()
+                _state.update { it.copy(loading = false, apps = apps) }
+            } catch (e: Exception) {
+                _state.update { it.copy(loading = false, errorMessage = "扫描失败：${e.message ?: "未知"}") }
+            }
         }
     }
 
-    fun toggleFreeze(pkg: String) {
-        val s = _state.value.frozen.toMutableSet()
-        if (pkg in s) s -= pkg else s += pkg
-        _state.value = _state.value.copy(frozen = s)
-        // 生产环境：通过 Shizuku pm disable-user / pm suspend 执行
-        // 免 Root 场景下引导用户授权 Shizuku（dev.rikka.shizuku api 已接入）
+    fun setQuery(q: String) {
+        _state.update { it.copy(query = q) }
     }
-
-    fun setQuery(q: String) { _state.value = _state.value.copy(query = q) }
 }
 
-/**
- * 应用管理（借鉴 AppManager + UAD 安全分级）
- * 冻结 = pm suspend，可逆、比卸载安全——One UI "一次只做一件事"：本页只管理不清理
- */
 @Composable
 fun AppsScreen(vm: AppsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsState()
-    val filtered = state.apps.filter {
-        it.label.contains(state.query, true) || it.packageName.contains(state.query, true)
+    val filtered = remember(state.apps, state.query) {
+        val q = state.query.trim()
+        if (q.isEmpty()) state.apps
+        else state.apps.filter { it.label.contains(q, true) || it.packageName.contains(q, true) }
     }
 
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         OneUiLargeHeader(
             title = "应用管理",
-            subtitle = "冻结不卸载，随时可恢复",
+            subtitle = state.errorMessage ?: "已扫描 ${state.apps.size} 个应用",
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.sm))
+
         OutlinedTextField(
             value = state.query,
             onValueChange = vm::setQuery,
@@ -90,67 +91,73 @@ fun AppsScreen(vm: AppsViewModel = hiltViewModel()) {
             shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = OneUiSpacing.xl),
             singleLine = true,
         )
-        Spacer(Modifier.height(8.dp))
 
-        SectionTitle("全部应用 · ${filtered.size}")
-        LazyColumn(Modifier.padding(horizontal = 20.dp)) {
-            item {
-                OneUiCard(Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.AcUnit, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "已冻结 ${state.frozen.size} 个应用（已从后台与桌面隐藏，数据保留）",
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(OneUiSpacing.md))
+
+        if (state.loading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(strokeWidth = 3.dp)
             }
-            items(filtered, key = { it.packageName }) { app ->
-                OneUiRow(
-                    title = app.label,
-                    subtitle = buildString {
-                        if (app.isSystemApp) append("系统应用 · ")
-                        if (app.cacheSizeMb > 0.1f) append("缓存 %.1f MB".format(app.cacheSizeMb))
-                        else append("缓存极小")
-                    },
-                    trailing = {
-                        Row {
-                            FilledTonalIconButton(
-                                onClick = { vm.toggleFreeze(app.packageName) },
-                                modifier = Modifier.size(40.dp),
-                            ) {
-                                Icon(
-                                    if (app.packageName in state.frozen) Icons.Rounded.Bedtime
-                                    else Icons.Rounded.AcUnit,
-                                    contentDescription = "冻结",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (app.packageName in state.frozen)
-                                        MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            FilledTonalIconButton(
-                                onClick = { /* 引导系统卸载流程 */ },
-                                modifier = Modifier.size(40.dp),
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Delete,
-                                    contentDescription = "卸载",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.outline,
-                                )
-                            }
-                        }
-                    },
+        } else if (filtered.isEmpty()) {
+            Box(modifier = Modifier.padding(horizontal = OneUiSpacing.xl)) {
+                EmptyState(
+                    icon = Icons.Rounded.Apps,
+                    title = "未找到应用",
+                    description = "尝试修改搜索词",
                 )
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    horizontal = OneUiSpacing.xl,
+                    vertical = OneUiSpacing.sm,
+                ),
+            ) {
+                items(filtered, key = { it.packageName }) { app ->
+                    AppListItem(app = app)
+                }
             }
         }
     }
+}
+
+@Composable
+private fun AppListItem(app: AppInfo) {
+    OneUiListRow(
+        title = app.label,
+        subtitle = buildString {
+            if (app.isSystemApp) append("系统应用 · ")
+            append("v${app.versionName}")
+            if (app.lastUsedDays >= 0) {
+                append(" · ${app.lastUsedDays} 天前用")
+            }
+        },
+        leading = Icons.Rounded.Apps,
+        leadingTint = if (app.isSystemApp) MaterialTheme.colorScheme.outline
+        else MaterialTheme.colorScheme.primary,
+        showChevron = false,
+        trailing = {
+            if (!app.isSystemApp) {
+                Icon(
+                    imageVector = Icons.Rounded.AcUnit,
+                    contentDescription = "冻结",
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Bedtime,
+                    contentDescription = "系统应用",
+                    tint = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        },
+    )
 }

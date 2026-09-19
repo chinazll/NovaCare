@@ -8,9 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.DeviceThermostat
 import androidx.compose.material.icons.rounded.NightsStay
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,122 +17,156 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.optimizer.core.DeviceRepository
-import com.novacare.optimizer.ui.components.OneUiCard
-import com.novacare.optimizer.ui.components.OneUiLargeHeader
-import com.novacare.optimizer.ui.components.OneUiRow
-import com.novacare.optimizer.ui.components.SectionTitle
-import com.novacare.optimizer.ui.components.scoreColor
+import com.novacare.optimizer.core.HealthScorer
+import com.novacare.optimizer.ui.components.*
+import com.novacare.optimizer.ui.theme.OneUiSpacing
+import com.novacare.optimizer.ui.theme.ScoreBad
+import com.novacare.optimizer.ui.theme.ScoreGood
+import com.novacare.optimizer.ui.theme.ScoreMid
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class BatteryUiState(
-    val loading: Boolean = true,
-    val level: Int = 0,
-    val temperature: Float = 0f,
+data class BatteryState(
+    val level: Int = 100,
+    val temperature: Float = 25f,
     val isCharging: Boolean = false,
-    val drainPerHour: Float = 4.5f, // 估算值：由 UsageStats 功耗模型推算
+    val healthScore: Int = 100,
+    val errorMessage: String? = null,
 )
 
 @HiltViewModel
 class BatteryViewModel @Inject constructor(
     private val repo: DeviceRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(BatteryUiState())
-    val state = _state.asStateFlow()
+    private val _state = MutableStateFlow(BatteryState())
+    val state: StateFlow<BatteryState> = _state.asStateFlow()
 
     init { refresh() }
 
     fun refresh() {
         viewModelScope.launch {
-            val s = repo.getDeviceStatus()
-            _state.value = BatteryUiState(
-                loading = false,
-                level = s.batteryLevel,
-                temperature = s.batteryTemperature,
-                isCharging = s.isCharging,
-            )
+            try {
+                val status = repo.getDeviceStatus()
+                val score = HealthScorer().run {
+                    val r = evaluate(
+                        usedStorageRatio = 0f, usedRamRatio = 0f,
+                        batteryLevel = status.batteryLevel,
+                        batteryTemp = status.batteryTemperature,
+                        heavyCacheApps = 0, frozenCount = 0,
+                    )
+                    r.batteryScore
+                }
+                _state.update {
+                    it.copy(
+                        level = status.batteryLevel,
+                        temperature = status.batteryTemperature,
+                        isCharging = status.isCharging,
+                        healthScore = score,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(errorMessage = "读取失败：${e.message ?: "未知"}") }
+            }
         }
     }
 }
 
-/**
- * 电池卫士：隐私优先（借鉴 PowerGuard 思路但全本地、无云端 AI）
- * One UI "重点区块"：只展示当前真正需要关注的两件事——电量与温度
- */
 @Composable
 fun BatteryScreen(vm: BatteryViewModel = hiltViewModel()) {
     val state by vm.state.collectAsState()
-    val color = scoreColor(state.level)
+    val color = when {
+        state.healthScore >= 80 -> ScoreGood
+        state.healthScore >= 50 -> ScoreMid
+        else -> ScoreBad
+    }
 
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 32.dp),
+            .padding(bottom = OneUiSpacing.xxxl),
     ) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         OneUiLargeHeader(
             title = "电池卫士",
-            subtitle = if (state.isCharging) "正在充电" else "所有分析在本机完成",
+            subtitle = state.errorMessage ?: if (state.isCharging) "正在充电" else "实时监测",
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(OneUiSpacing.lg))
 
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            OneUiCard(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(horizontal = OneUiSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(OneUiSpacing.md),
+        ) {
+            // 电量卡
+            OneUiCard(modifier = Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Bolt, null, tint = color, modifier = Modifier.size(32.dp))
-                    Spacer(Modifier.width(16.dp))
+                    Icon(
+                        Icons.Rounded.Bolt,
+                        null,
+                        tint = color,
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Spacer(Modifier.width(OneUiSpacing.lg))
                     Column {
                         Text(
                             "${state.level}%",
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = MaterialTheme.typography.displaySmall,
                             color = color,
                         )
                         Text(
-                            when {
-                                state.isCharging -> "充电中"
-                                state.level >= 60 -> "电量充足"
-                                state.level >= 30 -> "正常使用"
-                                else -> "电量偏低，建议开启省电模式"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
+                            if (state.isCharging) "充电中" else "未充电",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-
-            OneUiCard(Modifier.fillMaxWidth()) {
-                OneUiRow(
+            // 详情卡
+            OneUiCard(modifier = Modifier.fillMaxWidth()) {
+                OneUiListRow(
                     title = "电池温度",
                     subtitle = "%.1f ℃ · %s".format(
                         state.temperature,
-                        if (state.temperature < 38f) "正常" else "偏高，建议暂停高负载任务",
+                        if (state.temperature < 38f) "正常" else "偏高"
                     ),
-                    icon = { Icon(Icons.Rounded.DeviceThermostat, null) },
+                    leading = Icons.Rounded.DeviceThermostat,
+                    leadingTint = if (state.temperature < 38f) ScoreGood else ScoreMid,
+                    showChevron = false,
                 )
-                OneUiRow(
-                    title = "预估耗电速度",
-                    subtitle = "%.1f %%/小时".format(state.drainPerHour),
-                    icon = { Icon(Icons.Rounded.NightsStay, null) },
+                OneUiListRow(
+                    title = "健康度",
+                    subtitle = "${state.healthScore} / 100",
+                    leading = Icons.Rounded.NightsStay,
+                    leadingTint = color,
+                    showChevron = false,
                 )
             }
-
-            Spacer(Modifier.height(12.dp))
-            SectionTitle("优化建议", Modifier.padding(0.dp))
-            OneUiCard(Modifier.fillMaxWidth()) {
-                listOf(
-                    "限制不常用应用的后台活动（前往应用管理 → 冻结）",
-                    "夜间自动开启省电模式（前往设置 → 定时维护）",
-                    "屏幕亮度设为自适应",
-                ).forEach { tip ->
-                    OneUiRow(title = tip)
+            // 建议
+            OneUiCard(modifier = Modifier.fillMaxWidth()) {
+                Text("优化建议", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(OneUiSpacing.sm))
+                val tips = buildList {
+                    if (state.temperature >= 38f) add("电池温度偏高，建议暂停游戏等高负载任务")
+                    if (state.level < 20) add("电量偏低，建议开启省电模式")
+                    if (state.isCharging && state.level >= 80) add("电量已 80%+，可断开充电器延长电池寿命")
+                    if (size == 0) add("电池状态良好，继续保持")
+                }
+                tips.forEach { tip ->
+                    Text(
+                        "• $tip",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
                 }
             }
         }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }

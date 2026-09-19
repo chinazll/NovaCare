@@ -4,18 +4,40 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.BatteryFull
+import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.novacare.optimizer.ui.apps.AppsScreen
 import com.novacare.optimizer.ui.battery.BatteryScreen
 import com.novacare.optimizer.ui.clean.CleanScreen
@@ -24,10 +46,6 @@ import com.novacare.optimizer.ui.storage.StorageScreen
 import com.novacare.optimizer.ui.theme.NovaCareTheme
 import dagger.hilt.android.AndroidEntryPoint
 
-/**
- * 单 Activity + Navigation Compose
- * 页面切换动效遵循 One UI 9：水平位移 + 线性插值，无拖沓
- */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,9 +59,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(
+    val route: String,
+    val label: String,
+    val icon: ImageVector,
+)
 
-val TABS = listOf(
+private val TABS = listOf(
     Tab("home", "管家", Icons.Rounded.HealthAndSafety),
     Tab("storage", "存储", Icons.Rounded.PieChart),
     Tab("clean", "清理", Icons.Rounded.CleaningServices),
@@ -52,17 +74,17 @@ val TABS = listOf(
 )
 
 @Composable
-fun MainNavHost() {
+private fun MainNavHost() {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: "home"
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow, // Zone 2 导航区
-                tonalElevation = 0.dp,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 TABS.forEach { tab ->
                     NavigationBarItem(
@@ -78,6 +100,8 @@ fun MainNavHost() {
                         label = { Text(tab.label) },
                         colors = NavigationBarItemDefaults.colors(
                             indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     )
                 }
@@ -87,17 +111,23 @@ fun MainNavHost() {
         NavHost(
             navController = navController,
             startDestination = "home",
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.fillMaxSize(),
             enterTransition = {
-                slideInHorizontally(tween(350)) { it / 6 } + fadeIn(tween(350))
+                slideInHorizontally(tween(280)) { it / 8 } + fadeIn(tween(280))
             },
-            exitTransition = { fadeOut(tween(200)) },
-            popEnterTransition = { fadeIn(tween(350)) },
+            exitTransition = {
+                slideOutHorizontally(tween(280)) { -it / 8 } + fadeOut(tween(280))
+            },
+            popEnterTransition = {
+                slideInHorizontally(tween(280)) { -it / 8 } + fadeIn(tween(280))
+            },
             popExitTransition = {
-                slideOutHorizontally(tween(300)) { it / 6 } + fadeOut(tween(300))
+                slideOutHorizontally(tween(280)) { it / 8 } + fadeOut(tween(280))
             },
         ) {
-            composable("home") { HomeScreen() }
+            composable("home") {
+                HomeScreen(onNavigate = { route -> navController.navigate(route) })
+            }
             composable("storage") { StorageScreen() }
             composable("clean") { CleanScreen() }
             composable("apps") { AppsScreen() }

@@ -3,31 +3,26 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-        ⚠️ 严格遵守 Google Play 政策：
-        - QUERY_ALL_PACKAGES 不在默认清单（仅在 Shizuku 高级模式按需启用）
-        - 用 <queries> 声明可见包范围（最小权限原则）
-        - PACKAGE_USAGE_STATS 仅在用户主动授权后启用
+        NovaCare 管家 — AndroidManifest
+        设计原则：
+        1. 最小权限：仅声明功能必需的权限
+        2. API 26 兼容：避免使用 signature 权限
+        3. 启动稳定：移除所有可能触发安全警告的声明
     -->
 
-    <!-- 应用扫描：使用 <queries> 声明可见范围（Android 11+） -->
+    <!-- 应用扫描：使用 <queries> 声明可见范围（Android 11+ 强制要求） -->
     <queries>
-        <!-- 启动器可见的应用 -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <!-- Shizuku 服务 -->
-        <package android:name="dev.rikka.shizuku" />
-        <package android:name="moe.shizuku.manager" />
-        <!-- 跳转系统设置入口 -->
         <intent>
             <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
             <data android:scheme="package" />
         </intent>
     </queries>
 
-    <!-- 运行时按需申请的敏感权限（不强制声明在 uses-permission） -->
-    <!-- 这些权限仅在使用对应高级功能时由代码动态申请 -->
+    <!-- 必需的运行时权限 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -35,22 +30,28 @@
     <application
         android:name=".NovaCareApp"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NovaCare">
+        android:theme="@style/Theme.NovaCare.Splash"
+        tools:targetApi="34">
 
+        <!-- 启动 Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.NovaCare">
+            android:theme="@style/Theme.NovaCare.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- WorkManager 启动器（自定义初始化） -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -61,13 +62,5 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
-
-        <provider
-            android:name="dev.rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 </manifest>

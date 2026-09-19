@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- One UI 9 强调色（靛蓝系列）-->
+    <color name="brand_primary">#FF3B5BDB</color>
+    <color name="brand_primary_container">#FFDEE3FF</color>
+    <color name="brand_on_primary">#FFFFFFFF</color>
+    <color name="brand_on_primary_container">#FF0D1B6E</color>
+
+    <!-- 中性色 -->
+    <color name="surface_background">#FFF7F7FA</color>
+    <color name="surface_card">#FFFFFFFF</color>
+    <color name="on_surface">#FF1A1B20</color>
+    <color name="on_surface_variant">#FF44464F</color>
+    <color name="outline">#FF757780</color>
+</resources>
