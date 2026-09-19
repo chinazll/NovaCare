@@ -96,7 +96,7 @@ jobs:
 
       # ===== 构建 APK（Gradle 会通过 CMake 真的调用 cargo） =====
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tail -50
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
         env:
           KEYSTORE_FILE: app/novacare-release.jks
           KEYSTORE_PASSWORD: novacare123
@@ -104,7 +104,7 @@ jobs:
           KEY_PASSWORD: novacare123
 
       - name: Build Signed Release APK
-        run: gradle :app:assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
         env:
           KEYSTORE_FILE: app/novacare-release.jks
           KEYSTORE_PASSWORD: novacare123
