@@ -170,7 +170,7 @@ fn build_tree(root: &Path, entries: &[(PathBuf, u64, bool, Option<i64>)]) -> Fil
             for (i, c) in comps.iter().enumerate() {
                 let key = c.as_os_str().to_string_lossy().to_string();
                 let is_last = i == comps.len() - 1;
-                let entry = cur.children.entry(key.clone()).or_insert_with(Node::default());
+                let entry = cur.children.entry(key.clone()).or_default();
                 if is_last {
                     entry.size = *size;
                     entry.is_dir = *is_dir;
