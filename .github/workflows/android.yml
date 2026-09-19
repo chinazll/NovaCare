@@ -186,22 +186,41 @@ jobs:
       # ==================== 产物校验 ====================
       - name: Verify APK signature & native library
         run: |
-          set -e
+          set +e  # 不让 verify 单条命令失败直接退，把所有信息收集完再判断
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | head -1)
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | head -1)
-          "$APKSIGNER" verify app/build/outputs/apk/release/app-release.apk && echo "release signature OK"
-          "$APKSIGNER" verify app/build/outputs/apk/debug/app-debug.apk && echo "debug signature OK"
-          echo "=== Rust 引擎是否真的进了 APK ==="
+          echo "=== APK 签名校验 ==="
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/release/app-release.apk
+          RELEASE_RC=$?
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          DEBUG_RC=$?
+          echo "release apksigner exit=$RELEASE_RC, debug apksigner exit=$DEBUG_RC"
+          echo "=== Rust 引擎 ABI 数量 ==="
           for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release.apk; do
+            echo "--- $(basename $apk) ---"
+            unzip -l "$apk" | grep -E "lib/.*\.so" || echo "(no .so found)"
             COUNT=$(unzip -l "$apk" | grep -c "libuniffi_novacare.so" || true)
-            echo "$(basename $apk): libuniffi_novacare.so x${COUNT}"
+            echo "libuniffi_novacare.so count: $COUNT"
             if [ "$COUNT" -lt 3 ]; then
               echo "::error::Rust engine missing from $apk (expected 3 ABIs)"
+            fi
+          done
+          echo "=== aapt badging ==="
+          "$AAPT" dump badging app/build/outputs/apk/release/app-release.apk | head -10
+          ls -lh app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk
+          # 决策：所有错误一起看
+          if [ "$RELEASE_RC" -ne 0 ] || [ "$DEBUG_RC" -ne 0 ]; then
+            echo "::error::One or more APK failed apksigner verify (release=$RELEASE_RC debug=$DEBUG_RC)"
+            exit 1
+          fi
+          for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release.apk; do
+            C=$(unzip -l "$apk" | grep -c "libuniffi_novacare.so" || true)
+            if [ "$C" -lt 3 ]; then
+              echo "::error::Rust engine missing from $apk"
               exit 1
             fi
           done
-          "$AAPT" dump badging app/build/outputs/apk/release/app-release.apk | head -8
-          ls -lh app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk
+          echo "All checks passed"
 
       - name: Upload Signed Release APK
         uses: actions/upload-artifact@v4
