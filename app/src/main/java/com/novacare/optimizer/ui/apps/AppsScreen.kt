@@ -18,7 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.optimizer.core.AppFreezeManager
-import com.novacare.optimizer.core.AppInfo
+import com.novacare.optimizer.core.DeviceRepository.AppInfo
 import com.novacare.optimizer.core.DeviceRepository
 import com.novacare.optimizer.ui.components.*
 import com.novacare.optimizer.ui.theme.OneUiSpacing

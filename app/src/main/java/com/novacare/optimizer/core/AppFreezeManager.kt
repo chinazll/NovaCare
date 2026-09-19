@@ -1,7 +1,6 @@
 package com.novacare.optimizer.core
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -12,7 +11,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import rikka.shizuku.Shizuku
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,6 +35,7 @@ private val Context.freezeDataStore: DataStore<Preferences> by preferencesDataSt
 @Singleton
 class AppFreezeManager @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val shell: ShizukuShell,
 ) {
 
     private companion object {
@@ -54,10 +53,7 @@ class AppFreezeManager @Inject constructor(
         runCatching { frozenPackages.first().contains(pkg) }.getOrDefault(false)
 
     /** Shizuku 服务是否已绑定且已授权 */
-    fun isShizukuAvailable(): Boolean = runCatching {
-        Shizuku.pingBinder() &&
-            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-    }.getOrDefault(false)
+    fun isShizukuAvailable(): Boolean = shell.isAvailable()
 
     /**
      * 冻结应用。
@@ -73,15 +69,7 @@ class AppFreezeManager @Inject constructor(
             Log.w(TAG, "Shizuku unavailable — cannot ${if (freeze) "freeze" else "unfreeze"} $pkg")
             return false
         }
-        val ok = runCatching {
-            val process = Shizuku.newProcess(
-                arrayOf("sh", "-c", command),
-                null,
-                "/",
-            )
-            val exit = process.waitFor()
-            exit == 0
-        }.onFailure { Log.w(TAG, "Command failed: $command", it) }.getOrDefault(false)
+        val ok = shell.run(command)
 
         if (ok) {
             context.freezeDataStore.edit { prefs ->

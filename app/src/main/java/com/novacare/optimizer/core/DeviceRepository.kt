@@ -379,7 +379,10 @@ class DeviceRepository @Inject constructor(
         if (manager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return 0L to 0L
         // 先查自身（永远有权限），再查他应用（需 PACKAGE_USAGE_STATS）
         return runCatching {
+            // 注意：单参数版本的 queryStatsForPackage 已废弃；
+            // 当前签名为 queryStatsForPackage(UUID, packageName, UserHandle)
             val stats = manager.queryStatsForPackage(
+                android.os.storage.StorageManager.UUID_DEFAULT,
                 packageName,
                 UserHandle.getUserHandleForUid(
                     context.packageManager.getApplicationInfo(packageName, 0).uid
