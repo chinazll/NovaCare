@@ -15,15 +15,25 @@
 
 ## 一、下载 APK
 
-从 GitHub Release 下载：
+### 方式一：从 CI 构建产物下载（当前推荐）
+
+1. 打开 [Actions 页面](https://github.com/chinazll/NovaCare/actions)
+2. 点击最新一次成功的构建（标题含 `Build & Sign APK`）
+3. 在页面底部 **Artifacts** 区域下载：
+   - `NovaCare-debug` —— 解压后内部文件名为 **`app-debug.apk`**
+   - `NovaCare-release-signed` —— 解压后内部文件名为 **`app-release.apk`**
+
+> 注意：此前本文件写成 `NovaCare-debug.apk` / `NovaCare-release-signed.apk`，
+> 那是 **Artifact 压缩包的名字**，不是里面 APK 的真实文件名，现予以更正。
+
+### 方式二：从 Releases 下载
 
 > https://github.com/chinazll/NovaCare/releases
 
-请选择：
-- **`NovaCare-debug.apk`**（推荐首次测试） — 17 MB，包含完整调试信息
-- **`NovaCare-release-signed.apk`** — 1.5 MB，已 R8 压缩优化，体积小但难调试
+（仅在打 tag 时才会生成 Release；日常构建请从 Actions 下载。）
 
-**两个 APK 都已用 CI 自动生成的 keystore 签名，可直接安装**。
+**两个 APK 均已签名，可直接安装。**
+签名密钥由 CI 生成并**跨构建缓存复用**，因此后续版本可以直接覆盖安装，不会因签名不一致而失败。
 
 ---
 

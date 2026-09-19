@@ -80,7 +80,7 @@ pub fn analyze(input: &BatteryInput) -> BatteryReport {
 
     BatteryReport {
         health_score: score,
-        cycle_count: estimate_cycles(input),
+        cycle_count: estimate_cycles(),
         temperature: input.temperature,
         voltage: input.voltage,
         level: input.level,

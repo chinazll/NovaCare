@@ -94,6 +94,11 @@ pub struct AppInfo {
     pub version: String,
     /// targetSdk
     pub target_sdk: i32,
+    /// 最后使用时间（Unix 秒）。0 = 未知（未获使用情况权限或未采集）。
+    /// P2-6：此前 app_analyzer::recommend_cleanup 的 unused_days 参数是死参数，
+    ///       因为模型里根本没有这个字段可供判断。
+    #[serde(default)]
+    pub last_used_time: i64,
 }
 
 /// 电池报告

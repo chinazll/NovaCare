@@ -50,7 +50,7 @@ pub fn init() {
         use log::LevelFilter;
         let _ = android_logger::init_once(
             android_logger::Config::default()
-                .with_min_level(LevelFilter::Info)
+                .with_max_level(LevelFilter::Info)
                 .with_tag("NovaCore"),
         );
     }
