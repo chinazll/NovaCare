@@ -1,28 +1,16 @@
-# Hilt + WorkManager
--keep class androidx.hilt.work.** { *; }
--keep class * extends androidx.work.Worker
--keep class * extends androidx.work.ListenableWorker {
-    public <init>(android.content.Context, androidx.work.WorkerParameters);
-}
+# ===== UniFFI / JNA：反射与 JNI 入口必须保留 =====
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-dontwarn java.awt.**
+-dontwarn javax.swing.**
+-keep class uniffi.novacare.** { *; }
 
-# Shizuku
--keep class dev.rikka.shizuku.** { *; }
+# ===== Room：schema 与 DAO 实现类保留 =====
+-keep class * extends androidx.room.RoomDatabase { *; }
+-dontwarn androidx.room.paging.**
 
-# Compose
--keep class kotlin.Metadata { *; }
--keepclassmembers class * {
-    @androidx.compose.runtime.Composable <methods>;
-}
-
-# Kotlinx Serialization (若后续引入)
--keep,includedescriptorclasses class com.novacare.optimizer.**$$serializer { *; }
--keepclassmembers class com.novacare.optimizer.** {
-    *** Companion;
-}
--keepclasseswithmembers class com.novacare.optimizer.** {
+# ===== kotlinx.serialization（云端 AI 的 JSON）=====
+-keepclassmembers class com.novacare.core.ai.** { *** Companion; }
+-keepclasseswithmembers class com.novacare.core.ai.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
-
-# Coroutines
--keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
--keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}

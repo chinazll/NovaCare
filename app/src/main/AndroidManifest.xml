@@ -1,79 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 枚举已安装应用（清理残留 / 冻结）；Play 上架需在数据安全表单说明用途 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- 应用使用时长（判定「不常用」），需用户在设置中授权 -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" xmlns:tools="http://schemas.android.com/tools" />
+
+    <!-- 卸载应用 -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <!-- 清理完成通知 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 长任务前台执行 / 定时任务重排 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!--
-        NovaCare 管家 — AndroidManifest
-        设计原则：
-        1. 最小权限：仅声明功能必需的权限
-        2. API 26 兼容：避免使用 signature 权限
-        3. 启动稳定：移除所有可能触发安全警告的声明
+      L3 云端 AI 专用。
+      隐私红线：默认不发起任何网络请求 —— 只有用户在设置里主动开启「高级 AI」、
+      并填入自己的 API Key 之后才会联网。
     -->
-
-    <!-- 应用扫描：使用 <queries> 声明可见范围（Android 11+ 强制要求） -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-        <intent>
-            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
-            <data android:scheme="package" />
-        </intent>
-    </queries>
-
-    <!-- 必需的运行时权限 -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".NovaCareApp"
-        android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="false"
-        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NovaCare.Splash"
-        tools:targetApi="36">
+        android:theme="@style/Theme.NovaCare">
 
-        <!-- 启动 Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.NovaCare.Splash">
+            android:theme="@style/Theme.NovaCare">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- WorkManager 启动器：改用 Application 的 Configuration.Provider 初始化 -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
-        </provider>
-
-        <!--
-            Shizuku Provider（官方集成方式）
-            用于「应用冻结(pm suspend)」与「fstrim」这两个需要 ADB 级权限的可选能力。
-            未安装 Shizuku 时该 Provider 无人绑定，功能自动静默降级，不影响 App 其余部分。
-        -->
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:enabled="true"
-            android:exported="true"
-            android:multiprocess="false"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
+
 </manifest>

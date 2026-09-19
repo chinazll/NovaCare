@@ -1,52 +1,53 @@
-import java.io.File
-
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp")
-    id("com.google.dagger.hilt.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 android {
-    namespace = "com.novacare.optimizer"
-    compileSdk = 36
+    namespace = "com.novacare.app"
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.novacare.optimizer"
-        // Android 8.0+ (与 README / INSTALL / DESIGN_SPEC 声明一致)
-        // StorageStatsManager 真实读取应用缓存需 API 26+，正好对齐
-        minSdk = 26
-        targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0-alpha"
-        vectorDrawables { useSupportLibrary = true }
+        applicationId = "com.novacare.app"
+        minSdk = libs.versions.minSdk.get().toInt()
+        targetSdk = libs.versions.targetSdk.get().toInt()
+        versionCode = 5
+        versionName = "0.5.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // 签名信息全部来自环境变量（CI Secrets），**不含任何明文密码**
+        create("release") {
+            val ksFile = System.getenv("KEYSTORE_FILE")
+            if (!ksFile.isNullOrBlank() && file(ksFile).exists()) {
+                storeFile = file(ksFile)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.maybeCreate("release").apply {
-                val ksFile = System.getenv("KEYSTORE_FILE")
-                if (!ksFile.isNullOrBlank()) {
-                    val resolved = rootProject.file(ksFile)
-                    if (resolved.exists()) {
-                        storeFile = resolved
-                        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                        keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-                    }
-                }
+            if (signingConfigs.getByName("release").storeFile != null) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
-        debug { }
+        getByName("debug") {
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {
@@ -54,21 +55,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures {
-        compose = true
-        buildConfig = true
-    }
-    packaging {
-        resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-        jniLibs { useLegacyPackaging = false }
-    }
-    testOptions {
-        unitTests.isReturnDefaultValues = true
-    }
+
     lint {
-        // `NullSafeMutableLiveData` 检测器在 lifecycle-lint + 当前 Kotlin 版本组合下
-        // 会抛 IncompatibleClassChangeError 直接崩溃（lint 自身的 bug），
-        // 曾导致 lintVitalAnalyzeRelease 失败、release APK 构建不出来。
+        // NullSafeMutableLiveData 检测器在 lifecycle-lint + 当前 Kotlin 组合下会崩溃
         disable += listOf("NullSafeMutableLiveData")
         abortOnError = false
         checkReleaseBuilds = false
@@ -76,45 +65,39 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2025.10.01")
-    implementation(composeBom)
+    implementation(project(":core:model"))
+    implementation(project(":core:common"))
+    implementation(project(":core:engine"))
+    implementation(project(":core:ai"))
+    implementation(project(":core:system"))
+    implementation(project(":core:data"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:automation"))
+    implementation(project(":ui:designsystem"))
+    implementation(project(":feature:home"))
+    implementation(project(":feature:clean"))
+    implementation(project(":feature:freeze"))
+    implementation(project(":feature:automation"))
+    implementation(project(":feature:assistant"))
 
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
-    implementation("androidx.activity:activity-compose:1.10.0")
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.hilt.android)
+    implementation(libs.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
+    ksp(libs.androidx.hilt.compiler)
 
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material3:material3-window-size-class")
-    implementation("androidx.compose.animation:animation")
-    implementation("androidx.compose.material:material-icons-extended")
-
-    implementation("androidx.navigation:navigation-compose:2.9.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
-    implementation("androidx.datastore:datastore-preferences:1.2.0")
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
-
-    implementation("com.google.dagger:hilt-android:2.55")
-    ksp("com.google.dagger:hilt-compiler:2.55")
-    implementation("androidx.hilt:hilt-work:1.3.0")
-    ksp("androidx.hilt:hilt-compiler:1.3.0")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
-
-    // Shizuku：用于应用冻结/解冻（pm suspend），可选能力，未安装时自动降级
-    implementation("dev.rikka.shizuku:api:13.1.5")
-    implementation("dev.rikka.shizuku:provider:13.1.5")
-
-    // ===== 测试（P0-8：补齐真实单元测试） =====
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    testImplementation("org.mockito:mockito-core:5.14.2")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
-    testImplementation("androidx.test:core:1.6.1")
-
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation(libs.compose.ui.tooling)
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
 }

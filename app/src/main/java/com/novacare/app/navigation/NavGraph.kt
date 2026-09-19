@@ -1,0 +1,47 @@
+package com.novacare.app.navigation
+
+import android.os.Environment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.novacare.feature.assistant.AssistantScreen
+import com.novacare.feature.automation.AutomationScreen
+import com.novacare.feature.clean.CleanScreen
+import com.novacare.feature.freeze.FreezeScreen
+import com.novacare.feature.home.HomeScreen
+
+object Routes {
+    const val HOME = "home"
+    const val CLEAN = "clean"
+    const val FREEZE = "freeze"
+    const val AUTOMATION = "automation"
+    const val ASSISTANT = "assistant"
+    const val SETTINGS = "settings"
+}
+
+/**
+ * 三层导航（蓝图 §4.5.1）：
+ * - L1 首页：普通用户止步于此（评分 + 一句话 + 一个按钮）
+ * - L2 功能页：清理 / 冻结 / 自动化 / 助手
+ * - L3 高级模式：设置里开启
+ */
+@Composable
+fun NovaCareNavHost() {
+    val navController = rememberNavController()
+    val rootPath = remember { Environment.getExternalStorageDirectory()?.absolutePath ?: "/storage/emulated/0" }
+
+    NavHost(navController = navController, startDestination = Routes.HOME) {
+        composable(Routes.HOME) {
+            HomeScreen(onNavigate = { route -> navController.navigate(route) })
+        }
+        composable(Routes.CLEAN) { CleanScreen(rootPath = rootPath) }
+        composable(Routes.FREEZE) { FreezeScreen(rootPath = rootPath) }
+        composable(Routes.AUTOMATION) { AutomationScreen() }
+        composable(Routes.ASSISTANT) { AssistantScreen(rootPath = rootPath) }
+        composable(Routes.SETTINGS) {
+            com.novacare.app.settings.SettingsScreen(onBack = { navController.popBackStack() })
+        }
+    }
+}
