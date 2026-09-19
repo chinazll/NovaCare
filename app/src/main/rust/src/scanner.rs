@@ -41,7 +41,6 @@ fn collect_files<'a>(node: &'a FileNode, out: &mut Vec<&'a FileNode>) {
 }
 
 /// 扫描选项
-#[derive(Clone)]
 pub struct ScanOptions {
     /// 最大深度（None = 无限制）
     pub max_depth: Option<usize>,
@@ -51,6 +50,18 @@ pub struct ScanOptions {
     pub collect_tree: bool,
     /// 进度回调（可选）
     pub progress: Option<Box<dyn Fn(u64) + Send + Sync>>,
+}
+
+// 手动 Clone（progress 是 Box<dyn Fn>，不能 derive Clone）
+impl Clone for ScanOptions {
+    fn clone(&self) -> Self {
+        Self {
+            max_depth: self.max_depth,
+            follow_links: self.follow_links,
+            collect_tree: self.collect_tree,
+            progress: None,  // 闭包不 clone
+        }
+    }
 }
 
 // 手动实现 Debug
