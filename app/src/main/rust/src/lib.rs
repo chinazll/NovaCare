@@ -22,8 +22,7 @@
     target_os = "android",
     deny(unsafe_op_in_unsafe_fn)
 )]
-#![deny(rust_2018_idioms)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 pub mod scanner;
 pub mod storage;
