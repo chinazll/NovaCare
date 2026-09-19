@@ -11,43 +11,31 @@ plugins {
 android {
     namespace = "com.novacare.optimizer"
     compileSdk = 36
-    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "com.novacare.optimizer"
-        minSdk = 30
+        // Android 8.0+ (与 README / INSTALL / DESIGN_SPEC 声明一致)
+        // StorageStatsManager 真实读取应用缓存需 API 26+，正好对齐
+        minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0-alpha"
+        versionCode = 4
+        versionName = "0.4.0-alpha"
         vectorDrawables { useSupportLibrary = true }
 
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
-        externalNativeBuild {
-            cmake {
-                cppFlags += listOf("-std=c++17")
-                arguments += listOf("-DANDROID_STL=c++_shared")
-            }
-        }
-    }
-
-    // 关键：让 Gradle 真的调用 CMake（CMake 里再调用 cargo）
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             signingConfig = signingConfigs.maybeCreate("release").apply {
                 val ksFile = System.getenv("KEYSTORE_FILE")
-                if (ksFile != null) {
+                if (!ksFile.isNullOrBlank()) {
                     val resolved = rootProject.file(ksFile)
                     if (resolved.exists()) {
                         storeFile = resolved
@@ -60,6 +48,7 @@ android {
         }
         debug { }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -71,9 +60,10 @@ android {
     }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-        jniLibs {
-            useLegacyPackaging = false
-        }
+        jniLibs { useLegacyPackaging = false }
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -106,10 +96,16 @@ dependencies {
     ksp("androidx.hilt:hilt-compiler:1.3.0")
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
+    // Shizuku：用于应用冻结/解冻（pm suspend），可选能力，未安装时自动降级
     implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 
+    // ===== 测试（P0-8：补齐真实单元测试） =====
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+    testImplementation("androidx.test:core:1.6.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

@@ -36,7 +36,10 @@ tempfile = "3.10"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+# 关键：必须 unwind 而非 abort。
+# jni_bindings.rs 依赖 panic::catch_unwind 把 Rust panic 拦在 JNI 边界内；
+# 若设为 abort，任何 panic 都会直接终止进程（= App 闪退），彻底摧毁安全契约。
+panic = "unwind"
 strip = "symbols"
 debug = false
 

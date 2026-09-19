@@ -89,13 +89,14 @@ pub fn analyze(input: &BatteryInput) -> BatteryReport {
     }
 }
 
-/// 粗略估算充电周期（基于电压曲线，非真实数据）
-/// 真实周期需读取 battery.cycle_count 文件（需 root）
-fn estimate_cycles(input: &BatteryInput) -> u32 {
-    // 这里仅作为占位实现
-    // 真实周期需 root 读取 /sys/class/power_supply/battery/cycle_count
-    let _ = input;
-    0
+/// 充电周期估算。
+///
+/// **明确不做**：真实周期需 root 读取 `/sys/class/power_supply/battery/cycle_count`，
+/// 本项目坚持无 root 路线，因此不猜测、不伪造。调用方得到 `None`，UI 显示「未知」。
+/// 若未来接入 root/Shizuku，可在此读取 sysfs 并返回 `Some(n)`，
+/// 接口签名（Option<u32>）已为此预留，无需改动 Kotlin 侧。
+pub fn estimate_cycles() -> Option<u32> {
+    None
 }
 
 /// 评分等级描述

@@ -81,12 +81,27 @@ pub fn find_by_package<'a>(apps: &'a [AppInfo], pkg: &str) -> Option<&'a AppInfo
     apps.iter().find(|a| a.package_name == pkg)
 }
 
-/// 计算推荐清理的应用（90 天未使用 + 非系统）
+/// 推荐清理的应用：非系统 + 缓存超阈值 + 长期未使用
+///
+/// P2-6 修复：此前 `unused_days` / `now_secs` 两个参数完全没被使用（死参数），
+/// 函数实际只按缓存大小过滤，与函数名「按未使用天数推荐」不符。
+/// 现在模型已补充 `last_used_time`，两个参数真正参与判定：
+/// - `last_used_time == 0`（未知，通常是未授予使用情况权限）→ 仅按缓存阈值判定
+/// - 已知 → 必须同时满足「超过 unused_days 天未使用」
 pub fn recommend_cleanup(apps: &[AppInfo], unused_days: i64, now_secs: i64) -> Vec<&AppInfo> {
+    let threshold_secs = unused_days.max(0) * 24 * 3600;
     apps.iter()
         .filter(|a| {
-            !a.is_system
-                && a.cache_size > 50 * 1024 * 1024  // 缓存 > 50MB
+            if a.is_system {
+                return false;
+            }
+            if a.cache_size <= 50 * 1024 * 1024 {
+                return false;
+            }
+            match a.last_used_time {
+                0 => true, // 使用时间未知：仅依据缓存大小
+                t => (now_secs - t) > threshold_secs,
+            }
         })
         .collect()
 }

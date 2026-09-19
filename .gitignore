@@ -37,3 +37,8 @@ hs_err_pid*
 
 # ===== Misc =====
 *.hprof
+# Rust 引擎产物（CI 用 cargo-ndk 生成，不入库）
+app/src/main/jniLibs/
+app/src/main/rust/target/
+# CI keystore（含随机密码，绝不入库）
+.ci-keystore/

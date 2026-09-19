@@ -101,8 +101,11 @@ pub struct AppInfo {
 pub struct BatteryReport {
     /// 健康度评分（0-100）
     pub health_score: u32,
-    /// 充电周期估算
-    pub cycle_count: u32,
+    /// 充电周期估算。
+    /// **None = 未知**：真实周期需读取 `/sys/class/power_supply/battery/cycle_count`（需 root），
+    /// 本项目不做 root，因此明确表示为「未知」，而不是返回一个伪造的 0。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cycle_count: Option<u32>,
     /// 电池温度
     pub temperature: f32,
     /// 电压 (mV)

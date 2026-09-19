@@ -29,9 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novacare.optimizer.core.AppFreezeManager
 import com.novacare.optimizer.core.DeviceRepository
 import com.novacare.optimizer.core.HealthScorer
+import com.novacare.optimizer.core.RustCore
 import com.novacare.optimizer.ui.components.*
+import com.novacare.optimizer.ui.theme.NovaSemanticColors
 import com.novacare.optimizer.ui.theme.OneUiSpacing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,6 +72,7 @@ data class HealthItem(
 class HomeViewModel @Inject constructor(
     private val repo: DeviceRepository,
     private val scorer: HealthScorer,
+    private val freezeManager: AppFreezeManager,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeState())
@@ -82,13 +86,14 @@ class HomeViewModel @Inject constructor(
             try {
                 val status = repo.getDeviceStatus()
                 val apps = repo.scanApps()
+                val frozenCount = freezeManager.frozenCount()
                 val result = scorer.evaluate(
                     usedStorageRatio = (status.usedStorageGb / status.totalStorageGb.coerceAtLeast(0.001f)),
                     usedRamRatio = (status.usedRamMb.toFloat() / status.totalRamMb.coerceAtLeast(1L)),
-                    batteryLevel = status.batteryLevel,
-                    batteryTemp = status.batteryTemperature,
+                    // 电池分数由 Rust 引擎给出（唯一算法，修复 P1-8）
+                    batteryHealthScore = status.batteryHealthScore,
                     heavyCacheApps = apps.count { it.cacheSizeMb > 200f },
-                    frozenCount = 0,
+                    frozenCount = frozenCount,
                 )
                 _state.update {
                     it.copy(
@@ -224,13 +229,43 @@ fun HomeScreen(
             Spacer(Modifier.height(OneUiSpacing.md))
         }
 
+        // P1-12：使用情况权限引导（此前只在文档里写了这个卡片，代码里根本不存在）
+        if (state.needsUsagePermission) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Box(Modifier.padding(horizontal = OneUiSpacing.xl)) {
+                OneUiCard(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "授权后可识别「不常用应用」",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "需要「使用情况访问权限」才能读取应用的最近使用时间。" +
+                            "该权限仅用于本地分析，不会上传任何数据。未授权时其余功能不受影响。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = {
+                        runCatching { ctx.startActivity(vm.usageStatsIntent()) }
+                    }) {
+                        Text("去设置")
+                    }
+                }
+            }
+            Spacer(Modifier.height(OneUiSpacing.md))
+        }
+
         SectionTitle("健康状况")
         Column(
             modifier = Modifier.padding(horizontal = OneUiSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(OneUiSpacing.md),
         ) {
             HealthRow(item = state.storage, onClick = { onNavigate("storage") })
-            HealthRow(item = state.ram, onClick = { onNavigate("storage") })
+            // P2-4：内存此前错误地跳转到「存储」页。内存没有独立页面，
+            // 因此改为不可点击 —— 与其给一个错误目标，不如不给。
+            HealthRow(item = state.ram, onClick = null)
             HealthRow(item = state.battery, onClick = { onNavigate("battery") })
             HealthRow(item = state.appSafety, onClick = { onNavigate("apps") })
         }
@@ -279,7 +314,7 @@ fun HomeScreen(
 @Composable
 private fun HealthRow(
     item: HealthItem,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
 ) {
     OneUiCard(
         modifier = Modifier.fillMaxWidth(),
@@ -305,12 +340,14 @@ private fun HealthRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(20.dp),
-            )
+            if (onClick != null) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
         Spacer(Modifier.height(OneUiSpacing.md))
         LinearProgressIndicator(

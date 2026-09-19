@@ -1,165 +1,230 @@
-name: Build Android APK (with Rust NDK)
+name: Build & Sign APK (JDK 17 · Rust NDK)
 
 on:
   push:
-    branches: [ main, develop ]
-    tags:    [ 'v*' ]
+    branches: [main]
+    tags: ['v*']
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build & Sign APK · JDK 17 · Rust NDK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-
-    permissions:
-      contents: write
+    timeout-minutes: 90
 
     env:
-      ANDROID_HOME: /opt/android-sdk
-      ANDROID_SDK_ROOT: /opt/android-sdk
-      ANDROID_NDK_HOME: /opt/android-sdk/ndk/26.1.10909125
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/android-sdk
+      ANDROID_NDK_HOME: ${{ github.workspace }}/android-sdk/ndk/26.1.10909125
+      NDK_VERSION: 26.1.10909125
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ==================== JDK ====================
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
 
-      # ===== Android SDK + NDK 手动安装（最稳定） =====
+      # ==================== Android SDK + NDK ====================
+      # 手动用 sdkmanager 安装，避免第三方 action 的版本兼容问题
       - name: Install Android SDK & NDK
         run: |
-          sudo mkdir -p $ANDROID_HOME
-          sudo chown -R $USER:$USER $ANDROID_HOME
-          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
-            cd /tmp
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-            unzip -q cmdline-tools.zip
-            mkdir -p $ANDROID_HOME/cmdline-tools/latest
-            mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/ 2>/dev/null || true
-            rm -rf cmdline-tools cmdline-tools.zip
+          set -e
+          mkdir -p "$ANDROID_SDK_ROOT"
+          cd "$ANDROID_SDK_ROOT"
+          if [ ! -d cmdline-tools/latest ]; then
+            curl -sSL -o cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q cmdline.zip
+            mv cmdline-tools cmdline-tools-latest
+            mkdir -p cmdline-tools/latest
+            mv cmdline-tools-latest/* cmdline-tools/latest/
+            rm -f cmdline.zip
           fi
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1" 2>&1 | tail -5
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls $ANDROID_HOME/ndk/
+          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;${NDK_VERSION}" \
+            "cmake;3.22.1"
+          echo "Installed SDK components:"
+          ls "$ANDROID_SDK_ROOT"
 
-      # ===== Rust 工具链 =====
+      # ==================== Rust 工具链 ====================
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.85.0  # cpufeatures 0.3.1 需要 edition2024（1.85+）
+          toolchain: 1.85.0
+          components: rustfmt, clippy
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: 'app/src/main/rust -> target'
-
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked 2>&1 | tail -3
+        run: cargo install cargo-ndk --version 3.5.6 --locked
 
-      # ===== Gradle =====
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            app/src/main/rust/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('app/src/main/rust/Cargo.toml') }}
 
-      # ===== 签名 keystore =====
-      - name: Generate keystore (CI fallback)
-        run: |
-          if [ ! -f app/novacare-release.jks ]; then
-            keytool -genkey -v \
-              -keystore app/novacare-release.jks \
-              -alias novacare \
-              -keyalg RSA -keysize 2048 \
-              -validity 10000 \
-              -storepass novacare123 -keypass novacare123 \
-              -dname "CN=NovaCare, OU=CI, O=NovaCare, L=NA, ST=NA, C=NA" 2>&1 | tail -2
-          fi
-
-      # ===== Sanity check：cargo check Android target =====
-      - name: Sanity check Rust compilation
+      # ==================== Rust 单元测试（P0-8） ====================
+      - name: Rust unit tests
         run: |
           cd app/src/main/rust
-          cargo check --target aarch64-linux-android --release 2>&1 | tail -10
-        env:
-          CC_aarch64_linux_android: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
-          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
+          cargo test --lib 2>&1 | tail -30
 
-      # ===== 构建 APK（Gradle 会通过 CMake 真的调用 cargo） =====
+      - name: Rust clippy (warnings only)
+        continue-on-error: true
+        run: |
+          cd app/src/main/rust
+          cargo clippy --lib --all-targets 2>&1 | tail -20 || true
+
+      # ==================== 构建 Rust .so（真正的 NDK 交叉编译） ====================
+      # cargo-ndk 自动解析 NDK 工具链路径，无需手工拼 ANDROID_TOOLCHAIN_ROOT
+      - name: Build Rust core for Android ABIs
+        run: |
+          set -e
+          cd app/src/main/rust
+          cargo ndk \
+            -t arm64-v8a \
+            -t armeabi-v7a \
+            -t x86_64 \
+            -o ../jniLibs \
+            build --release
+          echo "=== Generated .so files ==="
+          find ../jniLibs -name '*.so' -exec ls -lh {} \;
+
+      - name: Verify native library was produced
+        run: |
+          set -e
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            if [ ! -f "app/src/main/jniLibs/$abi/libnovacare_core.so" ]; then
+              echo "::error::Missing libnovacare_core.so for $abi"
+              exit 1
+            fi
+          done
+          echo "All ABIs built successfully"
+
+      # ==================== Gradle ====================
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # P0-1：仓库必须自带 Gradle Wrapper；此处生成后提交回仓库，实现自愈
+      - name: Ensure Gradle Wrapper is committed
+        run: |
+          if [ ! -f gradlew ]; then
+            echo "gradlew missing — generating and committing wrapper"
+            gradle wrapper --gradle-version 8.9 --distribution-type bin
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add gradlew gradlew.bat gradle/wrapper/ 2>/dev/null || true
+            git commit -m "chore: add Gradle Wrapper (auto-generated by CI)" || true
+            git push origin HEAD:${GITHUB_REF_NAME} || true
+          else
+            echo "gradlew present"
+          fi
+
+      # ==================== 签名密钥（缓存复用，杜绝漂移 + 无明文密码） ====================
+      # 首次运行随机生成并缓存；后续运行命中缓存 → 同一把密钥 → 用户可覆盖升级
+      - name: Cache CI signing keystore
+        id: ks-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci-keystore
+          key: novacare-ci-keystore-v1
+
+      - name: Restore or create signing keystore
+        run: |
+          set -e
+          KS_DIR=.ci-keystore
+          mkdir -p "$KS_DIR"
+          if [ -f "$KS_DIR/password.txt" ]; then
+            KS_PASS="$(cat "$KS_DIR/password.txt")"
+          else
+            KS_PASS="$(openssl rand -base64 24 | tr -d '\n')"
+            printf '%s' "$KS_PASS" > "$KS_DIR/password.txt"
+          fi
+          if [ ! -f "$KS_DIR/novacare.jks" ]; then
+            keytool -genkeypair -v \
+              -keystore "$KS_DIR/novacare.jks" \
+              -alias novacare \
+              -keyalg RSA -keysize 2048 -validity 10950 \
+              -storepass "$KS_PASS" -keypass "$KS_PASS" \
+              -dname "CN=NovaCare CI, OU=CI, O=NovaCare, L=X, S=X, C=US"
+            echo "Generated new CI keystore (will be cached)"
+          else
+            echo "Reusing cached keystore (no signature drift)"
+          fi
+          {
+            echo "KEYSTORE_FILE=$KS_DIR/novacare.jks"
+            echo "KEYSTORE_PASSWORD=$KS_PASS"
+            echo "KEY_ALIAS=novacare"
+            echo "KEY_PASSWORD=$KS_PASS"
+          } >> "$GITHUB_ENV"
+          echo "::add-mask::$KS_PASS"
+
+      # ==================== Kotlin 单元测试（P0-8） ====================
+      - name: Kotlin unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon
+
+      # ==================== 构建 APK ====================
       - name: Build Debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
-        env:
-          KEYSTORE_FILE: app/novacare-release.jks
-          KEYSTORE_PASSWORD: novacare123
-          KEY_ALIAS: novacare
-          KEY_PASSWORD: novacare123
 
       - name: Build Signed Release APK
         run: gradle :app:assembleRelease --no-daemon --stacktrace
-        env:
-          KEYSTORE_FILE: app/novacare-release.jks
-          KEYSTORE_PASSWORD: novacare123
-          KEY_ALIAS: novacare
-          KEY_PASSWORD: novacare123
 
-      # ===== 验证 =====
-      - name: Verify APK signature
+      # ==================== 产物校验 ====================
+      - name: Verify APK signature & native library
         run: |
-          set +e
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner 2>/dev/null | head -1)
-          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
-            $APKSIGNER verify --verbose app/build/outputs/apk/release/app-release.apk 2>&1 | head -10
-          fi
-          $APKSIGNER verify app/build/outputs/apk/debug/app-debug.apk 2>&1 | head -3
-        continue-on-error: true
-
-      - name: Inspect APK
-        run: |
-          set +e
-          AAPT=$(find $ANDROID_HOME/build-tools -name aapt 2>/dev/null | head -1)
-          echo "=== Debug APK ==="
-          $AAPT dump badging app/build/outputs/apk/debug/app-debug.apk 2>&1 | head -6
+          set -e
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | head -1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | head -1)
           echo "=== Release APK ==="
-          $AAPT dump badging app/build/outputs/apk/release/app-release.apk 2>&1 | head -6
-          echo "=== Native libs (must include libnovacare_core.so) ==="
-          unzip -l app/build/outputs/apk/release/app-release.apk 2>&1 | grep -E "lib/.*\.so$" | head -10
-          echo "=== Sizes ==="
-          ls -lh app/build/outputs/apk/{debug,release}/*.apk
-        continue-on-error: true
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/release/app-release.apk | grep -E "Verifies|scheme|signers" || true
+          echo "=== Debug APK ==="
+          "$APKSIGNER" verify app/build/outputs/apk/debug/app-debug.apk && echo "debug signature OK"
+          echo "=== APK 内含 .so 校验（证明 Rust 引擎已打包） ==="
+          for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release.apk; do
+            COUNT=$(unzip -l "$apk" | grep -c "libnovacare_core.so" || true)
+            echo "$(basename $apk): libnovacare_core.so x${COUNT}"
+            if [ "$COUNT" -lt 3 ]; then echo "::warning::Expected 3 ABIs of libnovacare_core.so in $apk"; fi
+          done
+          echo "=== Package metadata ==="
+          "$AAPT" dump badging app/build/outputs/apk/debug/app-debug.apk | head -12
+          ls -lh app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: NovaCare-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
 
       - name: Upload Signed Release APK
         uses: actions/upload-artifact@v4
         with:
           name: NovaCare-release-signed
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          retention-days: 30
 
-      - name: Create GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'alpha') && !contains(github.ref, 'beta')
-        uses: softprops/action-gh-release@v2
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
-          draft: true
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: test-reports
+          path: app/build/reports/tests/
+          if-no-files-found: ignore

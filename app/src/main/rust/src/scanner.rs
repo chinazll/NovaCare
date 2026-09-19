@@ -53,13 +53,17 @@ pub struct ScanOptions {
 }
 
 // 手动 Clone（progress 是 Box<dyn Fn>，不能 derive Clone）
+//
+// 注意：Box<dyn Fn> 无法克隆，因此 Clone 后 progress 会被置为 None。
+// 这是有意记录在案的语义（而非隐藏陷阱）：**克隆体不带进度回调**。
+// 调用方若需要进度，必须传入原始值而非克隆值。
 impl Clone for ScanOptions {
     fn clone(&self) -> Self {
         Self {
             max_depth: self.max_depth,
             follow_links: self.follow_links,
             collect_tree: self.collect_tree,
-            progress: None,  // 闭包不 clone
+            progress: None,
         }
     }
 }

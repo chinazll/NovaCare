@@ -20,15 +20,29 @@ class PermissionHelper @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
 ) {
     /** 检测是否已获得使用情况访问权限 */
-    fun hasUsageStatsPermission(): Boolean {
+    fun hasUsageStatsPermission(): Boolean = runCatching {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode = appOps.unsafeCheckOpNoThrow(
             AppOpsManager.OPSTR_GET_USAGE_STATS,
             Process.myUid(),
             context.packageName,
         )
-        return mode == AppOpsManager.MODE_ALLOWED
-    }
+        mode == AppOpsManager.MODE_ALLOWED
+    }.getOrDefault(false)
+
+    /**
+     * 是否持有完整包可见性（QUERY_ALL_PACKAGES）。
+     *
+     * 本项目**主动放弃**该权限（Google Play 严格管控，且侵犯用户隐私），
+     * 因此本方法恒定返回 false，其作用是驱动 [DeviceRepository.scanJunk] 关闭
+     * 「残留目录检测」—— 因为 Android 11+ 分区存储下无法可靠枚举已安装应用，
+     * 强行比对会把在用应用的 `Android/data/<pkg>` 误判为残留并删除（P1-4 数据丢失风险）。
+     */
+    fun hasFullPackageVisibility(): Boolean = runCatching {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return true
+        context.checkSelfPermission(android.Manifest.permission.QUERY_ALL_PACKAGES) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+    }.getOrDefault(false)
 
     /** 跳转到系统设置页让用户授权 */
     fun usageStatsSettingsIntent(): Intent {
