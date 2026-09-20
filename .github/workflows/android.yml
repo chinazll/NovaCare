@@ -279,14 +279,31 @@ jobs:
               app/build/outputs/apk/release/app-release.apk \
               --clobber
           else
-            echo "=== creating draft release for $TAG ==="
-            if [ -f release-notes-v0.5.0-alpha.md ]; then
-              NOTES="$(cat release-notes-v0.5.0-alpha.md)"
+            echo "=== creating release for $TAG ==="
+            # 发布说明按 tag 动态查找：release-notes-v0.6.0-alpha.md 等。
+            # 之前这里硬编码了 v0.5.0-alpha 的文件名 —— 换版本后会静默
+            # 退回 "Release $TAG"，发布页看不到任何说明。
+            NOTES_FILE="release-notes-${TAG}.md"
+            if [ -f "$NOTES_FILE" ]; then
+              echo "Using release notes: $NOTES_FILE"
+            else
+              # 退一步：取仓库里最新的一份 release notes（glob 展开后取最后一个）
+              NOTES_FILE="$(ls -1 release-notes-*.md 2>/dev/null | sort -V | tail -1)"
+              if [ -n "$NOTES_FILE" ]; then
+                echo "Requested release-notes-${TAG}.md missing; falling back to $NOTES_FILE"
+              else
+                echo "No release notes file found; using placeholder text"
+              fi
+            fi
+            if [ -n "$NOTES_FILE" ] && [ -f "$NOTES_FILE" ]; then
+              NOTES="$(cat "$NOTES_FILE")"
             else
               NOTES="Release $TAG"
             fi
+            # 显式 --latest 且**不加 --draft**：draft 状态对普通用户不可见，
+            # 会让"release 明明建好了却打不开"。这里直接发布正式版。
             gh release create "$TAG" \
-              --draft \
+              --latest \
               --title "$TAG" \
               --notes "$NOTES" \
               --target "$GITHUB_SHA" \
@@ -294,5 +311,16 @@ jobs:
               app/build/outputs/apk/release/app-release.apk
           fi
           echo "=== final state ==="
-          gh release view "$TAG" --json tagName,name,draft,assets --jq '. | "tag=\(.tagName) name=\(.name) draft=\(.draft) assets=\(.assets | length)"'
+          # 注意字段名是 isDraft / isPrerelease，不是 draft / prerelease。
+          # 之前写 --json draft 会让 gh 直接报 "Unknown JSON field" 并以退出码 1 失败，
+          # 于是整个 tag 构建**在产物已经上传成功之后**被判为失败。
+          gh release view "$TAG" \
+            --json tagName,name,isDraft,isPrerelease,assets \
+            --jq '. | "tag=\(.tagName) name=\(.name) draft=\(.isDraft) prerelease=\(.isPrerelease) assets=\(.assets | length)"'
+          # 守卫：release 必须有 ≥1 个资产，否则显式失败（避免"空 release"静默通过）
+          ASSET_COUNT="$(gh release view "$TAG" --json assets --jq '.assets | length')"
+          if [ "$ASSET_COUNT" -lt 2 ]; then
+            echo "::error::Release $TAG has only $ASSET_COUNT asset(s); expected 2 (debug + release APK)"
+            exit 1
+          fi
           echo "URL: https://github.com/${{ github.repository }}/releases/tag/$TAG"
