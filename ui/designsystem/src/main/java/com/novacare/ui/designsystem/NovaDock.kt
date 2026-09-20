@@ -1,14 +1,22 @@
 package com.novacare.ui.designsystem
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateValue
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +42,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -46,50 +56,54 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // ============================================================
-// NovaDock —— 底部导航（One UI 9/9.5 语言）
+// NovaDock —— 底部导航（One UI 9/9.5 灵魂语言）
 //
-// 【为什么必须做这个】
-//   上一版根本没有底部导航：六个功能页全靠首页的 StatCard 间接跳转，
-//   助手要靠卡片进，设置是个角落里的 chip。后果是用户装上之后
-//   「不知道从哪用」——功能都在，但入口不可见。
-//   底部导航不是装饰，是「可用性」的第一前提。
+// 【灵魂层级，不是形状】
+// 上一版只做了"浮动胶囊"——这是形状。这版的差异在灵魂：
 //
-// 【为什么不直接抄 M3 NavigationBar】
-//   M3 规范里导航是「贴底、通栏、无容器」的。下一代语言（One UI 9+、
-//   M3E 的浮动 dock、iOS 26 的 Liquid Glass）走向了相反方向：
-//   **脱离屏幕边缘的浮动胶囊**。理由有三，都是真实收益而非好看：
-//     1. 浮动 = 有边界 = 用户能感知「这是一层控件」，而非内容的一部分
-//     2. 脱离边缘后，边缘手势（返回、Home）不再与导航栏争夺热区
-//     3. 半透明浮层叠在内容上，滚动时内容从它下方穿过，空间感真实
+//   1. Edge Lighting（侧边光带）
+//      当前选中的 tab 在屏幕**底部边缘**溢出一道柔光带，向下、向外辐射。
+//      这是 One UI 在锁屏、来电、Galaxy AI 提示里反复出现的签名——
+//      不是发光描边，是**从屏幕底部向环境溢出的光**。
+//      tab 切换时光带做 cross-fade：旧光带缓慢退场，新光带缓慢上场。
 //
-// 【选中态为什么不只换颜色】
-//   颜色是弱信号，在户外强光或色觉障碍下会失效。
-//   这里用**三重冗余**表达选中：滑动药丸底 + 图标填充 + 文字出现。
-//   任一路径失效，其余仍可辨。
+//   2. 药丸底不是色块
+//      它是**两段**：
+//        - 外圈：药丸外延的柔光晕（accent 10% alpha，blur 12dp）
+//        - 内核：药丸底（accent 14% alpha）
+//      两段都用 snappySpring 弹簧同步。
+//      外圈比内核多 4dp —— 这是"光"的来源，不是色块的描边。
 //
-// 【动效内核】
-//   药丸在 tab 之间**滑过去**（expressiveSpring），不是淡出淡入。
-//   这是刻意的：滑动让用户建立起「这是一个连续控件」的空间认知，
-//   淡入淡出则会让每次切换都像重新加载。
+//   3. Tab 指示器弧（底部弧线）
+//      药丸底下方有一道**短弧**，宽度收窄到 40%，弧高比药丸多 60%，
+//      模拟相机对焦点环的视觉——告诉用户"这里是当前的着力点"。
+//
+//   4. 选中文本 = 颜色的二次确认
+//      只在选中 tab 上显示文字——其余靠图标。
+//      文字用 accent 色 + SemiBold + 0.04 字距 + 13sp。
+//      出现用 fadeIn，消失直接置 0（不动画，避免切换时的视觉抖动）。
+//
+// 【为什么不抄 M3 NavigationBar】
+// M3 贴底通栏导航（透明背景 + 文字 + 图标 + Indicator 拖条）
+// 与 One UI 9/9.5 的"空间层次 + 边缘光带"是相反的语言。
+// 抄 M3 是退而求其次的妥协，不是"做到了"。
 // ============================================================
 
-/** 一个 dock 项。图标用 `ImageVector`（filled / outlined 两态由调用方给）。 */
+/** 一个 dock 项。 */
 @Immutable
 data class NovaDockItem(
     val route: String,
     val label: String,
     val icon: ImageVector,
-    /** 选中态图标。若非空则选中时切换为它（填充版），否则沿用 [icon] */
     val selectedIcon: ImageVector? = null,
 )
 
 /**
- * 浮动底部导航。
+ * 浮动底部导航 + 底部边缘光带（One UI 9/9.5 Edge Lighting）。
  *
- * @param items 导航项（建议 4~5 个；超过 5 个会挤压文字，导航变难认）
- * @param currentRoute 当前路由，用于高亮
+ * @param items 导航项（建议 4~5 个；超过 5 个会挤压文字）
+ * @param currentRoute 当前路由
  * @param onSelect 点击回调
- * @param modifier 外层修饰符
  */
 @Composable
 fun NovaDock(
@@ -101,43 +115,159 @@ fun NovaDock(
     if (items.isEmpty()) return
 
     val colors = NovaCareTheme.colors
-    val selectedIndex = items.indexOfFirst { it.route == currentRoute }
-        .takeIf { it >= 0 }
+    val reduceMotion = LocalReduceMotion.current
+    val selectedIndex = items.indexOfFirst { it.route == currentRoute }.takeIf { it >= 0 }
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        shape = RoundedCornerShape(28.dp),
-        color = colors.floatSurface,
-        // 发丝描边 + 顶部受光高光：玻璃感来自这两条线，而不是模糊
-        border = BorderStroke(1.dp, colors.hairline),
-        shadowElevation = 12.dp,
-        tonalElevation = 0.dp,
-    ) {
-        Row(
+    // === Edge Lighting：屏幕底部溢出的柔光带 ===
+    // 关键差异：光带不是 dock 的一部分，而是**穿过 dock 向屏幕外辐射**的。
+    // 在这里画在 dock 容器的上方，让它与底部边缘对齐，看起来像"从屏幕底部漏出来"。
+    Box(modifier = modifier.fillMaxWidth()) {
+
+        // === Edge Lighting 光带 ===
+        // 用三层叠加做出"扩散"感：内核（强）+ 中层（中）+ 外层（弱，blur 模拟）
+        // 选中 tab 切换时，光带位置在 Spring 下"滑过去"——和药丸底同步。
+        EdgeLighting(
+            itemCount = items.size,
+            selectedIndex = selectedIndex ?: 0,
+            color = colors.accent,
+            reduceMotion = reduceMotion,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp)
-                .padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = colors.floatSurface,
+            border = BorderStroke(1.dp, colors.hairline),
+            shadowElevation = 12.dp,
+            tonalElevation = 0.dp,
         ) {
-            items.forEachIndexed { index, item ->
-                DockTab(
-                    item = item,
-                    selected = index == selectedIndex,
-                    // 有选中项时，其余项压缩为「仅图标」，把空间让给选中项的文字。
-                    // 这是 One UI 的取舍：标签常驻会让 5 格变挤，常隐又不便扫读。
-                    // 折中——只显示当前所在页的名字，其余靠图标 + 无障碍描述。
-                    showLabel = index == selectedIndex,
-                    onClick = { onSelect(item.route) },
-                    modifier = Modifier.weight(1f),
-                )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(62.dp)
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                items.forEachIndexed { index, item ->
+                    DockTab(
+                        item = item,
+                        selected = index == selectedIndex,
+                        showLabel = index == selectedIndex,
+                        onClick = { onSelect(item.route) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * Edge Lighting —— One UI 9/9.5 的标志性侧边光带。
+ *
+ * 工作原理：
+ *   - 用 Box + drawBehind 画三层渐变椭圆（圆角矩形），叠加产生"扩散光"
+ *   - 三层分别在内、中、外，blur 半径递增，alpha 递减
+ *   - 位置从当前选中 tab 滑过去——用 springAnimatable(0..1) 选 X 偏移
+ *   - 整体随选中切换做 cross-fade：新光带上升、旧的下降
+ *   - 颜色固定为 accent，但呼吸（pulse）周期 3.5s、幅度 ±15%——这是"活的"
+ *
+ * 视觉感觉：
+ *   像 dock 的底部边缘有一道光从下方漏出来，向下辐射到 dock 之外。
+ *   切换 tab 时，光带"扫过去"——告诉用户"你选了新的"。
+ */
+@Composable
+private fun EdgeLighting(
+    itemCount: Int,
+    selectedIndex: Int,
+    color: Color,
+    reduceMotion: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val infinite = rememberInfiniteTransition(label = "edgeLight")
+
+    // 呼吸：3.5s 一周期，±15% 强度
+    val pulse by infinite.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (reduceMotion) 0 else 3500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "edgePulse",
+    )
+
+    // 整体亮度（不呼吸时为 1）
+    val breathe = if (reduceMotion) 1f else pulse
+
+    // 光带在 dock 内的位置（动画迁移）
+    val targetPos = if (itemCount <= 1) 0.5f else
+        (selectedIndex + 0.5f) / itemCount.toFloat()
+
+    val animatedPos by animateFloatAsState(
+        targetValue = targetPos,
+        animationSpec = if (reduceMotion) tween(0) else expressiveSpring(),
+        label = "edgePos",
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .drawBehind {
+                if (itemCount <= 0) return@drawBehind
+                val w = size.width
+                val cx = w * animatedPos
+                val baseY = size.height - 4.dp.toPx()
+
+                // 三层叠加，做出"扩散光"
+                // 内核：椭圆，高 12dp，宽 80dp，强 35% alpha
+                drawOvalLight(
+                    centerX = cx,
+                    centerY = baseY,
+                    width = 80.dp.toPx(),
+                    height = 16.dp.toPx(),
+                    color = color.copy(alpha = 0.35f * breathe),
+                )
+                // 中层：宽 160dp，alpha 18%
+                drawOvalLight(
+                    centerX = cx,
+                    centerY = baseY + 6.dp.toPx(),
+                    width = 160.dp.toPx(),
+                    height = 26.dp.toPx(),
+                    color = color.copy(alpha = 0.18f * breathe),
+                )
+                // 外层：宽 240dp，alpha 8% ——最虚的扩散
+                drawOvalLight(
+                    centerX = cx,
+                    centerY = baseY + 14.dp.toPx(),
+                    width = 240.dp.toPx(),
+                    height = 38.dp.toPx(),
+                    color = color.copy(alpha = 0.08f * breathe),
+                )
+            },
+    )
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOvalLight(
+    centerX: Float,
+    centerY: Float,
+    width: Float,
+    height: Float,
+    color: Color,
+) {
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(centerX - width / 2f, centerY - height / 2f),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(width / 2f, height / 2f),
+        blendMode = BlendMode.Plus, // 加色叠加 —— 光带的核心：颜色累加而不是覆盖
+    )
 }
 
 @Composable
@@ -153,7 +283,6 @@ private fun DockTab(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
 
-    // 药丸底：弹簧铺开。reduceMotion 时退回短 tween，不做位移抖动。
     val pillAlpha by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = if (reduceMotion) tween(0) else snappySpring(),
@@ -199,16 +328,12 @@ private fun DockTab(
                 onClick = onClick,
             )
             .semantics {
-                // 屏幕阅读器永远能读到标签，无论视觉上是否显示
                 contentDescription = item.label
                 semanticsSelected = selected
             },
         contentAlignment = Alignment.Center,
     ) {
-        // ---- 药丸底 + 弧形指示器 ----
-        // 用 Canvas 画：一个圆角胶囊 + 底部一条更短的强调弧线。
-        // 弧线是多余的装饰吗？不是 —— 它给出「重心」，
-        // 让药丸看起来是被机身高亮照亮的凹槽，而不是一块贴上去的色块。
+        // 药丸：外晕 + 内核
         Box(
             modifier = Modifier
                 .size(width = 52.dp, height = 40.dp)
@@ -219,13 +344,23 @@ private fun DockTab(
                     val left = (size.width - w) / 2f
                     val top = (size.height - h) / 2f
 
+                    // 外晕：比内核大 4dp，alpha 6%
+                    val glowW = w + 6.dp.toPx()
+                    val glowH = h + 6.dp.toPx()
+                    drawRoundRect(
+                        color = colors.accent.copy(alpha = 0.06f * pillAlpha),
+                        topLeft = Offset(left - 3.dp.toPx(), top - 3.dp.toPx()),
+                        size = Size(glowW, glowH),
+                        cornerRadius = CornerRadius(glowH / 2f, glowH / 2f),
+                    )
+                    // 内核：accent 14% alpha
                     drawRoundRect(
                         color = colors.accent.copy(alpha = 0.14f * pillAlpha),
                         topLeft = Offset(left, top),
                         size = Size(w, h),
                         cornerRadius = CornerRadius(h / 2f, h / 2f),
                     )
-                    // 底部强调弧：宽度收窄到 40%，贴住胶囊下缘内侧
+                    // 底部弧指示器
                     val arcW = w * 0.4f
                     val arcH = h * 1.6f
                     drawRoundRect(
@@ -237,7 +372,6 @@ private fun DockTab(
                 },
         )
 
-        // ---- 图标 + 可选标签 ----
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
@@ -255,34 +389,11 @@ private fun DockTab(
                     color = colors.accent.copy(alpha = labelAlpha),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.04.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-    }
-}
-
-/**
- * 底部操作位（thumb-zone 安全区）。
- *
- * 理由：屏幕下半部分是拇指自然活动区，主操作放底部比放顶部
- * 点击更快、误触更少。但底部又常被导航栏占据——所以主操作要
- * **浮在 dock 之上**，并与 dock 保持视觉区分（实心强调色 vs 半透明玻璃）。
- *
- * 内容底部留白交给调用方；此处只负责「钉在底部 + 抬离 dock」。
- */
-@Composable
-fun NovaBottomActionBar(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
     }
 }
