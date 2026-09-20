@@ -125,9 +125,11 @@ class RuleBasedIntentParser @Inject constructor() : IntentParser {
     }
 
     private fun extractMinBytes(text: String): Long? {
-        val mb = Regex("(\\d+)\\s*MB").find(text)
+        // 必须忽略大小写：用户随手打 "500mb" / "1Gb" 时旧的大小写敏感正则匹配不到，
+        // 「清理大于 500MB 的文件」这条约束被静默丢弃。
+        val mb = Regex("(\\d+)\\s*mb", RegexOption.IGNORE_CASE).find(text)
         if (mb != null) return mb.groupValues[1].toLongOrNull()?.times(1024 * 1024)
-        val gb = Regex("(\\d+)\\s*GB").find(text)
+        val gb = Regex("(\\d+)\\s*gb", RegexOption.IGNORE_CASE).find(text)
         return gb?.groupValues?.get(1)?.toLongOrNull()?.times(1024 * 1024 * 1024)
     }
 }
@@ -168,6 +170,11 @@ class LlmIntentParser(
         fun num(field: String): Int? =
             Regex("\"$field\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull()
 
+        // 置信度可能是 0.9 这样的小数；只按整数解析会把 0.9 截成 0，置信度恒失真。
+        fun dec(field: String): Double? =
+            Regex("\"$field\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)")
+                .find(body)?.groupValues?.get(1)?.toDoubleOrNull()
+
         val pkgs = Regex("\"excludePackages\"\\s*:\\s*\\[([^]]*)]")
             .find(body)
             ?.groupValues?.get(1)
@@ -181,7 +188,7 @@ class LlmIntentParser(
             excludePackages = pkgs,
             rawText = "",
             source = AiTier.CLOUD,
-            confidence = (num("confidence") ?: 70) / 100f,
+            confidence = (dec("confidence") ?: 0.7).toFloat().coerceIn(0f, 1f),
         )
     }
 }

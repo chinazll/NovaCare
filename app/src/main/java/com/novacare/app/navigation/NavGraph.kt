@@ -31,39 +31,60 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.novacare.app.onboarding.OnboardingScreen
 import com.novacare.app.settings.SettingsScreen
 import com.novacare.feature.assistant.AssistantScreen
 import com.novacare.feature.automation.AutomationScreen
 import com.novacare.feature.clean.CleanScreen
 import com.novacare.feature.freeze.FreezeScreen
+import com.novacare.feature.guardian.battery.BatteryGuardianScreen
+import com.novacare.feature.guardian.memory.MemoryGuardianScreen
+import com.novacare.feature.guardian.storage.StorageGuardianScreen
+import com.novacare.feature.home.HomeDestination
 import com.novacare.feature.home.HomeScreen
 import com.novacare.ui.designsystem.NovaDock
 import com.novacare.ui.designsystem.NovaDockItem
 
 object Routes {
+    const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val CLEAN = "clean"
     const val FREEZE = "freeze"
     const val AUTOMATION = "automation"
     const val ASSISTANT = "assistant"
     const val SETTINGS = "settings"
+
+    // ---- 守护中心：按设备维度拆分（存储 / 内存 / 电池）----
+    // 不进底栏：NovaDock 是固定宽度胶囊（未选 60dp / 选中 90dp / 间距 6dp），
+    // 6 个 tab 需要 420dp，而 360dp 宽的设备只有 320dp 可用 —— 第 6 个会被压成 0 宽。
+    // 因此走「设置 → 设备守护」入口，由 Routes 统一跳转。
+    const val STORAGE = "guardian/storage"
+    const val MEMORY = "guardian/memory"
+    const val BATTERY = "guardian/battery"
 }
 
 /**
  * 底部导航项（5 格）。
  *
- * 【为什么是这 5 个，助手为什么不在里面】
- *   底栏是「常驻、平级、高频」的位置，所以只放用户每天都会碰的动词。
- *   - 首页：状态与总入口
- *   - 清理：本 App 的核心动词
- *   - 冻结：第二核心动词
- *   - 自动化：低频但仍属「设置一次、长期生效」的主功能
- *   - 设置：必须有稳定入口，否则用户找不到权限开关
+ * 【信息架构：每个 tab 有唯一且互斥的职责，必须能一句话说清】
+ *   首页     —— 设备现在有多健康，哪一项该去处理。（只读，不执行任何操作）
+ *   清理     —— 扫描出可释放的东西，勾选后释放。（唯一的清理执行入口）
+ *   冻结     —— 让长期未用的应用停下来。（应用停用的唯一入口）
+ *   自动化   —— 配置"什么条件下自动做什么"的规则。（规则的配置与启停）
+ *   设置     —— 权限、内核、AI、外观。（偏好与能力的总开关）
  *
- *   助手（ASSISTANT）**刻意不进底栏**：
- *   它的能力依赖引擎与 AI 配置，未配置时点进去只会看到空壳——
+ * 【互斥规则】
+ *   一个操作只在它所属的 tab 里发生，别处只能「引导过去」并说明理由。
+ *   因此首页不出现执行按钮，也不重复列出这五个 tab——底栏已经列了一遍，
+ *   首页再抄一遍等于让用户猜"这两个是不是同一回事"。
+ *   首页破例只有两处：① 助手不在底栏，首页是它唯一入口；
+ *   ② 健康维度确实偏低且真有依据时，该维度行才出现跳转。
+ *
+ * 【助手为什么不进底栏】
+ *   底栏是「常驻、平级、高频」的位置，只放每天都会碰的东西。
+ *   助手的能力依赖内核与 AI 配置，未配置时点进去只会看到空壳——
  *   把「可能不可用」的东西放进常驻导航，是给用户挖坑。
- *   它由首页的动作卡进入，入口处即会说明可用性。这是「零伪造」原则的落点。
+ *   它由首页的助手卡进入（走压栈，返回回首页）。这是「零伪造」原则的落点。
  */
 private val DockItems = listOf(
     NovaDockItem(
@@ -119,7 +140,11 @@ private val DockItems = listOf(
  *   也让「五个平级页面」的语义成立——平级页面之间不该有方向性滑动。
  */
 @Composable
-fun NovaCareNavHost() {
+fun NovaCareNavHost(
+    // 首次启动（onboardingCompleted == false）时由 MainActivity 传入 ONBOARDING。
+    // 默认是 HOME，保证任何没传的地方行为跟以前一致。
+    startDestination: String = Routes.HOME,
+) {
     val navController = rememberNavController()
     val rootPath = remember {
         Environment.getExternalStorageDirectory()?.absolutePath ?: "/storage/emulated/0"
@@ -138,17 +163,21 @@ fun NovaCareNavHost() {
         // 底栏由 NovaDock 内部处理导航栏内边距。
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
-            NovaDock(
-                items = DockItems,
-                currentRoute = currentRoute,
-                onSelect = { route -> navController.switchTab(route) },
-            )
+            // 引导页不是五个主功能之一，底栏在它上面没有意义 —— 此时不渲染 dock，
+            // 否则用户会在还没读完权限说明时就跑去点别的页。
+            if (currentRoute != Routes.ONBOARDING) {
+                NovaDock(
+                    items = DockItems,
+                    currentRoute = currentRoute,
+                    onSelect = { route -> navController.switchTab(route) },
+                )
+            }
         },
     ) { innerPadding ->
         val bottomInset = innerPadding.calculateBottomPadding()
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = startDestination,
             modifier = Modifier
                 .padding(bottom = bottomInset)
                 .consumeWindowInsets(PaddingValues(bottom = bottomInset)),
@@ -163,8 +192,28 @@ fun NovaCareNavHost() {
             popEnterTransition = { fadeIn(fadeSpec) },
             popExitTransition = { fadeOut(fadeSpec) },
         ) {
+            composable(Routes.ONBOARDING) {
+                OnboardingScreen(
+                    onFinished = {
+                        // 引导是一次性的：完成后把自己从栈里连同弹出，
+                        // 返回键不会再退回引导页。
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    },
+                )
+            }
             composable(Routes.HOME) {
-                HomeScreen(onNavigate = { route -> navController.navigateTo(route) })
+                // 首页的两个出口语义不同，不能混用一个回调：
+                //   - 去清理 / 冻结 → tab 切换（switchTab），底栏选中态必须与内容一致；
+                //   - 去助手       → 压栈下钻，返回键退回首页。
+                // 如果这里统一用 navigateTo 压栈，用户从首页跳进清理页后，
+                // 底栏仍高亮「首页」而屏幕内容是清理页 —— 选中态与内容打架，
+                // 这正是上一版"不知道自己在哪"的直接来源。
+                HomeScreen(
+                    onOpenAssistant = { navController.navigateTo(Routes.ASSISTANT) },
+                    onNavigate = { destination -> navController.switchTab(routeOf(destination)) },
+                )
             }
             composable(Routes.CLEAN) { CleanScreen(rootPath = rootPath) }
             composable(Routes.FREEZE) { FreezeScreen(rootPath = rootPath) }
@@ -174,8 +223,15 @@ fun NovaCareNavHost() {
                 // 设置现在既是底栏 tab、也是可能被 push 进来的页面。
                 // 从底栏点进来时栈里只有它自己，此时 onBack 没有可退的页面——
                 // 交给系统处理（Activity 退出）比弹回首页更符合直觉。
-                SettingsScreen(onBack = { navController.popBackStack() })
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenGuardian = { route -> navController.navigateTo(route) },
+                )
             }
+            // ---- 守护中心三个模块：压栈下钻，返回键退回设置页 ----
+            composable(Routes.STORAGE) { StorageGuardianScreen(rootPath = rootPath) }
+            composable(Routes.MEMORY) { MemoryGuardianScreen() }
+            composable(Routes.BATTERY) { BatteryGuardianScreen() }
         }
     }
 }
@@ -194,7 +250,12 @@ fun NovaCareNavHost() {
 private fun NavHostController.switchTab(route: String) {
     if (currentDestination?.route == route) return
     navigate(route) {
-        popUpTo(graph.startDestinationId) {
+        // 锚点写死 HOME 而**不用** graph.startDestinationId：
+        // startDestination 可能是 ONBOARDING（首次启动由 MainActivity 传入），
+        // 而引导页完成后已经把自己 inclusive pop 掉了 ——此时按 startDestinationId 去 pop
+        // 会在栈里找不到它，结果是连 HOME 一起清掉，切完 tab 按返回直接退出应用。
+        // tab 的语义是「HOME 是根，其余 tab 互相替换」，所以锚点就该是 HOME。
+        popUpTo(Routes.HOME) {
             // 保存被替换页面的滚动位置与状态，切回来时不用重新加载
             saveState = true
         }
@@ -214,4 +275,10 @@ private fun NavHostController.switchTab(route: String) {
 private fun NavHostController.navigateTo(route: String) {
     if (currentDestination?.route == route) return
     navigate(route) { launchSingleTop = true }
+}
+
+/** 首页的「去处理」目的地 → 底栏 tab 路由。首页只能引导去这两个执行页。 */
+private fun routeOf(destination: HomeDestination): String = when (destination) {
+    HomeDestination.CLEAN -> Routes.CLEAN
+    HomeDestination.FREEZE -> Routes.FREEZE
 }

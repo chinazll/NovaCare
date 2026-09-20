@@ -66,7 +66,8 @@ class AutomationViewModel @Inject constructor(
             TriggerKind.SCHEDULED -> if (dayOfWeek == null) {
                 "每天 %02d:00 自动执行".format(hourOfDay)
             } else {
-                "每${DAY_LABELS[dayOfWeek - 1]} %02d:00 自动执行".format(hourOfDay)
+                // dayOfWeek 可能来自损坏的库数据（0 / 8+），直接取下标会越界崩溃
+                "每${DAY_LABELS.getOrNull(dayOfWeek - 1) ?: "周"} %02d:00 自动执行".format(hourOfDay)
             }
 
             TriggerKind.BATTERY_BELOW -> "电量低于 $thresholdPercent% 时执行"

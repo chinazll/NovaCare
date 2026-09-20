@@ -66,7 +66,12 @@ data class AutomationRule(
     fun describe(): String {
         val whenText = when (trigger.type) {
             TriggerType.SCHEDULED -> {
-                val d = trigger.dayOfWeek?.let { "周" + "日一二三四五六"[it - 1] } ?: "每天"
+                // dayOfWeek 存的是 Calendar 语义（1=周日..7=周六）；脏数据（0 或 8+）
+                // 会让 `"日一二三四五六"[it - 1]` 抛 StringIndexOutOfBoundsException。
+                val d = trigger.dayOfWeek
+                    ?.takeIf { it in 1..7 }
+                    ?.let { "周" + "日一二三四五六"[it - 1] }
+                    ?: "每天"
                 "%s %02d:00".format(d, trigger.hourOfDay ?: 3)
             }
             TriggerType.DEVICE_IDLE -> "设备空闲充电时"

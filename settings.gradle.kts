@@ -45,6 +45,7 @@ include(":feature:clean")     // 清理（含 AI 语义）
 include(":feature:freeze")    // 冻结
 include(":feature:automation")// 自动化规则
 include(":feature:assistant") // AI 助手（对话式）
+include(":feature:guardian")  // 守护中心：存储 / 内存 / 电池三个持续监测模块
 
 // ---- app：应用壳 ----
 include(":app")

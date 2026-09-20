@@ -2,6 +2,7 @@ package com.novacare.feature.clean
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novacare.core.common.formatBytes
 import com.novacare.core.data.SettingsRepository
 import com.novacare.core.domain.BuildOptimizePlanUseCase
 import com.novacare.core.domain.DeviceSnapshot
@@ -19,11 +20,61 @@ import com.novacare.core.system.MissingCapability
 import com.novacare.core.system.SystemPermissions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/**
+ * 「释放」按钮为什么点不了。
+ *
+ * 事故复盘（本次 P0）：过去 UI 只知道 `selected.isEmpty()`，于是把按钮变灰 + 一句
+ * 「请选择要清理的项目」。用户看到扫描明明有结果、按钮却点不动，页面上没有任何一句话
+ * 说明是「没授予使用情况访问权限」还是「内核不可用」，只能判定为释放功能坏了。
+ * 现在每一种不可用都必须有：原因 + 下一步动作。
+ */
+enum class ReleaseAction {
+    /** 一键勾选建议项（清单有内容，只是没勾） */
+    SELECT_SUGGESTED,
+
+    /** 跳转使用情况访问授权页 */
+    GRANT_USAGE_STATS,
+
+    /** 重新扫描 */
+    RESCAN,
+
+    /** 无动作可给（例如仍在扫描中） */
+    NONE,
+}
+
+/**
+ * 底部「释放」区的完整可用性。
+ *
+ * 由 ViewModel 统一算出来交给 UI 渲染，UI 不再自己拼「要不要变灰」的判断。
+ */
+data class ReleaseAvailability(
+    /** true = 有选中项，点击即真正执行释放 */
+    val canRelease: Boolean,
+    /** 主按钮文案（体现当前状态，而不是永远一句「释放」） */
+    val title: String,
+    /** 原因说明；canRelease 为 true 时必须为 null */
+    val explain: String?,
+    val action: ReleaseAction,
+    /** 不可用时的动作按钮文案；action 为 NONE 时为 null */
+    val actionLabel: String?,
+)
+
+private val NeutralRelease = ReleaseAvailability(
+    canRelease = false,
+    title = "释放",
+    explain = null,
+    action = ReleaseAction.NONE,
+    actionLabel = null,
+)
 
 /**
  * 清理页（L2）—— 状态机
@@ -105,6 +156,123 @@ class CleanViewModel @Inject constructor(
 
     private var lastSnapshot: DeviceSnapshot? = null
 
+    /** 用户是否手动改过勾选 —— 决定重建清单时是保留选择还是回到默认建议 */
+    private var userEditedSelection = false
+
+    /** 一次性提示（例如「点了释放但没勾任何项」）；UI 消费后必须调 [consumeMessage] */
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+
+    fun consumeMessage() {
+        _message.value = null
+    }
+
+    /**
+     * 底部释放区的可用性：把「为什么点不了」算清楚，交给 UI 照抄渲染。
+     *
+     * 用 Eagerly 而不是 WhileSubscribed：[execute] 需要读它的 `.value` 兜底文案，
+     * 惰性订阅会导致没人收集时读到初始值。
+     */
+    val releaseAvailability: StateFlow<ReleaseAvailability> =
+        combine(_state, _selected) { currentState, selectedKeys ->
+            computeAvailability(currentState, selectedKeys)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, NeutralRelease)
+
+    private fun computeAvailability(
+        currentState: UiState,
+        selectedKeys: Set<String>,
+    ): ReleaseAvailability {
+        val results = currentState as? UiState.Results ?: return NeutralRelease
+        val plan = results.plan
+
+        // 只认当前清单里真实存在的键：避免残留脏 key 让「已选 X / Y」虚高
+        val validKeys = plan.advices.map { it.key() }.toSet()
+        val chosen = selectedKeys.filter { it in validKeys }.toSet()
+
+        if (chosen.isNotEmpty()) {
+            val chosenBytes = plan.advices
+                .filter { it.key() in chosen }
+                .sumOf { it.recommendedBytes }
+            return ReleaseAvailability(
+                canRelease = true,
+                title = "释放 ${chosenBytes.formatBytes()}",
+                explain = null,
+                action = ReleaseAction.NONE,
+                actionLabel = null,
+            )
+        }
+
+        // 清单里有东西，只是没勾 —— 这不是故障，如实说明并给一键勾选入口
+        if (plan.advices.isNotEmpty()) {
+            val caution = plan.advices.count { it.risk == CleanRisk.CAUTION }
+            val suggested = plan.advices.count { it.risk != CleanRisk.RISKY }
+            val explain = buildString {
+                append("清单里有 ${plan.advices.size} 项可选")
+                if (caution > 0) {
+                    append("，其中 $caution 项标记为「需确认」，因此没有替你预先勾选")
+                }
+                append("。勾选后即可释放")
+                if (plan.keptCount > 0) {
+                    append("；另有 ${plan.keptCount} 项因缺少使用数据被判为「建议保留」")
+                }
+                append("。")
+            }
+            return ReleaseAvailability(
+                canRelease = false,
+                title = "选择要释放的项目",
+                explain = explain,
+                action = ReleaseAction.SELECT_SUGGESTED,
+                actionLabel = if (suggested > 0) "选择建议的 $suggested 项" else "全部选中",
+            )
+        }
+
+        return when {
+            !results.usagePermissionGranted -> ReleaseAvailability(
+                canRelease = false,
+                title = "需要使用情况访问权限",
+                explain = buildString {
+                    append("未授予「使用情况访问」权限，读不到应用最近使用时间，")
+                    append("所以不敢替你判断哪些缓存能安全释放 —— 宁可不推荐，也不乱删。")
+                    if (plan.keptCount > 0) {
+                        append("本次有 ${plan.keptCount} 项应用缓存因此被判为「建议保留」，没有出现在清单里。")
+                    }
+                    append("授权后重新扫描即可生成清单。")
+                },
+                action = ReleaseAction.GRANT_USAGE_STATS,
+                actionLabel = "去授权",
+            )
+
+            !results.engineAvailable -> ReleaseAvailability(
+                canRelease = false,
+                title = "清理引擎不可用",
+                explain = buildString {
+                    append("清理内核未加载，无法扫描文件级垃圾，本次能力已降级。")
+                    append("此处不推测、也不展示没有经过真实扫描的数字。")
+                },
+                action = ReleaseAction.RESCAN,
+                actionLabel = "重新扫描",
+            )
+
+            else -> ReleaseAvailability(
+                canRelease = false,
+                title = "没有发现可释放的内容",
+                explain = "扫描已完成，当前确实没有可以安全释放的项目。",
+                action = ReleaseAction.RESCAN,
+                actionLabel = "重新扫描",
+            )
+        }
+    }
+
+    /** 勾选「建议项」= 当前清单里所有非 RISKY 的项（含 CAUTION，因为用户主动点了才算） */
+    fun selectSuggested() {
+        val plan = (_state.value as? UiState.Results)?.plan ?: return
+        userEditedSelection = true
+        _selected.value = plan.advices
+            .filter { it.risk != CleanRisk.RISKY }
+            .map { it.key() }
+            .toSet()
+    }
+
     // ------------------------------------------------------------
     // 扫描
     // ------------------------------------------------------------
@@ -122,14 +290,29 @@ class CleanViewModel @Inject constructor(
             }
             cache.put(snapshot)
             lastSnapshot = snapshot
+            // 新一轮扫描 = 新一轮建议，之前手勾选的作废
+            userEditedSelection = false
             val duration = (System.currentTimeMillis() - started).coerceAtLeast(1L)
             publish(snapshot, duration)
         }
     }
 
-    private fun publish(snapshot: DeviceSnapshot, durationMs: Long) {
+    /**
+     * @param keepSelection 非 null 时保留用户手勾的选择（用于重建清单），否则回到 [CleanPlan.defaultSelected]
+     */
+    private fun publish(
+        snapshot: DeviceSnapshot,
+        durationMs: Long,
+        keepSelection: Set<String>? = null,
+    ) {
         val plan = buildPlan(snapshot, durationMs, _includeRisky.value)
-        _selected.value = plan.defaultSelected
+        val validKeys = plan.advices.map { it.key() }.toSet()
+        // 选择集必须与当前清单对齐，杜绝残留脏 key 让「已选 X / Y」和环形图失真
+        _selected.value = if (keepSelection != null) {
+            keepSelection.filter { it in validKeys }.toSet()
+        } else {
+            plan.defaultSelected.filter { it in validKeys }.toSet()
+        }
         _engineAvailable.value = snapshot.engineAvailable
         _state.value = UiState.Results(
             plan = plan,
@@ -156,13 +339,18 @@ class CleanViewModel @Inject constructor(
     // ------------------------------------------------------------
 
     fun toggle(key: String) {
-        val current = _selected.value.toMutableSet()
+        val plan = (_state.value as? UiState.Results)?.plan ?: return
+        val validKeys = plan.advices.map { it.key() }.toSet()
+        if (key !in validKeys) return
+        userEditedSelection = true
+        val current = _selected.value.filter { it in validKeys }.toMutableSet()
         if (!current.remove(key)) current.add(key)
         _selected.value = current
     }
 
     fun selectAll(selectAll: Boolean) {
         val plan = (_state.value as? UiState.Results)?.plan ?: return
+        userEditedSelection = true
         _selected.value = if (selectAll) {
             plan.advices.map { it.key() }.toSet()
         } else {
@@ -179,7 +367,14 @@ class CleanViewModel @Inject constructor(
     fun setIncludeRisky(include: Boolean) {
         _includeRisky.value = include
         val snapshot = lastSnapshot ?: cache.last ?: return
-        publish(snapshot, (_state.value as? UiState.Results)?.plan?.scanDurationMs ?: 0L)
+        // 重建清单会重算 advices —— 过去这里把 _selected 直接重置回 defaultSelected，
+        // 用户「勾了半天，一按『含需确认』全没了」。现在按是否手动改过来决定。
+        val preferred = _selected.value.takeIf { userEditedSelection }
+        publish(
+            snapshot,
+            (_state.value as? UiState.Results)?.plan?.scanDurationMs ?: 0L,
+            preferred,
+        )
     }
 
     fun setMoveToRecycleBin(enabled: Boolean) {
@@ -191,8 +386,21 @@ class CleanViewModel @Inject constructor(
     // ------------------------------------------------------------
 
     fun execute() {
-        val current = _state.value as? UiState.Results ?: return
-        if (_selected.value.isEmpty()) return
+        val current = _state.value as? UiState.Results ?: run {
+            // 不是结果态（还在扫描 / 已失败）也不许静默：告诉用户现在没有可执行清单
+            _message.value = "当前没有可执行的清理清单，请先完成一次扫描"
+            return
+        }
+        val validKeys = current.plan.advices.map { it.key() }.toSet()
+        val chosen = _selected.value.filter { it in validKeys }.toSet()
+        if (chosen.isEmpty()) {
+            // 事故复盘：这里是 `return` 静默吞掉点击 —— 用户点了按钮毫无反馈，
+            // 只会判定「释放坏了」。现在显式提示，并把真实原因（缺权限 / 无可选）说清楚。
+            _message.value = releaseAvailability.value.explain
+                ?: "请先在清单里勾选要释放的项目"
+            return
+        }
+        _selected.value = chosen
         viewModelScope.launch {
             _state.value = UiState.Executing
             val advanced = runCatching { settings.settings.first().advancedMode }.getOrDefault(false)
@@ -216,6 +424,23 @@ class CleanViewModel @Inject constructor(
 
     fun dismissResult() {
         _state.value = UiState.Idle
+    }
+
+    /**
+     * 页面回到前台时调用。
+     *
+     * 「去授权」是跳系统设置页，用户开完权限按返回键回到本页时 Compose 不会重组，
+     * 快照还停在「未授权」，页面会继续显示「需要使用情况访问权限」——
+     * 用户刚授完权却还是看到这句话，只会判定 App 有 bug。
+     * 这里如实检测权限变化并重扫一遍。
+     */
+    fun onResume(rootPath: String) {
+        val results = _state.value as? UiState.Results ?: return
+        if (results.usagePermissionGranted) return
+        if (!permissions.hasUsageStats()) return
+        lastSnapshot = null
+        cache.clear()
+        scanNow(rootPath, force = true)
     }
 
     /** 由 UI 调用：跳转对应的系统授权页 */

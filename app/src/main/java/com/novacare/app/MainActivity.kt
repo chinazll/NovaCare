@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,6 +25,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.novacare.app.navigation.NovaCareNavHost
+import com.novacare.app.navigation.Routes
 import com.novacare.core.data.SettingsRepository
 import com.novacare.core.data.ThemeMode
 import com.novacare.ui.designsystem.NovaCareTheme
@@ -50,10 +52,12 @@ class MainActivity : ComponentActivity() {
             // 前庭功能障碍用户开启后，健康环的呼吸动画与入场序列都会停止。
             val reduceMotion = rememberReduceMotionSetting()
 
+            // initialValue = null：等 DataStore 的第一帧真正到达再决定首屏。
+            // 如果用默认构造值当首帧，已完成引导的老用户会先闪一帧引导页再跳走。
             val settings by settingsRepository.settings.collectAsStateWithLifecycle(
-                initialValue = SettingsRepository.Settings(),
+                initialValue = null,
             )
-            val darkTheme = when (settings.themeMode) {
+            val darkTheme = when (settings?.themeMode ?: ThemeMode.SYSTEM) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
@@ -64,7 +68,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    NovaCareNavHost()
+                    if (settings == null) {
+                        // 首帧未到：空背景等待，不做任何导航决策
+                        Box(modifier = Modifier.fillMaxSize())
+                    } else {
+                        NovaCareNavHost(
+                            startDestination = if (settings?.onboardingCompleted == true) {
+                                Routes.HOME
+                            } else {
+                                Routes.ONBOARDING
+                            },
+                        )
+                    }
                 }
             }
         }

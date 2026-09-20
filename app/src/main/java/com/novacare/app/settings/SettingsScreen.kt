@@ -19,12 +19,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.BatteryFull
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.SdCard
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -55,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.novacare.app.navigation.Routes
 import com.novacare.core.data.ThemeMode
 import com.novacare.core.model.CloudModel
 import com.novacare.ui.designsystem.NovaCareTheme
@@ -70,6 +73,8 @@ import com.novacare.ui.designsystem.NovaToggle
 @Composable
 fun SettingsScreen(
     onBack: (() -> Unit)? = null,
+    /** 跳到守护中心的某个模块（传入 Routes.STORAGE / MEMORY / BATTERY） */
+    onOpenGuardian: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -153,6 +158,36 @@ fun SettingsScreen(
                         onClickAction = { NovaTap(view); viewModel.grant(cap.capability) },
                     )
                     if (index < capabilities.lastIndex) HorizontalDivider()
+                }
+            }
+
+            // ---- 设备守护 ----
+            // 三个模块不进底栏（NovaDock 固定宽度胶囊放不下第 6 个 tab），
+            // 统一从这里进入。每项都写清"它管什么"，避免用户点进去发现不是自己要的。
+            if (onOpenGuardian != null) {
+                Spacer(Modifier.height(24.dp))
+                SectionLabel("设备守护")
+                SettingsList {
+                    NavRow(
+                        icon = Icons.Outlined.SdCard,
+                        title = "存储守护",
+                        subtitle = "大文件 / 重复文件 / 残留与空目录",
+                        onClick = { NovaTap(view); onOpenGuardian(Routes.STORAGE) },
+                    )
+                    HorizontalDivider()
+                    NavRow(
+                        icon = Icons.Outlined.Memory,
+                        title = "内存守护",
+                        subtitle = "实时内存与进程占用排行",
+                        onClick = { NovaTap(view); onOpenGuardian(Routes.MEMORY) },
+                    )
+                    HorizontalDivider()
+                    NavRow(
+                        icon = Icons.Outlined.BatteryFull,
+                        title = "电池守护",
+                        subtitle = "电量 / 温度 / 前台时长与省电建议",
+                        onClick = { NovaTap(view); onOpenGuardian(Routes.BATTERY) },
+                    )
                 }
             }
 
@@ -464,6 +499,45 @@ private fun ToggleRow(
                 checkedThumbColor = cs.onPrimary,
                 checkedTrackColor = cs.primary,
             ),
+        )
+    }
+}
+
+@Composable
+private fun NavRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconBox(icon = icon)
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
         )
     }
 }

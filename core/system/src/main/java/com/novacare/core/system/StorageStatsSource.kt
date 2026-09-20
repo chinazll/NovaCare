@@ -53,7 +53,12 @@ class StorageStatsSource @Inject constructor(
         }.getOrNull()
     }
 
-    fun canQuery(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-        context.packageManager.hasSystemFeature(PackageManager.FEATURE_VERIFIED_BOOT) ||
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+    /**
+     * 能否查询 StorageStatsManager。
+     *
+     * 旧写法 `A && B || A`（&& 优先级高于 ||）恒等于 `A`：VERIFIED_BOOT 那个分支
+     * 是永远不生效的死条件，看起来做了能力校验其实什么也没校验。
+     * VERIFIED_BOOT 与存储统计无关，真正的能力门槛只有 API 26+，故直接去掉。
+     */
+    fun canQuery(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 }

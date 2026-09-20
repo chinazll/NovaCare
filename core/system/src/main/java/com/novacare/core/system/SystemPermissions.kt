@@ -111,7 +111,11 @@ class SystemPermissions @Inject constructor(
      */
     fun isShizukuAvailable(): Boolean = runCatching {
         val cls = Class.forName("rikka.shizuku.Shizuku")
-        val binder = cls.getMethod("getBinder").invoke(null) ?: return@runCatching false
+        // 旧实现取到 binder 后根本没用它做可达性判断（变量赋值完就丢），
+        // 于是「装了 Shizuku 但没授权 / 进程没起」会被判成可用 —— 正是
+        // 「UI 显示可一键冻结、点了没反应」的根因。这里必须 ping。
+        val alive = cls.getMethod("pingBinder").invoke(null) as? Boolean ?: return@runCatching false
+        if (!alive) return@runCatching false
         val granted = cls.getMethod("checkSelfPermission").invoke(null) as? Int
         granted == PackageManager.PERMISSION_GRANTED
     }.getOrDefault(false)

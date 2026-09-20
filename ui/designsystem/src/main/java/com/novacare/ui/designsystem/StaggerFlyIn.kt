@@ -87,6 +87,8 @@ fun StaggerFlyIn(
 @Composable
 fun StaggerGroup(
     index: Int,
+    /** 组内元素总数 —— reverseOrder 必须知道总数才能算出反向序号 */
+    total: Int,
     reverseOrder: Boolean = true,
     modifier: Modifier = Modifier,
     staggerMs: Long = 60L,
@@ -94,7 +96,9 @@ fun StaggerGroup(
     contentOffsetY: Int = 32,
     content: @Composable () -> Unit,
 ) {
-    val effectiveIndex = if (reverseOrder) -index else index
+    // 旧实现：`-index` 再 `coerceAtLeast(0)` → 恒为 0，reverseOrder 完全失效，
+    // 整组元素同时入场（stagger 一点没生效）。反向序号应由总数推导。
+    val effectiveIndex = if (reverseOrder && total > index) total - 1 - index else index
     StaggerFlyIn(
         index = effectiveIndex.coerceAtLeast(0),
         modifier = modifier,

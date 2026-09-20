@@ -33,30 +33,46 @@ class RuleEngineTest {
         reclaimableBytes = 900L * 1024 * 1024,
     )
 
+    /**
+     * 确定落在定时窗口内的时刻。默认 trigger 的 hourOfDay 为 null（按 3 点算），
+     * 周期 6h，窗口即 [03:00, 09:00)，这里取 05:00。
+     * 不用 0L 之类的裸时间戳 —— 那会依赖默认时区，导致不同机器结果不一致。
+     */
+    private val nowInWindow: Long = java.util.Calendar.getInstance().apply {
+        set(2026, java.util.Calendar.JANUARY, 15, 5, 0, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    /** 明确落在窗口外的时刻（12:00），用于验证定时规则不会每个周期都命中。 */
+    private val nowOutOfWindow: Long = java.util.Calendar.getInstance().apply {
+        set(2026, java.util.Calendar.JANUARY, 15, 12, 0, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     @Test
     fun disabled_rule_never_runs() {
-        assertThat(RuleEngine.shouldRun(rule(enabled = false), idleContext, 0L)).isFalse()
+        assertThat(RuleEngine.shouldRun(rule(enabled = false), idleContext, nowInWindow)).isFalse()
     }
 
     @Test
     fun scheduled_rule_runs_when_workmanager_fires() {
-        assertThat(RuleEngine.shouldRun(rule(), idleContext, 0L)).isTrue()
+        assertThat(RuleEngine.shouldRun(rule(), idleContext, nowInWindow)).isTrue()
     }
 
     @Test
     fun storage_threshold_trigger() {
         val r = rule(trigger = Trigger(TriggerType.STORAGE_ABOVE, thresholdPercent = 85))
-        assertThat(RuleEngine.shouldRun(r, idleContext, 0L)).isTrue()
+        assertThat(RuleEngine.shouldRun(r, idleContext, nowInWindow)).isTrue()
         assertThat(
-            RuleEngine.shouldRun(r, idleContext.copy(storageUsedPercent = 40), 0L),
+            RuleEngine.shouldRun(r, idleContext.copy(storageUsedPercent = 40), nowInWindow),
         ).isFalse()
     }
 
     @Test
     fun battery_threshold_trigger() {
         val r = rule(trigger = Trigger(TriggerType.BATTERY_BELOW, thresholdPercent = 20))
-        assertThat(RuleEngine.shouldRun(r, idleContext.copy(batteryPercent = 12), 0L)).isTrue()
-        assertThat(RuleEngine.shouldRun(r, idleContext.copy(batteryPercent = 90), 0L)).isFalse()
+        assertThat(RuleEngine.shouldRun(r, idleContext.copy(batteryPercent = 12), nowInWindow)).isTrue()
+        assertThat(RuleEngine.shouldRun(r, idleContext.copy(batteryPercent = 90), nowInWindow)).isFalse()
     }
 
     @Test
@@ -64,10 +80,10 @@ class RuleEngineTest {
         val r = rule(
             conditions = listOf(Condition(ConditionType.MIN_RECLAIMABLE_MB, 500)),
         )
-        assertThat(RuleEngine.shouldRun(r, idleContext, 0L)).isTrue()
+        assertThat(RuleEngine.shouldRun(r, idleContext, nowInWindow)).isTrue()
         assertThat(
             RuleEngine.shouldRun(
-                r, idleContext.copy(reclaimableBytes = 10L * 1024 * 1024), 0L,
+                r, idleContext.copy(reclaimableBytes = 10L * 1024 * 1024), nowInWindow,
             ),
         ).isFalse()
     }
@@ -78,8 +94,22 @@ class RuleEngineTest {
             trigger = Trigger(TriggerType.DEVICE_IDLE),
             conditions = listOf(Condition(ConditionType.DEVICE_IDLE)),
         )
-        assertThat(RuleEngine.shouldRun(r, idleContext, 0L)).isTrue()
-        assertThat(RuleEngine.shouldRun(r, idleContext.copy(isIdle = false), 0L)).isFalse()
+        assertThat(RuleEngine.shouldRun(r, idleContext, nowInWindow)).isTrue()
+        assertThat(RuleEngine.shouldRun(r, idleContext.copy(isIdle = false), nowInWindow)).isFalse()
+    }
+
+    // 回归保护：调度器是 6h 一次，定时规则曾无条件命中（一天跑 4 次），
+    // 配置的时间/星期形同虚设。窗口外必须不执行。
+    @Test
+    fun scheduled_rule_does_not_run_outside_its_window() {
+        assertThat(RuleEngine.shouldRun(rule(), idleContext, nowOutOfWindow)).isFalse()
+    }
+
+    @Test
+    fun scheduled_rule_respects_configured_hour() {
+        val r = rule(trigger = Trigger(TriggerType.SCHEDULED, hourOfDay = 20))
+        // 05:00 不在 [20:00, 02:00) 窗口内
+        assertThat(RuleEngine.shouldRun(r, idleContext, nowInWindow)).isFalse()
     }
 
     @Test

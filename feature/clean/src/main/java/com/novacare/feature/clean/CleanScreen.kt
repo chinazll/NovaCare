@@ -1,5 +1,6 @@
 package com.novacare.feature.clean
 
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -29,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -40,16 +42,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.common.formatBytes
 import com.novacare.core.domain.key
 import com.novacare.core.model.CleanAdvice
 import com.novacare.core.model.CleanRisk
+import com.novacare.core.system.MissingCapability
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
@@ -70,6 +76,8 @@ fun CleanScreen(
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val includeRisky by viewModel.includeRisky.collectAsStateWithLifecycle()
     val moveToRecycleBin by viewModel.moveToRecycleBin.collectAsStateWithLifecycle()
+    val availability by viewModel.releaseAvailability.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (state is CleanViewModel.UiState.Idle) {
@@ -78,6 +86,24 @@ fun CleanScreen(
     }
 
     val view = LocalView.current
+
+    // 从「使用情况访问」设置页返回时 Compose 不会自动重组，
+    // 必须回前台检测一次，否则用户刚授完权仍看到"需要使用情况访问权限"。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, rootPath) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.onResume(rootPath)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // 一次性提示必须有出口 —— 否则「点了释放没反应」这类静默失败会再次发生
+    LaunchedEffect(message) {
+        val text = message ?: return@LaunchedEffect
+        Toast.makeText(view.context, text, Toast.LENGTH_SHORT).show()
+        viewModel.consumeMessage()
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -106,6 +132,8 @@ fun CleanScreen(
 
                 is CleanViewModel.UiState.Results -> ResultsView(
                     plan = s.plan,
+                    engineAvailable = s.engineAvailable,
+                    availability = availability,
                     selected = selected,
                     includeRisky = includeRisky,
                     moveToRecycleBin = moveToRecycleBin,
@@ -116,6 +144,10 @@ fun CleanScreen(
                     onSelectAll = { all ->
                         NovaTap(view)
                         viewModel.selectAll(all)
+                    },
+                    onSelectSuggested = {
+                        NovaTap(view)
+                        viewModel.selectSuggested()
                     },
                     onIncludeRiskyChange = { inc ->
                         NovaTap(view)
@@ -129,6 +161,14 @@ fun CleanScreen(
                         NovaSuccess(view.context)
                         viewModel.execute()
                     },
+                    onGrantUsage = {
+                        NovaTap(view)
+                        viewModel.grant(MissingCapability.USAGE_STATS)
+                    },
+                    onRescan = {
+                        NovaTap(view)
+                        viewModel.rescan(rootPath)
+                    },
                 )
 
                 CleanViewModel.UiState.Executing -> ExecutingHero()
@@ -137,6 +177,7 @@ fun CleanScreen(
                     freedBytes = s.result.freedBytes,
                     succeededCount = s.result.succeeded.size,
                     failedCount = s.result.failed.size,
+                    needsManualCount = s.result.needsManual.size,
                     onDone = {
                         NovaSuccess(view.context)
                         viewModel.dismissResult()
@@ -274,26 +315,47 @@ private fun DoneHero(
     freedBytes: Long,
     succeededCount: Int,
     failedCount: Int,
+    needsManualCount: Int,
     onDone: () -> Unit,
     onRescan: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
+    // 一项都没真正释放、只是把用户引导去了系统设置页时，
+    // 不能用「已释放 0 B」冒充清理过 —— 那是「点了释放像没生效」的观感来源。
+    val manualOnly = freedBytes == 0L && succeededCount == 0 && needsManualCount > 0
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Text(
-            text = "已释放 ${freedBytes.formatBytes()}",
+            text = if (manualOnly) {
+                "已引导 $needsManualCount 项去系统设置页"
+            } else {
+                "已释放 ${freedBytes.formatBytes()}"
+            },
             style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
-            color = colors.healthGood,
+            color = if (manualOnly) cs.onSurface else colors.healthGood,
         )
         Spacer(Modifier.height(8.dp))
         Text(
             text = buildString {
-                append("成功 $succeededCount 项")
-                if (failedCount > 0) append(" · 失败 $failedCount 项")
+                if (manualOnly) {
+                    append("Android 不允许第三方应用清理其他应用的缓存")
+                } else {
+                    append("成功 $succeededCount 项")
+                    if (failedCount > 0) append(" · 失败 $failedCount 项")
+                }
             },
             style = MaterialTheme.typography.bodyLarge,
             color = cs.onSurfaceVariant,
         )
+        if (needsManualCount > 0) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "另有 $needsManualCount 项需要你在系统设置页手动完成，" +
+                    "这部分没有释放任何空间，也没有计入上面的数字。",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(48.dp))
         Surface(
             modifier = Modifier
@@ -332,19 +394,27 @@ private fun DoneHero(
 @Composable
 private fun ResultsView(
     plan: com.novacare.core.model.CleanPlan,
+    engineAvailable: Boolean,
+    availability: ReleaseAvailability,
     selected: Set<String>,
     includeRisky: Boolean,
     moveToRecycleBin: Boolean,
     onToggle: (String) -> Unit,
     onSelectAll: (Boolean) -> Unit,
+    onSelectSuggested: () -> Unit,
     onIncludeRiskyChange: (Boolean) -> Unit,
     onMoveToRecycleBinChange: (Boolean) -> Unit,
     onExecute: () -> Unit,
+    onGrantUsage: () -> Unit,
+    onRescan: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val view = LocalView.current
+    val hasAdvices = plan.advices.isNotEmpty()
+    // 只统计清单里真实存在的键，避免「已选 X / Y」虚高、环形图比例越界
+    val selectedKeys = selected.filter { key -> plan.advices.any { it.key() == key } }.toSet()
     val selectedBytes = plan.advices
-        .filter { it.key() in selected }
+        .filter { it.key() in selectedKeys }
         .sumOf { it.recommendedBytes }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -362,7 +432,7 @@ private fun ResultsView(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "${selected.size} / ${plan.advices.size}",
+                    text = "${selectedKeys.size} / ${plan.advices.size}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                 )
@@ -371,7 +441,7 @@ private fun ResultsView(
             Spacer(Modifier.height(24.dp))
 
             RingSummary(
-                selected = selected.size,
+                selected = selectedKeys.size,
                 total = plan.advices.size,
                 selectedBytes = selectedBytes,
                 totalBytes = plan.totalReclaimableBytes,
@@ -389,8 +459,8 @@ private fun ResultsView(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Chip(
-                    text = if (selected.size == plan.advices.size) "全不选" else "全选",
-                    onClick = { onSelectAll(selected.size != plan.advices.size) },
+                    text = if (selectedKeys.size == plan.advices.size) "全不选" else "全选",
+                    onClick = { onSelectAll(selectedKeys.size != plan.advices.size) },
                 )
                 Spacer(Modifier.width(8.dp))
                 Chip(
@@ -398,6 +468,19 @@ private fun ResultsView(
                     selected = includeRisky,
                     onClick = { onIncludeRiskyChange(!includeRisky) },
                 )
+            }
+
+            if (!engineAvailable && hasAdvices) {
+                Spacer(Modifier.height(12.dp))
+                NoticeRow(
+                    text = "清理内核不可用：以下只有应用缓存分析，没有文件级垃圾扫描结果",
+                )
+            }
+
+            if (!hasAdvices) {
+                Spacer(Modifier.height(12.dp))
+                // 清单为空时，原因必须出现在用户眼睛正在看的位置，而不是只藏在底部
+                ReleaseBlockCard(availability = availability)
             }
 
             Spacer(Modifier.height(12.dp))
@@ -412,7 +495,7 @@ private fun ResultsView(
                 items(items = plan.advices, key = { it.key() }) { advice ->
                     AdviceRow(
                         advice = advice,
-                        checked = advice.key() in selected,
+                        checked = advice.key() in selectedKeys,
                         onToggle = { onToggle(advice.key()) },
                     )
                     HorizontalDivider()
@@ -431,57 +514,92 @@ private fun ResultsView(
             shadowElevation = 8.dp,
         ) {
             Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onMoveToRecycleBinChange(!moveToRecycleBin) }
-                        .padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (moveToRecycleBin) cs.primary else cs.onSurface.copy(alpha = 0.12f),
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (moveToRecycleBin) {
-                            Icon(
-                                imageVector = Icons.Outlined.Check,
-                                contentDescription = null,
-                                tint = cs.onPrimary,
-                                modifier = Modifier.size(14.dp),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "先移入回收站（7 天内可撤销）",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = cs.onSurface,
-                    )
+                // 可释放时不占版面；不可释放时必须把「为什么 + 怎么办」写在按钮上方
+                if (availability.explain != null && hasAdvices) {
+                    ReleaseBlockCard(availability = availability)
+                    Spacer(Modifier.height(12.dp))
                 }
-                Spacer(Modifier.height(12.dp))
+                if (hasAdvices) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { onMoveToRecycleBinChange(!moveToRecycleBin) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (moveToRecycleBin) cs.primary else cs.onSurface.copy(alpha = 0.12f),
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (moveToRecycleBin) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Check,
+                                    contentDescription = null,
+                                    tint = cs.onPrimary,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "先移入回收站（7 天内可撤销）",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = cs.onSurface,
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+                // 有下一步动作时按钮必须是「可点的样子」——
+                // 灰按钮 + 可点击本身就是最容易误导人的组合（用户会直接判定为坏了）
+                val actionable = availability.canRelease ||
+                    availability.action != ReleaseAction.NONE
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .clip(RoundedCornerShape(20.dp)),
-                    color = if (selected.isNotEmpty()) cs.primary else cs.onSurface.copy(alpha = 0.12f),
-                    contentColor = if (selected.isNotEmpty()) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
+                    color = if (actionable) cs.primary else cs.onSurface.copy(alpha = 0.12f),
+                    contentColor = if (actionable) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
                     onClick = {
-                        if (selected.isNotEmpty()) {
-                            onExecute()
+                        // 不可用也不吞点击：把用户带到下一步（勾选项 / 去授权 / 重扫）
+                        when {
+                            availability.canRelease -> {
+                                NovaSuccess(view.context)
+                                onExecute()
+                            }
+
+                            availability.action == ReleaseAction.SELECT_SUGGESTED -> {
+                                NovaTap(view)
+                                onSelectSuggested()
+                            }
+
+                            availability.action == ReleaseAction.GRANT_USAGE_STATS -> {
+                                NovaTap(view)
+                                onGrantUsage()
+                            }
+
+                            availability.action == ReleaseAction.RESCAN -> {
+                                NovaTap(view)
+                                onRescan()
+                            }
                         }
                     },
                 ) {
                     Box(contentAlignment = Alignment.Center) {
+                        // 可释放时按钮就是「释放 X」；不可释放时按钮变成**下一步动作**
+                        // （去授权 / 选择建议的 N 项 / 重新扫描），而不是一句让人无从下手的废话
                         Text(
-                            text = if (selected.isEmpty()) "请选择要清理的项目"
-                                   else "释放 ${selectedBytes.formatBytes()}",
+                            text = if (availability.canRelease) {
+                                availability.title
+                            } else {
+                                availability.actionLabel ?: availability.title
+                            },
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
                         )
                     }
@@ -502,7 +620,7 @@ private fun RingSummary(
     val cs = MaterialTheme.colorScheme
     val accent = cs.primary
     val track = cs.onSurface.copy(alpha = 0.08f)
-    val ratio = if (total > 0) selected.toFloat() / total else 0f
+    val ratio = if (total > 0) (selected.toFloat() / total).coerceIn(0f, 1f) else 0f
     val animatedRatio by animateFloatAsState(
         targetValue = ratio,
         animationSpec = tween(600),
@@ -650,6 +768,60 @@ private fun HorizontalDivider() {
             .height(1.dp)
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
     )
+}
+
+/**
+ * 「释放」不可用时的原因卡。
+ *
+ * 事故复盘（本次 P0）：过去这里只有一句「请选择要清理的项目」+ 一个灰按钮，
+ * 用户看到扫描有结果却点不动，页面上没有任何一句话说明到底缺什么。
+ * 现在必须同时给出：**发生了什么** + **下一步干什么**。
+ */
+@Composable
+private fun ReleaseBlockCard(availability: ReleaseAvailability) {
+    val cs = MaterialTheme.colorScheme
+    val colors = NovaCareTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.riskCaution.copy(alpha = 0.08f))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = availability.title,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.riskCaution,
+        )
+        availability.explain?.let { explain ->
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = explain,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** 中性提示行（如实说明能力降级，不给虚假操作入口） */
+@Composable
+private fun NoticeRow(text: String) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(cs.onSurface.copy(alpha = 0.04f))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

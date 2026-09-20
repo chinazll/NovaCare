@@ -67,20 +67,32 @@ class AutomationActionsImpl @Inject constructor(
             }
 
             com.novacare.core.model.ActionType.NOTIFY_SUMMARY ->
+                // 旧实现无条件返回 success=true 且文案写「已生成摘要」，实际上一条
+                // 通知都没发出去 —— 这是凭空谎报执行结果。本动作尚未实现，
+                // 必须如实报失败，让用户在规则结果里看到它没生效。
                 com.novacare.core.automation.AutomationActions.Result(
-                    0L, "已生成摘要", true,
+                    0L, "摘要通知尚未实现：本次未发送任何通知", false,
                 )
         }
     }
 }
 
-/** 规则执行时的设备状态来源 */
+/**
+ * 规则执行时的设备状态来源。
+ *
+ * reclaimableBytes 旧实现**恒为 0**：于是任何带 `MIN_RECLAIMABLE_MB` 条件的规则
+ * （"可回收空间大于 X MB 才执行"）永远判定为 false —— 规则静默不跑，用户看不出原因。
+ * 这里改为真实读取：优先复用缓存快照，没有就现场扫一次。
+ */
 @Singleton
 class DeviceStatusBridge @Inject constructor(
     private val device: DeviceStatusSource,
+    private val scan: ScanDeviceUseCase,
+    private val buildPlan: BuildOptimizePlanUseCase,
+    private val cache: DeviceSnapshotCache,
 ) : AutomationStatusProvider {
 
-    override fun currentContext(): RuleEngine.RuleContext {
+    override suspend fun currentContext(): RuleEngine.RuleContext {
         val storage = device.storage()
         val battery = device.battery()
         val usedPercent = if (storage.totalBytes > 0L) {
@@ -92,8 +104,16 @@ class DeviceStatusBridge @Inject constructor(
             storageUsedPercent = usedPercent,
             batteryPercent = battery.levelPercent,
             isIdle = device.isIdle(),
-            reclaimableBytes = 0L,
+            reclaimableBytes = currentReclaimableBytes(),
         )
+    }
+
+    private suspend fun currentReclaimableBytes(): Long {
+        val root = android.os.Environment.getExternalStorageDirectory()?.absolutePath
+            ?: return 0L
+        val snapshot = cache.last ?: runCatching { scan(root) }.getOrNull()?.also { cache.put(it) }
+            ?: return 0L
+        return runCatching { buildPlan(snapshot, 0L).totalReclaimableBytes }.getOrDefault(0L)
     }
 }
 

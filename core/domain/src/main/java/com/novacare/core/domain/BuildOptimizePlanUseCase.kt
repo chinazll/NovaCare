@@ -25,7 +25,12 @@ class BuildOptimizePlanUseCase @Inject constructor() {
     ): CleanPlan {
         val advices = mutableListOf<CleanAdvice>()
 
-        advices += CleanAdvisor.advise(snapshot.apps, snapshot.usage, snapshot.nowMs)
+        val advisorAdvices = CleanAdvisor.advise(snapshot.apps, snapshot.usage, snapshot.nowMs)
+        // 被判 KEEP 的条目不进清单，但数量必须外泄给 UI —— 否则用户看到空清单
+        // 却不知道原因通常是「缺使用情况访问权限」（CleanAdvisor 零伪造决策）。
+        val keptCount = advisorAdvices.count { it.recommendation == CleanRecommendation.KEEP }
+
+        advices += advisorAdvices
             .filter { it.recommendation != CleanRecommendation.KEEP }
 
         // 内核扫出的垃圾文件（缓存 / 临时 / 空目录 / 重复文件）
@@ -72,6 +77,13 @@ class BuildOptimizePlanUseCase @Inject constructor() {
                 )
             }
 
+        //
+        // 默认勾选策略：**只自动勾 SAFE**。
+        // CAUTION / RISKY 项照样出现在清单里（用户可逐条勾选执行），但不替用户预先勾上 ——
+        // 「需确认」三个字如果本身就是默认值，它就失去意义了。
+        // 代价是 defaultSelected 可能为空（典型场景：内核扫出的垃圾全是 CAUTION）。
+        // 这种情况**不靠放宽策略救**，而是交给 UI 如实说明原因 + 给一键勾选入口
+        // （见 CleanViewModel.computeAvailability 的 NeedSelection 分支）。
         val selected = advices
             .filter { it.risk == CleanRisk.SAFE && it.recommendation != CleanRecommendation.KEEP }
             .map { it.key() }
@@ -82,6 +94,7 @@ class BuildOptimizePlanUseCase @Inject constructor() {
             totalReclaimableBytes = advices.sumOf { it.recommendedBytes },
             defaultSelected = selected,
             scanDurationMs = scanDurationMs,
+            keptCount = keptCount,
         )
     }
 }

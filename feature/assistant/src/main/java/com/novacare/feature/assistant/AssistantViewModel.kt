@@ -345,6 +345,10 @@ class AssistantViewModel @Inject constructor(
                 as? Bubble.Assistant ?: return@launch
             val card = bubble.card ?: return@launch
 
+            // 防重复执行：确认按钮连点 / 慢速执行期间再次触发会并发跑两遍删除。
+            // 只有 Pending 态才允许进入 Running。
+            if (bubble.actionStatus != ActionStatus.Pending) return@launch
+
             setActionStatus(bubbleId, ActionStatus.Running)
             runCatching {
                 val advanced = settings.settings.first().advancedMode

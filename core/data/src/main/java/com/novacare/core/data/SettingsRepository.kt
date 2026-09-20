@@ -5,11 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.novacare.core.model.CloudModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,9 +42,15 @@ class SettingsRepository @Inject constructor(
         val cloudApiKey: String = "",
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
         val lastCleanEpochMs: Long? = null,
+        /** 引导流程是否已走完 —— 未走完时首屏显示 Onboarding */
+        val onboardingCompleted: Boolean = false,
     )
 
-    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs ->
+    // DataStore 读失败（文件损坏 / IO 错误）时 `data` 流会以异常终止，且**不会恢复**，
+    // 于是所有 collect 它的页面永久收不到设置更新。这里吞掉错误并退化为默认值。
+    val settings: Flow<Settings> = context.settingsDataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { prefs ->
         Settings(
             advancedMode = prefs[KEY_ADVANCED] ?: false,
             cloudAiEnabled = prefs[KEY_CLOUD_AI] ?: false,
@@ -54,6 +62,7 @@ class SettingsRepository @Inject constructor(
                 ThemeMode.valueOf(prefs[KEY_THEME_MODE] ?: ThemeMode.SYSTEM.name)
             }.getOrDefault(ThemeMode.SYSTEM),
             lastCleanEpochMs = prefs[KEY_LAST_CLEAN],
+            onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
         )
     }
 
@@ -81,6 +90,11 @@ class SettingsRepository @Inject constructor(
         context.settingsDataStore.edit { it[KEY_LAST_CLEAN] = nowMs }
     }
 
+    /** 标记引导流程已完成（完成或跳过都调用它 —— 之后不再显示 Onboarding） */
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.settingsDataStore.edit { it[KEY_ONBOARDING] = completed }
+    }
+
     private companion object {
         val KEY_ADVANCED = booleanPreferencesKey("advanced_mode")
         val KEY_CLOUD_AI = booleanPreferencesKey("cloud_ai_enabled")
@@ -88,5 +102,6 @@ class SettingsRepository @Inject constructor(
         val KEY_CLOUD_KEY = stringPreferencesKey("cloud_api_key")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_LAST_CLEAN = androidx.datastore.preferences.core.longPreferencesKey("last_clean_epoch_ms")
+        val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
     }
 }

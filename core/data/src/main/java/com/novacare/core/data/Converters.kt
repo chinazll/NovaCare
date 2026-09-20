@@ -46,12 +46,12 @@ class Converters {
 
     @TypeConverter
     fun actionsFromJson(raw: String): List<Action> = runCatching {
-        json.decodeFromString<List<ActionDto>>(raw).map {
-            Action(
-                type = runCatching { ActionType.valueOf(it.type) }
-                    .getOrDefault(ActionType.CLEAN_JUNK),
-                stringParam = it.stringParam,
-            )
+        json.decodeFromString<List<ActionDto>>(raw).mapNotNull {
+            // 同理：未知动作类型丢弃，绝不兜底成 CLEAN_JUNK —— 否则自动化会
+            // 执行一个用户从没配置过的、会真实删文件的动作。
+            val type = runCatching { ActionType.valueOf(it.type) }.getOrNull()
+                ?: return@mapNotNull null
+            Action(type = type, stringParam = it.stringParam)
         }
     }.getOrDefault(emptyList())
 

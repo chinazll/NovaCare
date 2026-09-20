@@ -22,9 +22,15 @@ data class AppInfo(
     /** 最后使用时间；null = 未知（未授予 PACKAGE_USAGE_STATS） */
     val lastUsedEpochMs: Long? = null,
 ) {
-    /** 未使用天数；null = 未知 */
+    /**
+     * 未使用天数；null = 未知
+     *
+     * coerceAtLeast(0)：系统记录的最后使用时间可能因时钟回拨 / 厂商 ROM 写入
+     * 未来时间而大于 nowMs，旧实现会返回负数，下游 `days >= 30` 判断因此全部失效，
+     * 界面还会显示「最近 -3 天内有使用」。
+     */
     fun daysSinceLastUse(nowMs: Long): Int? =
-        lastUsedEpochMs?.let { ((nowMs - it) / 86_400_000L).toInt() }
+        lastUsedEpochMs?.let { ((nowMs - it) / 86_400_000L).coerceAtLeast(0L).toInt() }
 }
 
 /** 系统权威的活跃度分级（UsageStatsManager.getAppStandbyBucket） */

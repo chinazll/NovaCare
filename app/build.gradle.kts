@@ -14,8 +14,12 @@ android {
         applicationId = "com.novacare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 7
-        versionName = "0.9.0-alpha"
+        // 版本号规则：每次发版 versionCode 严格 +1，versionName 按语义化版本推进。
+        // 不是 GitHub 的要求 —— GitHub 只认 tag（用于触发发版 workflow），
+        // versionCode/versionName 完全由本文件决定。前几轮改了代码却没推进版本号，
+        // 导致一直停在 0.9.0-alpha，这里是纠正。
+        versionCode = 8
+        versionName = "0.10.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -99,6 +103,7 @@ dependencies {
     implementation(project(":feature:freeze"))
     implementation(project(":feature:automation"))
     implementation(project(":feature:assistant"))
+    implementation(project(":feature:guardian")) // 守护中心：存储 / 内存 / 电池
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

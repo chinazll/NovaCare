@@ -57,16 +57,30 @@ class HealthScoreUseCase @Inject constructor() {
         }
 
         if (snapshot.apps.isNotEmpty()) {
-            val stale = snapshot.apps.count { app ->
-                val days = app.daysSinceLastUse(snapshot.nowMs)
-                days == null || days >= 30
+            var stale = 0
+            var unknown = 0
+            for (app in snapshot.apps) {
+                when (val days = app.daysSinceLastUse(snapshot.nowMs)) {
+                    null -> unknown++
+                    else -> if (days >= 30) stale++
+                }
             }
-            val penalty = (stale * 100 / snapshot.apps.size).coerceIn(0, 100)
-            dims += DimensionScore(
-                dimension = HealthDimension.APP,
-                score = 100 - penalty,
-                summary = "$stale / ${snapshot.apps.size} 个应用超过 30 天未使用",
-            )
+            // 拿不到使用记录的 app（未授权 PACKAGE_USAGE_STATS）**不得**计入陈旧：
+            // 旧写法是 `days == null || days >= 30`，一旦未授权就把全部 app 当成
+            // 「超过 30 天未用」，APP 维度直接 0 分 —— 这是凭空编造的结论。
+            val measurable = snapshot.apps.size - unknown
+            if (measurable > 0) {
+                val penalty = (stale * 100 / measurable).coerceIn(0, 100)
+                dims += DimensionScore(
+                    dimension = HealthDimension.APP,
+                    score = 100 - penalty,
+                    summary = if (unknown > 0) {
+                        "$stale / $measurable 个应用超过 30 天未使用（另有 $unknown 个无使用记录，未参与评分）"
+                    } else {
+                        "$stale / ${snapshot.apps.size} 个应用超过 30 天未使用"
+                    },
+                )
+            }
         }
 
         if (dims.isEmpty()) {

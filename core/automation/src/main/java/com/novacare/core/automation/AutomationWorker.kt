@@ -36,5 +36,6 @@ class AutomationWorker @AssistedInject constructor(
 
 /** 由 :app 提供真实设备状态（automation 模块不直接依赖系统 API，便于测试） */
 interface AutomationStatusProvider {
-    fun currentContext(): RuleEngine.RuleContext
+    /** suspend：读取可回收空间需要一次扫描，不能在调用线程上同步阻塞 */
+    suspend fun currentContext(): RuleEngine.RuleContext
 }

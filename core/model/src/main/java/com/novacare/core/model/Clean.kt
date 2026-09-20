@@ -50,6 +50,14 @@ data class CleanPlan(
     /** 默认勾选的（仅 SAFE 且推荐清理的） */
     val defaultSelected: Set<String>,
     val scanDurationMs: Long,
+    /**
+     * 被判为 KEEP、因此**没有进入清单**的条目数。
+     *
+     * 必须如实披露：最常见成因是未授予「使用情况访问」权限 —— 读不到应用最近
+     * 使用时间，CleanAdvisor 一律判 KEEP，这些条目就从清单里消失了。不报出来的话，
+     * 用户只会看到「扫描完成、清单是空的」，完全不知道是自己缺了授权。
+     */
+    val keptCount: Int = 0,
 )
 
 data class CleanResult(

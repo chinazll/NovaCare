@@ -5,13 +5,13 @@ import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.core.ai.SuggestionEngine
-import com.novacare.core.common.formatBytes
 import com.novacare.core.data.HistoryDao
 import com.novacare.core.domain.DeviceSnapshot
 import com.novacare.core.domain.DeviceSnapshotCache
 import com.novacare.core.domain.HealthScoreUseCase
 import com.novacare.core.domain.ScanDeviceUseCase
 import com.novacare.core.engine.NovaEngine
+import com.novacare.core.model.HealthDimension
 import com.novacare.core.model.HealthScore
 import com.novacare.core.system.MissingCapability
 import com.novacare.core.system.SystemPermissions
@@ -22,23 +22,34 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** 首页一次数据装载的结果。失败是**一等状态**，不能被伪装成"还在加载"。 */
+sealed interface HomeLoadState {
+    data object Loading : HomeLoadState
+    data object Ready : HomeLoadState
+    data class Failed(val message: String) : HomeLoadState
+}
+
 /**
- * 首页 —— 设备健康总览（不再承担清理动作）
+ * 首页 —— 只读的「设备健康总览」，不承担任何破坏性操作。
  *
  * ============================================================
- * 【信息架构重做 · 首页与清理 tab 去重】
+ * 【职责边界（与其余 tab 互斥）】
+ *   首页   = 读数和判断：设备现在多健康、依据是什么、哪一项需要去处理。
+ *   清理   = 唯一执行入口：扫描 → 勾选 → 释放，这条链路只在清理页。
+ *   冻结   = 应用的停用/恢复。
+ *   自动化 = 规则的配置与启停。
+ *   设置   = 权限、引擎、AI、外观。
  *
- * 上一版首页 = 「清理功能的另一个入口」：Hero 显示「可清理 X GB」+ 一键释放，
- * 与「清理」tab 完全重复。用户点开首页和点开清理 tab 看到的是同一件事。
- *
- * 参照三星 Good Lock / Good Guardians / Sam Helper 的设计：
- *   - Good Lock：主界面只做「总览 + 导航」，具体功能下沉到模块；
- *   - Good Guardians：每个模块聚焦一个维度，诊断与一键优化分离；
- *   - Sam Helper：首页 = 硬件健康一眼看清 + 分类功能入口。
- *
- * 因此首页收敛为：设备健康评分 + 存储只读概览 + 快捷入口导航。
- * 清理 / 冻结的具体动作**只**在各自的 tab 里做，首页绝不做清理动作。
+ *   推论：**首页不出现任何执行按钮**（没有"一键释放""立即冻结"）。
+ *   它对外只输出两种东西 —— 「读数」和「该去哪个页」的建议。
  * ============================================================
+ *
+ * 【零伪造的三条落点】
+ *   1. 扫描失败必须是 Failed 状态并给出原因，不能停在"正在读取"。
+ *   2. 未授予使用情况访问时，应用维度**不参与评分**（把 apps 置空交给
+ *      HealthScoreUseCase，由它的既有规则自动剔除并重新归一化权重），
+ *      而不是把"没有使用数据"当成"30 天未使用"。
+ *   3. 读数本身不编造：拿不到就是拿不到，UI 用「未获取」而不是 0 或占位。
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -51,22 +62,37 @@ class HomeViewModel @Inject constructor(
     private val history: HistoryDao,
 ) : ViewModel() {
 
-    /** 首页存储概览读数（只读，打开即显示，不必先点按钮） */
+    /** 首页只读读数（打开即显示，不必先点按钮） */
     data class Overview(
         val usedBytes: Long,
         val totalBytes: Long,
         val freeBytes: Long,
-        val junkSafeBytes: Long,
-        val junkTotalBytes: Long,
-        val staleAppCount: Int,
-        val appCount: Int,
+        /** 0 = 拿不到 ActivityManager 读数 */
+        val memoryAvailableBytes: Long,
+        val memoryTotalBytes: Long,
+        val batteryPercent: Int,
+        /** BatteryManager 的健康字串；"unknown" = 系统没给结论 */
+        val batteryHealth: String,
+        val batteryTemperatureTenths: Int,
     )
+
+    private val _loadState = MutableStateFlow<HomeLoadState>(HomeLoadState.Loading)
+    val loadState: StateFlow<HomeLoadState> = _loadState.asStateFlow()
 
     private val _score = MutableStateFlow<HealthScore?>(null)
     val score: StateFlow<HealthScore?> = _score.asStateFlow()
 
-    private val _summary = MutableStateFlow("")
-    val summary: StateFlow<String> = _summary.asStateFlow()
+    /** 评分依据：参与加权的维度清单 + 被排除的维度及原因（诚实披露） */
+    private val _basis = MutableStateFlow("")
+    val basis: StateFlow<String> = _basis.asStateFlow()
+
+    /**
+     * 每个健康维度的「为什么现在要去处理」的理由。
+     * 只有真实触发了才放进来 —— 没有理由就不显示跳转箭头，
+     * 免得首页退化成把底栏再抄一遍的静态导航。
+     */
+    private val _hints = MutableStateFlow<Map<HealthDimension, String>>(emptyMap())
+    val hints: StateFlow<Map<HealthDimension, String>> = _hints.asStateFlow()
 
     /** 引擎不可用 —— UI 必须显式告知，不能假装正常 */
     private val _engineAvailable = MutableStateFlow(true)
@@ -75,7 +101,7 @@ class HomeViewModel @Inject constructor(
     private val _engineVersion = MutableStateFlow("")
     val engineVersion: StateFlow<String> = _engineVersion.asStateFlow()
 
-    /** 缺失的能力（权限引导卡的数据源） */
+    /** 缺失的能力（降级提示的数据源） */
     private val _missing = MutableStateFlow<List<MissingCapability>>(emptyList())
     val missing: StateFlow<List<MissingCapability>> = _missing.asStateFlow()
 
@@ -84,17 +110,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         refreshCapabilities()
-        // 首页先给健康读数，不要求用户先点按钮 —— 打开就有信息
-        viewModelScope.launch {
-            val snapshot = cache.last ?: runCatching { scan(rootPath()) }.getOrNull()
-            if (snapshot != null) {
-                cache.put(snapshot)
-                refreshScore(snapshot)
-            } else {
-                _engineAvailable.value = engine.isAvailable
-                _engineVersion.value = engine.version()
-            }
-        }
+        load(useCache = true)
     }
 
     /** 权限状态可能在用户去设置页后变化，回到前台时重查 */
@@ -104,58 +120,131 @@ class HomeViewModel @Inject constructor(
         _engineVersion.value = engine.version()
     }
 
-    /** 由 UI 调用：跳转授权页 */
+    /** 用户点「重试」：跳过缓存重扫一次 */
+    fun refresh() {
+        load(useCache = false)
+    }
+
+    /** 由 UI 调用：跳转系统授权页 */
     fun grant(capability: MissingCapability) = permissions.launchGrantFor(capability)
 
-    private suspend fun refreshScore(snapshot: DeviceSnapshot): HealthScore {
-        // 电池健康度依赖内核；不可用时 HealthScoreUseCase 会降级为真实电量而非伪造
-        val score = healthScore(snapshot, batteryScore = null)
-        _score.value = score
+    private fun load(useCache: Boolean) {
+        viewModelScope.launch {
+            _loadState.value = HomeLoadState.Loading
 
+            val cached = if (useCache) cache.last else null
+            val snapshot = cached ?: runCatching { scan(rootPath()) }
+                .onFailure { failure ->
+                    _loadState.value =
+                        HomeLoadState.Failed(failure.message ?: "扫描未完成，原因未知")
+                }
+                .getOrNull()
+
+            if (snapshot == null) {
+                // 到这里还没被置成 Failed 就兜底：宁可报「读不到」，也不要一直卡在"正在读取"
+                if (_loadState.value !is HomeLoadState.Failed) {
+                    _loadState.value = HomeLoadState.Failed("无法读取设备状态")
+                }
+                refreshCapabilities()
+                return@launch
+            }
+
+            cache.put(snapshot)
+            apply(snapshot)
+            _loadState.value = HomeLoadState.Ready
+        }
+    }
+
+    private suspend fun apply(snapshot: DeviceSnapshot) {
         _engineAvailable.value = snapshot.engineAvailable
         _engineVersion.value = engine.version()
 
-        val used = snapshot.storage.totalBytes - snapshot.storage.availableBytes
+        val usageGranted = snapshot.usagePermissionGranted
+
+        // 未授权 → 把 apps 置空再交给评分器。
+        // HealthScoreUseCase 的既有规则是「拿不到数据的维度不参与评分，权重按
+        // 剩余维度归一化」—— apps 为空时应用维度自动被剔除且不参与加权，
+        // 于是总分只会由真实读数构成。这比事后过滤维度更可靠：口径完全一致。
+        val scoredSnapshot = if (usageGranted) {
+            snapshot
+        } else {
+            snapshot.copy(apps = emptyList(), usage = emptyMap())
+        }
+        val score = healthScore(scoredSnapshot, batteryScore = null)
+        _score.value = score
+        _basis.value = buildBasis(score, usageGranted)
+
+        // 只有明确读到"最后一次使用时间"的应用才计入僵应用；
+        // lastUsedEpochMs == null 表示「未知」，不是「很久没用」。
+        val staleCount = if (usageGranted) {
+            snapshot.apps.count { app ->
+                (app.daysSinceLastUse(snapshot.nowMs) ?: -1) >= 30
+            }
+        } else {
+            null
+        }
+
+        val used = (snapshot.storage.totalBytes - snapshot.storage.availableBytes)
+            .coerceAtLeast(0L)
+        val junkSafe = snapshot.junk?.safeBytes ?: 0L
+
         _overview.value = Overview(
             usedBytes = used,
             totalBytes = snapshot.storage.totalBytes,
             freeBytes = snapshot.storage.availableBytes,
-            junkSafeBytes = snapshot.junk?.safeBytes ?: 0L,
-            junkTotalBytes = snapshot.junk?.totalBytes ?: 0L,
-            staleAppCount = snapshot.apps.count {
-                val days = it.daysSinceLastUse(snapshot.nowMs)
-                days == null || days >= 30
-            },
-            appCount = snapshot.apps.size,
+            memoryAvailableBytes = snapshot.memory.availableBytes,
+            memoryTotalBytes = snapshot.memory.totalBytes,
+            batteryPercent = snapshot.battery.levelPercent,
+            batteryHealth = snapshot.battery.health,
+            batteryTemperatureTenths = snapshot.battery.temperatureTenths,
         )
 
+        _hints.value = buildHints(
+            snapshot = snapshot,
+            staleCount = staleCount,
+            junkSafeBytes = junkSafe,
+        )
+    }
+
+    private fun buildBasis(score: HealthScore, usageGranted: Boolean): String {
+        if (score.dimensions.isEmpty()) return "没有任何可用读数，无法评分"
+        val names = score.dimensions.joinToString(" · ") { it.dimension.displayName }
+        return if (usageGranted) {
+            "依据 $names 加权得出"
+        } else {
+            "依据 $names 加权得出 · 未授予使用情况访问，应用维度未参与"
+        }
+    }
+
+    private suspend fun buildHints(
+        snapshot: DeviceSnapshot,
+        staleCount: Int?,
+        junkSafeBytes: Long,
+    ): Map<HealthDimension, String> {
+        val hints = mutableMapOf<HealthDimension, String>()
+
+        // 存储：只有当确实有可回收量时才说得出"去清理能腾多少"
         val suggestion = SuggestionEngine.suggest(
             lastCleanMs(),
-            snapshot.junk?.safeBytes ?: 0L,
+            junkSafeBytes,
             snapshot.nowMs,
         )
-        _summary.value = buildString {
-            if (!snapshot.engineAvailable) {
-                append("内核不可用，当前仅显示系统真实读数")
-            } else {
-                append("已用 ")
-                append(used.formatBytes())
-                append(" / ")
-                append(snapshot.storage.totalBytes.formatBytes())
-            }
-            if (suggestion != null) {
-                append(" · ")
-                append(suggestion.title)
-            }
+        if (suggestion != null && suggestion.worthDoing) {
+            hints[HealthDimension.STORAGE] = suggestion.title
         }
-        return score
+
+        if (staleCount != null && staleCount > 0) {
+            hints[HealthDimension.APP] = "$staleCount 个应用超过 30 天未使用"
+        }
+
+        return hints
     }
 
     /**
      * 最近一次成功清理的时间戳（只读）。
      *
-     * 首页不再执行清理，也不再写清理历史（那是「清理」tab 的职责），
-     * 但「距上次清理多久」仍用于健康摘要，这里保留只读查询。
+     * 首页不写清理历史（那是「清理」tab 的职责），
+     * 但"距上次清理多久"是判断要不要去清一次的真实依据，这里只做只读查询。
      */
     private suspend fun lastCleanMs(): Long? =
         runCatching { history.lastCleanEpochMs() }.getOrNull()

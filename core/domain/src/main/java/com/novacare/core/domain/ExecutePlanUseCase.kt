@@ -87,8 +87,10 @@ class ExecutePlanUseCase @Inject constructor(
         // 这才是「一键清缓存」—— 用户点一次，Shizuku 全自动清完，无需逐个去系统设置页。
         if (advancedMode && cacheClean.shizukuAvailable()) {
             val trimmed = cacheClean.trimAllCaches()
-            if (!trimmed && succeeded.isEmpty()) {
-                // trim 失败且没有任何 force-stop 成功 → 报一条错误，不让 UI 误以为成功
+            if (!trimmed) {
+                // trim 失败必须如实计入 failed：否则 UI 只看到 force-stop 的成功项，
+                // 用户以为缓存已清干净，实际一个字节都没释放（静默失败）
+                failed += "缓存一键清理（Shizuku pm trim-caches）"
             }
         }
 

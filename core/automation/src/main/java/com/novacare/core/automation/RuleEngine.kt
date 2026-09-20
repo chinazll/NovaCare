@@ -13,6 +13,9 @@ import com.novacare.core.model.TriggerType
  */
 object RuleEngine {
 
+    /** 调度器的周期长度（小时）。定时规则按这个窗口判断是否该在本轮命中。 */
+    private const val PERIOD_HOURS = 6
+
     /**
      * 规则执行上下文
      * @param storageUsedPercent 当前存储占用百分比；null = 未知
@@ -33,7 +36,9 @@ object RuleEngine {
     fun triggerMatches(rule: AutomationRule, context: RuleContext, nowMs: Long): Boolean {
         if (!rule.enabled) return false
         return when (rule.trigger.type) {
-            TriggerType.SCHEDULED -> true // 由 WorkManager 保证时间窗口
+            // 不再无条件命中：调度器是 PERIOD_HOURS 一次的周期任务，无条件 true 会让
+            // 「每周日 03:00」在每个周期都执行（一天 4 次），配置的时间/星期形同虚设。
+            TriggerType.SCHEDULED -> scheduledMatches(rule, nowMs)
             TriggerType.DEVICE_IDLE -> context.isIdle
             TriggerType.STORAGE_ABOVE -> {
                 val threshold = rule.trigger.thresholdPercent ?: 85
@@ -44,6 +49,29 @@ object RuleEngine {
                 (context.batteryPercent ?: 100) < threshold
             }
         }
+    }
+
+    /**
+     * 定时规则是否落在本次周期窗口内。
+     *
+     * 旧实现无条件 `return true`：调度器是 6 小时一次的周期任务，于是
+     * 一条「每周日 03:00 清理」的规则在**每个周期**都命中 —— 一天执行 4 次，
+     * 配置里的 hourOfDay / dayOfWeek 完全没被读过。这里按周期窗口自行判断。
+     */
+    private fun scheduledMatches(rule: AutomationRule, nowMs: Long): Boolean {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = nowMs }
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val targetHour = (rule.trigger.hourOfDay ?: 3).coerceIn(0, 23)
+        val endExclusive = targetHour + PERIOD_HOURS
+        val inWindow = if (endExclusive <= 24) {
+            hour in targetHour until endExclusive
+        } else {
+            hour >= targetHour || hour < endExclusive % 24
+        }
+        if (!inWindow) return false
+
+        val day = rule.trigger.dayOfWeek ?: return true // null = 每天
+        return cal.get(java.util.Calendar.DAY_OF_WEEK) == day
     }
 
     /** 附加条件是否全部满足（全部满足才执行，避免误动作） */

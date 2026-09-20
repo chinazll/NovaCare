@@ -26,7 +26,9 @@ fun Long.formatBytes(): String {
 fun Long.formatDays(): String = when {
     this <= 0 -> "今天"
     this == 1L -> "1 天前"
+    // 整数除法会让 2~29 天显示成「0 个月前」，364 天显示成「0 年前」——
+    // 落到月/年档位时至少显示 1。
     this < 30 -> "$this 天前"
-    this < 365 -> "${this / 30} 个月前"
-    else -> "${this / 365} 年前"
+    this < 365 -> "${(this / 30).coerceAtLeast(1)} 个月前"
+    else -> "${(this / 365).coerceAtLeast(1)} 年前"
 }

@@ -27,21 +27,31 @@ data class RuleEntity(
     val createdByAi: Boolean,
 )
 
-fun RuleEntity.toDomain(): AutomationRule = AutomationRule(
-    id = id,
-    name = name,
-    enabled = enabled,
-    trigger = Trigger(
-        type = runCatching { TriggerType.valueOf(triggerType) }.getOrDefault(TriggerType.SCHEDULED),
-        hourOfDay = hourOfDay,
-        dayOfWeek = dayOfWeek,
-        thresholdPercent = thresholdPercent,
-    ),
-    conditions = Converters.conditionsFromJson(conditionsJson),
-    actions = Converters.actionsFromJson(actionsJson),
-    lastRunEpochMs = lastRunEpochMs,
-    createdByAi = createdByAi,
-)
+/**
+ * @return 领域规则；**触发器类型无法识别时返回 null**。
+ *
+ * 旧实现把未知 triggerType 兜底成 SCHEDULED —— 一条来自更高版本 / 脏数据的规则
+ * 会因此变成「每 6 小时无条件执行」，自动删除用户文件。宁可丢弃这条规则。
+ */
+fun RuleEntity.toDomain(): AutomationRule? {
+    val triggerType = runCatching { TriggerType.valueOf(this.triggerType) }.getOrNull()
+        ?: return null
+    return AutomationRule(
+        id = id,
+        name = name,
+        enabled = enabled,
+        trigger = Trigger(
+            type = triggerType,
+            hourOfDay = hourOfDay,
+            dayOfWeek = dayOfWeek,
+            thresholdPercent = thresholdPercent,
+        ),
+        conditions = Converters.conditionsFromJson(conditionsJson),
+        actions = Converters.actionsFromJson(actionsJson),
+        lastRunEpochMs = lastRunEpochMs,
+        createdByAi = createdByAi,
+    )
+}
 
 fun AutomationRule.toEntity(): RuleEntity = RuleEntity(
     id = id,

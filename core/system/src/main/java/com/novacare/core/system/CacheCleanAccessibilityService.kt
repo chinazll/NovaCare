@@ -43,14 +43,20 @@ class CacheCleanAccessibilityService : AccessibilityService() {
         if (pending == lastClickedPackage && now - lastClickedAt < CLICK_DEBOUNCE_MS) return
 
         val root = rootInActiveWindow ?: return
-        val target = findClearCacheNode(root) ?: return
+        try {
+            val target = findClearCacheNode(root) ?: return
 
-        target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
 
-        // 无论是否点成功，都清除待办，避免反复尝试卡住
-        lastClickedPackage = pending
-        lastClickedAt = now
-        pendingPackage = null
+            // 无论是否点成功，都清除待办，避免反复尝试卡住
+            lastClickedPackage = pending
+            lastClickedAt = now
+            pendingPackage = null
+        } finally {
+            // rootInActiveWindow 与 getChild() 取到的节点由调用方负责回收，
+            // 旧实现从不 recycle —— 每次窗口变化都泄漏一整棵节点树。
+            root.recycle()
+        }
     }
 
     override fun onInterrupt() = Unit

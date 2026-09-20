@@ -228,6 +228,26 @@ class FreezeViewModel @Inject constructor(
         _pending.value = null
         viewModelScope.launch {
             val advanced = settings.settings.first().advancedMode
+
+            // 批量 + 无 Shizuku：官方引导路径的实现是 startActivity 打开系统设置页，
+            // 连续打开 N 个只有最后一个落在前台，前 N-1 个操作等于静默丢失。
+            // 与其假装批量处理了 N 个，不如直接如实说明做不到。
+            if (action.packageNames.size > 1 && !permissions.isShizukuAvailable()) {
+                _state.value = UiState.Applied(
+                    FreezeResult(
+                        packageName = action.packageNames.firstOrNull().orEmpty(),
+                        success = false,
+                        method = FreezeMethod.OFFICIAL_GUIDE,
+                        message = "批量${if (action.freezing) "冻结" else "解冻"}需要 Shizuku 授权。" +
+                            "当前只能逐个跳转系统设置页，App 不会替你连开 " +
+                            "${action.packageNames.size} 个页面（那样只有最后一个可见）。",
+                    ),
+                    action.labels.firstOrNull().orEmpty(),
+                    action.freezing,
+                )
+                return@launch
+            }
+
             var last: FreezeResult? = null
             var lastLabel = action.labels.firstOrNull().orEmpty()
 

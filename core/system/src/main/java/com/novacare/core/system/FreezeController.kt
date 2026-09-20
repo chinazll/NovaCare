@@ -26,12 +26,17 @@ class FreezeController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val shell: ShizukuShell,
 ) {
-    // Shizuku 可用性在构造时探测一次，避免每次 UI recompose 都走反射
-    private val shizukuAvailable: Boolean = shell.isAvailable()
-
+    /**
+     * Shizuku 可用性必须**每次实时查询**。
+     *
+     * 旧实现在 @Singleton 构造时探测一次并缓存：控制器通常早于用户授权被创建，
+     * 于是用户后来在 Shizuku 里点了「允许」，App 仍永远显示「仅官方引导」，
+     * 必须杀进程重开才生效。isAvailable() 只做 pingBinder + checkSelfPermission，
+     * 没有反射，每次调用开销可忽略。
+     */
     fun availableMethods(): List<FreezeMethod> = buildList {
         add(FreezeMethod.OFFICIAL_GUIDE)
-        if (shizukuAvailable) add(FreezeMethod.SHIZUKU_SUSPEND)
+        if (shell.isAvailable()) add(FreezeMethod.SHIZUKU_SUSPEND)
     }
 
     /** 普通模式：打开系统「应用详情」页，由用户操作（零风险） */

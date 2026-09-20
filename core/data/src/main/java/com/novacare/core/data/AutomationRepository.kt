@@ -10,9 +10,10 @@ import javax.inject.Singleton
 class AutomationRepository @Inject constructor(
     private val dao: RuleDao,
 ) {
-    fun observeRules(): Flow<List<AutomationRule>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+    fun observeRules(): Flow<List<AutomationRule>> =
+        dao.observeAll().map { list -> list.mapNotNull { it.toDomain() } }
 
-    suspend fun rules(): List<AutomationRule> = dao.all().map { it.toDomain() }
+    suspend fun rules(): List<AutomationRule> = dao.all().mapNotNull { it.toDomain() }
 
     suspend fun save(rule: AutomationRule) = dao.upsert(rule.toEntity())
 

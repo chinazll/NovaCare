@@ -30,6 +30,8 @@ import javax.inject.Singleton
 @Singleton
 class ShizukuShell @Inject constructor() {
 
+    // 由 Shizuku binder 回调线程读写、主线程写入，必须 volatile 保证跨线程可见
+    @Volatile
     private var permissionListener: ((Boolean) -> Unit)? = null
     private val listener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         permissionListener?.invoke(grantResult == PackageManager.PERMISSION_GRANTED)
@@ -83,13 +85,25 @@ class ShizukuShell @Inject constructor() {
                 String::class.java,
             ).apply { isAccessible = true }
 
-            val process = method.invoke(null, arrayOf("sh", "-c", command), null, "/")
-                ?: return false
+            // 必须把子进程的 stdout/stderr 重定向掉：shell 命令输出一旦超过管道缓冲区，
+            // 子进程会阻塞在 write 上，waitFor() 永不返回 → 调用线程永久挂死。
+            // 本 API 只关心退出码，不消费输出，因此直接丢弃。
+            val process = method.invoke(
+                null,
+                arrayOf("sh", "-c", "$command >/dev/null 2>&1"),
+                null,
+                "/",
+            ) ?: return false
 
-            val waitFor = process.javaClass.getMethod("waitFor")
-            val exit = waitFor.invoke(process) as? Int ?: -1
-            Log.i(TAG, "cmd='$command' exit=$exit")
-            exit == 0
+            try {
+                val waitFor = process.javaClass.getMethod("waitFor")
+                val exit = waitFor.invoke(process) as? Int ?: -1
+                Log.i(TAG, "cmd='$command' exit=$exit")
+                exit == 0
+            } finally {
+                // 释放进程占用的管道 fd
+                runCatching { process.javaClass.getMethod("destroy").invoke(process) }
+            }
         }.onFailure { Log.w(TAG, "Failed to run: $command", it) }.getOrDefault(false)
     }
 
