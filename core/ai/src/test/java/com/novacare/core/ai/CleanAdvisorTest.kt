@@ -76,15 +76,16 @@ class CleanAdvisorTest {
     }
 
     @Test
-    fun missing_usage_data_falls_back_to_conservative_partial() {
+    fun missing_usage_data_falls_back_to_keep() {
         val advices = CleanAdvisor.advise(
             apps = listOf(app("com.unknown", 300L * 1024 * 1024, null)),
             usage = emptyMap(),
             nowMs = now,
         )
         val advice = advices.first()
-        assertThat(advice.recommendation).isEqualTo(CleanRecommendation.CLEAN_PARTIAL)
-        assertThat(advice.recommendedBytes).isEqualTo(advice.totalBytes / 2)
+        // 缺失使用数据时保守地不清理，引导用户开启权限后重扫 —— 而不是乱清一半
+        assertThat(advice.recommendation).isEqualTo(CleanRecommendation.KEEP)
+        assertThat(advice.recommendedBytes).isEqualTo(0L)
         // 必须如实说明「不知道使用时间」，不能假装知道
         assertThat(advice.reason).contains("未获取到使用记录")
     }
