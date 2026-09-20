@@ -22,6 +22,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -48,6 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.common.formatBytes
+import com.novacare.ui.designsystem.AiOrb
+import com.novacare.ui.designsystem.GlassPanel
+import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
@@ -86,11 +92,15 @@ fun AssistantScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
             ) {
-                Text(
-                    text = "AI 助手",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AiOrb(size = 30.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "AI 助手",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = capability.tierLabel,
@@ -110,15 +120,29 @@ fun AssistantScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (bubbles.isEmpty()) {
-                    item { GreetingHero(capability.cloudEnabled) }
                     item {
-                        Spacer(Modifier.height(8.dp))
-                        QuickPrompts(
-                            onSelect = { prompt ->
-                                NovaTap(view)
-                                viewModel.submit(prompt, rootPath)
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(MotionTokens.standard) +
+                                scaleIn(MotionTokens.standard, initialScale = 0.96f),
+                        ) { GreetingHero(capability.cloudEnabled) }
+                    }
+                    item {
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(MotionTokens.standard) +
+                                scaleIn(MotionTokens.standard, initialScale = 0.96f),
+                        ) {
+                            Column {
+                                Spacer(Modifier.height(8.dp))
+                                QuickPrompts(
+                                    onSelect = { prompt ->
+                                        NovaTap(view)
+                                        viewModel.submit(prompt, rootPath)
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
                 items(items = bubbles, key = { it.id }) { bubble ->
@@ -450,11 +474,10 @@ private fun Composer(onSend: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     val cs = MaterialTheme.colorScheme
 
-    Surface(
+    GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        color = cs.surfaceContainer,
         shape = RoundedCornerShape(28.dp),
     ) {
         Row(

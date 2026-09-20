@@ -4,7 +4,9 @@ import com.novacare.core.model.FileNode
 import com.novacare.core.model.JunkItem
 import com.novacare.core.model.JunkKind
 import com.novacare.core.system.SystemPermissions
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -64,7 +66,7 @@ class StorageInsightsUseCase @Inject constructor(
             largestFiles = largest,
             duplicates = groupDuplicates(junkItems),
             residuals = junkItems.filter { it.kind == JunkKind.RESIDUAL },
-            emptyDirs = findEmptyDirs(rootPath),
+            emptyDirs = findEmptyDirs(rootPath, this),
             agedFiles = aged,
             scanDurationMs = snapshot.storageDetail?.scanDurationMs ?: 0L,
             duplicatesScanned = detectDuplicates,
@@ -121,8 +123,9 @@ class StorageInsightsUseCase @Inject constructor(
      * @param maxDepth 深度上限：再深就是应用私有目录，扫下去既耗时又没有清理价值
      * @param visitCap 访问目录数上限：防止在极端目录树上卡死
      */
-    private fun findEmptyDirs(
+    private suspend fun findEmptyDirs(
         rootPath: String,
+        scope: CoroutineScope,
         maxDepth: Int = 4,
         visitCap: Int = 20_000,
     ): List<String> {
@@ -130,6 +133,8 @@ class StorageInsightsUseCase @Inject constructor(
         var visited = 0
 
         fun walk(dir: File, depth: Int) {
+            // 协程取消支持：递归可能遍历上万个目录，必须在任务被撤/用户离开时及时中断
+            scope.ensureActive()
             if (depth > maxDepth || visited >= visitCap || found.size >= MAX_EMPTY_DIRS) return
             // listFiles() 返回 null = 无权限/分区存储拒绝读取 —— 跳过，不猜测
             val children = dir.listFiles() ?: return
@@ -143,7 +148,7 @@ class StorageInsightsUseCase @Inject constructor(
             }
         }
 
-        runCatching { walk(File(rootPath), 0) }
+        walk(File(rootPath), 0)
         return found
     }
 

@@ -122,20 +122,17 @@ class MemoryProcessSource @Inject constructor(
     /**
      * 清理本应用自身缓存。
      *
-     * @return 真实释放字节数（删除前实测，删除后校验）
+     * @return 真实释放字节数（删除前后实测体积差，而非逐项估算）
      */
     fun clearSelfCache(): Long {
         val dir = context.cacheDir ?: return 0L
         val before = runCatching { sizeOf(dir) }.getOrDefault(0L)
-        var freed = 0L
-        dir.listFiles()?.forEach { child ->
-            val size = runCatching { sizeOf(child) }.getOrDefault(0L)
-            val ok = runCatching { child.deleteRecursively() }.getOrDefault(false)
-            if (ok) freed += size
-        }
-        // 实测兜底：以"删除前后目录体积差"为准，避免某些文件删除失败却计入释放量
+        // 删整棵 cacheDir 比逐 child 更便宜也更安全：底层一次 walk + 系统级 unlink，
+        // 不必逐个 stat 再 deleteRecursively（那会对每个 child 重复 walk 整个子树，O(n×size)）。
+        // 失败也无所谓——我们已经记录了 before，下面用差值兜底。
+        runCatching { dir.deleteRecursively() }
         val after = runCatching { sizeOf(dir) }.getOrDefault(0L)
-        return (before - after).coerceAtLeast(0L).takeIf { it > 0 } ?: freed
+        return (before - after).coerceAtLeast(0L)
     }
 
     /**
