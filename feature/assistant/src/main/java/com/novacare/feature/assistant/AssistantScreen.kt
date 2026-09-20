@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Shield
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -79,13 +81,22 @@ import com.novacare.ui.designsystem.EmptyTone
 import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.RingSpinner
 import com.novacare.ui.designsystem.RiskChip
 import com.novacare.ui.designsystem.SectionHeader
+import com.novacare.ui.designsystem.StaggerFlyIn
 
 /**
  * AI 助手（L2）—— 对话式指令界面
+ *
+ * 【v0.7.2 视觉统一】与 HomeScreen 同一设计语言：
+ *   - 顶部 NovaNowBar（替代老 AssistantHeader 角落大头像 + 标题）
+ *   - 圆角统一 22dp；NowBar 已有水平 padding，子项不再额外 padding
  *
  * 【这个屏幕到底是什么，不装】
  * 它不是通用聊天机器人。用户输入的每句话都会被解析成一个**结构化意图**，
@@ -111,6 +122,7 @@ fun AssistantScreen(
 ) {
     val bubbles by viewModel.bubbles.collectAsStateWithLifecycle()
     val thinking by viewModel.thinking.collectAsStateWithLifecycle()
+    val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
     val capability by viewModel.capability.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val report by viewModel.report.collectAsStateWithLifecycle()
@@ -134,9 +146,24 @@ fun AssistantScreen(
         if (target > 0) listState.animateScrollToItem(target - 1)
     }
 
+    // AI 流式首个 token 到达 → NovaSuccess(): 用户感知"对话开始了"
+    val view = androidx.compose.ui.platform.LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var hasFirstTokenFired by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(streamingText) {
+        if (!hasFirstTokenFired && !streamingText.isNullOrBlank()) {
+            hasFirstTokenFired = true
+            NovaSuccess(context)
+        }
+        if (streamingText.isNullOrBlank()) {
+            hasFirstTokenFired = false
+        }
+    }
+
     val canSend = draft.isNotBlank() && !thinking
     val send = {
         if (canSend) {
+            NovaTap(view)
             viewModel.submit(draft, rootPath)
             draft = ""
         }
@@ -148,33 +175,49 @@ fun AssistantScreen(
                 .fillMaxSize()
                 .imePadding(),
         ) {
-            AssistantHeader(capability = capability)
+            // v0.7.2 视觉统一：AssistantHeader → NovaNowBar
+            NovaNowBar(
+                title = "助手",
+                subtitle = capability.tierLabel,
+                status = when {
+                    !capability.engineAvailable -> NowBarStatus.Error
+                    capability.cloudEnabled -> NowBarStatus.Healthy
+                    else -> NowBarStatus.Idle
+                },
+                modifier = Modifier.padding(top = 10.dp),
+            )
 
             // 云端模型未开启时如实说明能力边界 —— 用户有权知道对面是什么
             if (!capability.cloudEnabled) {
-                InlineNotice(
-                    text = "当前使用本地规则解析（不联网）。它能听懂清理缓存 / 清理垃圾 / " +
-                        "冻结不常用应用 / 分析存储这四类说法。要理解更复杂的句子，" +
-                        "可在「设置 → 云端 AI」中自行开启。",
-                    tone = EmptyTone.Neutral,
-                    icon = Icons.Outlined.Shield,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
+                StaggerFlyIn(index = 0) {
+                    InlineNotice(
+                        text = "当前使用本地规则解析（不联网）。它能听懂清理缓存 / 清理垃圾 / " +
+                            "冻结不常用应用 / 分析存储这四类说法。要理解更复杂的句子，" +
+                            "可在「设置 → 云端 AI」中自行开启。",
+                        tone = EmptyTone.Neutral,
+                        icon = Icons.Outlined.Shield,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
             }
 
             error?.let { message ->
-                InlineNotice(
-                    text = message,
-                    tone = EmptyTone.Error,
-                    actionText = "重试",
-                    onAction = { viewModel.retry(rootPath) },
-                    icon = Icons.Outlined.SearchOff,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
+                StaggerFlyIn(index = 1) {
+                    InlineNotice(
+                        text = message,
+                        tone = EmptyTone.Error,
+                        actionText = "重试",
+                        onAction = { viewModel.retry(rootPath) },
+                        icon = Icons.Outlined.SearchOff,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
             }
 
             report?.let { r ->
-                ExecutionNotice(r = r, onDismiss = viewModel::clearReport)
+                StaggerFlyIn(index = 2) {
+                    ExecutionNotice(r = r, onDismiss = viewModel::clearReport)
+                }
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -211,7 +254,15 @@ fun AssistantScreen(
                         }
 
                         if (thinking) {
-                            item(key = "thinking") { ThinkingIndicator() }
+                            item(key = "thinking") {
+                                // 流式对话时：显示正在逐 token 输出的气泡，而非"转圈"
+                                val streaming = streamingText
+                                if (streaming != null) {
+                                    StreamingBubble(text = streaming)
+                                } else {
+                                    ThinkingIndicator()
+                                }
+                            }
                         }
                     }
                 }
@@ -223,53 +274,6 @@ fun AssistantScreen(
                 onSend = send,
                 enabled = !thinking,
                 canSend = canSend,
-            )
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// 顶栏
-// ------------------------------------------------------------
-
-@Composable
-private fun AssistantHeader(capability: AssistantViewModel.Capability) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(NovaCareTheme.colors.accent.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.SmartToy,
-                contentDescription = null,
-                tint = NovaCareTheme.colors.accent,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "状态助手",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = capability.tierLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (capability.engineAvailable) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    NovaCareTheme.colors.riskCaution
-                },
             )
         }
     }
@@ -293,6 +297,7 @@ private fun UserBubble(text: String) {
                 1.dp,
                 NovaCareTheme.colors.accent.copy(alpha = 0.28f),
             ),
+            shadowElevation = 1.dp,
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
             Text(
@@ -353,6 +358,7 @@ private fun AssistantBubble(
                     1.dp,
                     NovaCareTheme.colors.hairline,
                 ),
+                shadowElevation = 2.dp,
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                     // 没听懂时，第一行就是明确的否认，避免用户误以为被理解了
@@ -642,6 +648,79 @@ private fun FreezeRow(candidate: FreezeCandidate) {
 // ------------------------------------------------------------
 
 /**
+ * 流式对话气泡 —— 云端 LLM 逐 token 输出时，实时显示已生成的部分。
+ *
+ * 这是「AI 真的在对话」的体感来源：文字一个字一个字蹦出来，
+ * 而不是转圈 10 秒后整段弹出。末尾带一个闪烁的光标块表示还在继续。
+ */
+@Composable
+private fun StreamingBubble(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+    ) {
+        // AI orb 头像（One UI 10 Fluid AI 的圆形悬浮球语言）
+        AiOrb(modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(8.dp))
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, NovaCareTheme.colors.hairline),
+            shadowElevation = 1.dp,
+            modifier = Modifier.widthIn(max = 300.dp),
+        ) {
+            Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.width(2.dp))
+                // 尾部光标：闪烁方块表示"还在打字"
+                Box(
+                    modifier = Modifier
+                        .padding(top = 3.dp)
+                        .size(width = 2.dp, height = 16.dp)
+                        .background(NovaCareTheme.colors.accent),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * AI orb —— One UI 10 Fluid AI Design System 的圆形悬浮球。
+ *
+ * 一个带径向高光 + 呼吸光晕的小圆，是「AI agent」的视觉锚点。
+ * 用在助手气泡前，把"这是 AI 在说话"变成一眼可辨的形状。
+ */
+@Composable
+private fun AiOrb(modifier: Modifier = Modifier) {
+    val colors = NovaCareTheme.colors
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        colors.accent.copy(alpha = 0.35f),
+                        colors.accent.copy(alpha = 0.10f),
+                        colors.accentDim.copy(alpha = 0.05f),
+                    ),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(colors.accent.copy(alpha = 0.9f)),
+        )
+    }
+}
+
+/**
  * 三点跳动。
  * 不用 CircularProgressIndicator —— 那时长不可知的旋转会让用户以为卡住了，
  * 这里明确写出「正在做什么」，把等待变成可理解的进度。
@@ -659,6 +738,7 @@ private fun ThinkingIndicator() {
                 1.dp,
                 NovaCareTheme.colors.hairline,
             ),
+            shadowElevation = 1.dp,
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -670,7 +750,7 @@ private fun ThinkingIndicator() {
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "正在读取设备状态并解析这句话…",
+                    text = "正在读取设备状态…",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -860,7 +940,14 @@ private fun SuggestionRow(
 // ------------------------------------------------------------
 
 /**
- * 底部输入区。
+ * 底部输入区 —— One UI 9/9.5 风格的 Bottom Action Bar。
+ *
+ * 上一版是一个薄薄一行的输入条 + 右侧圆形发送键。
+ * One UI 9 改成了更厚的底部操作位（高度 64-72dp）：
+ *   - 左侧语音图标占位（未来接语音入口，现在是「未来感」的形状语言）
+ *   - 中间一枚粗圆角胶囊包裹输入
+ *   - 右侧仍是圆形发送键，但 56dp 而不是 52dp
+ *   - 整体顶部带 28dp 圆角，模拟 One UI 底栏的「软着陆」
  *
  * 输入框用 BasicTextField 而非 OutlinedTextField —— 后者的下划线与浮动标签
  * 在这个尺寸下会显得笨重。这里要的是一枚圆角胶囊 + 一侧圆形发送键。
@@ -879,20 +966,54 @@ private fun AssistantComposer(
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
         border = BorderStroke(1.dp, colors.hairline),
+        // 不规则圆角：上边大圆角（28dp），下边直角（贴 nav bar）
         shape = RoundedCornerShape(
-            topStart = 0.dp,
-            topEnd = 0.dp,
+            topStart = 28.dp,
+            topEnd = 28.dp,
             bottomStart = 0.dp,
             bottomEnd = 0.dp,
         ),
+        shadowElevation = 8.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                // 上下 padding 从 12 → 14，让整个操作位明显变厚
+                .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            // 语音图标占位 —— 48dp 圆形，比发送键略小但仍然可达
+            // 现在的功能只是「占位」：点下去给一个轻微反馈，未来接 STT
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .border(
+                        width = 1.dp,
+                        color = colors.hairline,
+                        shape = CircleShape,
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        onClick = { /* One UI 占位：未来接语音识别 */ },
+                    )
+                    .semantics { contentDescription = "语音输入（即将推出）" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Mic,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -903,7 +1024,8 @@ private fun AssistantComposer(
                         color = if (enabled) colors.hairline else colors.hairline.copy(alpha = 0.5f),
                         shape = MaterialTheme.shapes.extraLarge,
                     )
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    // vertical 14 → 16：跟外层 14dp 一起让胶囊更厚
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 if (value.isEmpty()) {
                     Text(
@@ -938,7 +1060,7 @@ private fun AssistantComposer(
             }
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(sendBg)
                     .then(
@@ -966,7 +1088,7 @@ private fun AssistantComposer(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }

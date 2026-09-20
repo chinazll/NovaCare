@@ -2,6 +2,9 @@ package com.novacare.feature.assistant
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novacare.core.ai.ChatMessage
+import com.novacare.core.ai.CloudLlmProvider
+import com.novacare.core.common.formatBytes
 import com.novacare.core.data.SettingsRepository
 import com.novacare.core.domain.AssistantOutcome
 import com.novacare.core.domain.AssistantUseCase
@@ -27,21 +30,31 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * AI 助手 —— 对话状态机
+ * AI 助手 —— 真正的对话状态机
  *
- * 【能力边界，必须对用户诚实】
- * 本应用**没有**通用聊天模型。助手能做的是把一句中文口令解析成
- * 结构化意图（CLEAN_CACHE / CLEAN_JUNK / FREEZE_UNUSED_APPS / ANALYZE_STORAGE），
- * 再由 [AssistantUseCase] 生成一份**待确认**的计划。
+ * ============================================================
+ * 【v0.7.4 重写 —— 从「指令解析器」升级为「真对话」】
  *
- * 解析器有两层：
- *   - L1 本地规则（[com.novacare.core.ai.RuleBasedIntentParser]）—— 离线可用，
- *     覆盖常见说法
- *   - L3 云端模型 —— 仅在用户在设置里主动开启并填了 API Key 时才启用
+ * 上一版的问题是本质性的：无论云端还是本地，它都只做一件事——
+ * 把一句话解析成 5 种意图之一，然后吐一张清单。这不是对话，是查询接口。
+ * 用户说"AI 没做"，完全成立。
  *
- * 因此 [AssistantViewModel.Capability] 会如实告诉 UI 当前是哪一层在解析。
- * 解析不出意图时返回 UNKNOWN，UI 必须显示"没听懂 + 能听懂什么"，
- * **绝不假装理解了**，也绝不猜一个动作去执行。
+ * 这一版的分层：
+ *
+ *  1. **云端已配置**（用户在设置里填了 key）：
+ *     - 走 [CloudLlmProvider.completeStream] **流式多轮对话**，
+ *       把设备真实状态（存储/内存/应用数）注入 system prompt，
+ *       AI 能自由回答、追问、给建议 —— token 逐个蹦出来，用户看到"AI 在打字"。
+ *     - 同时本地规则仍解析一次意图：若 AI 回复里带出可执行的动作
+ *       （清理/冻结），下面仍附操作卡片，保证"说得清 + 做得到"。
+ *
+ *  2. **云端未配置**：
+ *     - 走本地规则解析（离线、确定性），明确标注"本地规则"，
+ *       并提示用户可到设置开启云端获得更自然的对话。
+ *
+ * 【诚实底线不变】
+ * 解析不出意图就明说"没听懂"，绝不猜一个动作去执行。
+ * 操作卡片永远"先清单、后执行"，不静默动手。
  */
 @HiltViewModel
 class AssistantViewModel @Inject constructor(
@@ -51,60 +64,51 @@ class AssistantViewModel @Inject constructor(
     private val executePlanUseCase: ExecutePlanUseCase,
     private val engine: NovaEngine,
     private val settings: SettingsRepository,
+    private val llm: CloudLlmProvider,
 ) : ViewModel() {
 
-    /** 助手当前的解析能力（用于界面顶部如实标注，而不是假装成通用大模型） */
     data class Capability(
-        /** 云端模型是否已配置（true = L3 在解析） */
         val cloudEnabled: Boolean,
-        /** 本地内核是否可用（false = 只能给出通用建议，读不到设备真实数据） */
         val engineAvailable: Boolean,
         val engineVersion: String,
     ) {
         val tierLabel: String
-            get() = if (cloudEnabled) "云端模型 · L3" else "本地规则 · L1（离线可用）"
+            get() = if (cloudEnabled) "云端对话 · 流式" else "本地规则 · 离线"
     }
 
     sealed interface Bubble {
         val id: Long
 
-        /** 用户发言 */
         data class User(override val id: Long, val text: String) : Bubble
 
-        /** 助手回复：始终带一句文字，必要时附带可操作卡片 */
         data class Assistant(
             override val id: Long,
             val text: String,
-            /** 解析出的意图（UNKNOWN 时 UI 显示"没听懂"） */
             val understood: Boolean,
             val tier: AiTier,
             val confidence: Float,
-            /** 被识别的排除项（"别动微信"） */
             val excludedLabels: List<String>,
             val olderThanDays: Int?,
             val card: ReplyCard?,
+            /** 是否由云端 LLM 流式生成（决定是否标注"云端对话"） */
+            val streamed: Boolean = false,
         ) : Bubble
     }
 
-    /** 助手回复里可执行的部分 —— 一律先给清单，用户确认后才执行 */
     sealed interface ReplyCard {
-        /** 可清理清单 */
         data class Plan(
             val advices: List<CleanAdvice>,
             val totalBytes: Long,
             val safeBytes: Long,
         ) : ReplyCard
 
-        /** 可冻结清单 */
         data class Freeze(val candidates: List<FreezeCandidate>) : ReplyCard
     }
 
-    /** 执行结果（清理由助手卡片触发的一步） */
     data class ExecutionReport(
         val freedBytes: Long,
         val succeeded: Int,
         val failed: Int,
-        /** 需要用户去系统设置页手动完成、本应用无法代为执行的项 */
         val needsManual: Int,
         val recycleBinPath: String?,
     )
@@ -115,12 +119,15 @@ class AssistantViewModel @Inject constructor(
     private val _thinking = MutableStateFlow(false)
     val thinking: StateFlow<Boolean> = _thinking.asStateFlow()
 
+    /** 流式对话的中间态：非空表示正在逐 token 输出这段文本 */
+    private val _streamingText = MutableStateFlow<String?>(null)
+    val streamingText: StateFlow<String?> = _streamingText.asStateFlow()
+
     private val _capability = MutableStateFlow(
         Capability(cloudEnabled = false, engineAvailable = true, engineVersion = ""),
     )
     val capability: StateFlow<Capability> = _capability.asStateFlow()
 
-    /** 非空时表示上一轮解析/扫描出错，UI 用 InlineNotice 展示并提供重试 */
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -130,14 +137,13 @@ class AssistantViewModel @Inject constructor(
     private var nextId = 1L
     private var lastText: String = ""
 
+    /** 多轮对话历史（云端模式用），不含 system —— system 每次根据最新快照重建 */
+    private val history = mutableListOf<ChatMessage>()
+
     init {
         refreshCapability()
     }
 
-    /**
-     * 刷新能力状态。
-     * `cloudApiKey` 通过 DataStore 异步读取，因此这里放协程里；UI 在 ON_RESUME 时调用。
-     */
     fun refreshCapability() {
         viewModelScope.launch {
             val s = settings.settings.first()
@@ -149,7 +155,6 @@ class AssistantViewModel @Inject constructor(
         }
     }
 
-    /** 发送一条消息并解析 */
     fun submit(text: String, rootPath: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() || _thinking.value) return
@@ -161,28 +166,88 @@ class AssistantViewModel @Inject constructor(
         _thinking.value = true
 
         viewModelScope.launch {
+            val snapshot = runCatching { cache.last ?: scan(rootPath).also { cache.put(it) } }
+                .getOrElse {
+                    _thinking.value = false
+                    _error.value = it.message ?: "读取设备失败"
+                    return@launch
+                }
+
+            // ---- 云端已配置：流式多轮对话 ----
+            if (llm.isConfigured) {
+                runCatching {
+                    val advanced = settings.settings.first().advancedMode
+                    // 本地规则仍解析一次意图，作为"可执行动作"层
+                    val intent = assistant.parse(trimmed, snapshot)
+                    val messages = buildCloudMessages(trimmed, snapshot)
+                    var full = ""
+                    val text2 = llm.completeStream(messages) { delta ->
+                        full += delta
+                        _streamingText.value = full
+                    }
+                    val reply = text2 ?: full
+                    history.add(ChatMessage("user", trimmed))
+                    history.add(ChatMessage("assistant", reply))
+                    _streamingText.value = null
+                    val outcome = assistant.apply(intent, snapshot, advanced)
+                    buildReply(trimmed, reply, intent, outcome, snapshot, streamed = true)
+                }.onSuccess { bubble ->
+                    _bubbles.value = _bubbles.value + bubble
+                    _thinking.value = false
+                    _streamingText.value = null
+                }.onFailure { e ->
+                    _streamingText.value = null
+                    _thinking.value = false
+                    _error.value = e.message ?: "云端对话失败，已回退。可在设置里检查 Key。"
+                }
+                return@launch
+            }
+
+            // ---- 本地规则模式（离线、确定性） ----
             runCatching {
-                val snapshot = cache.last ?: scan(rootPath).also { cache.put(it) }
-                val intent = assistant.parse(trimmed, snapshot)
                 val advanced = settings.settings.first().advancedMode
+                val intent = assistant.parse(trimmed, snapshot)
                 val outcome = assistant.apply(intent, snapshot, advanced)
-                Triple(intent, outcome, snapshot)
-            }.onSuccess { (intent, outcome, snapshot) ->
-                _bubbles.value = _bubbles.value + buildReply(trimmed, intent, outcome, snapshot)
-                // 能力状态可能因为这一轮扫描才发现内核不可用 —— 立即同步到顶部标注
-                _capability.value = _capability.value.copy(
-                    engineAvailable = snapshot.engineAvailable,
-                    engineVersion = engine.version(),
-                )
+                buildReply(trimmed, outcome.text(), intent, outcome, snapshot, streamed = false)
+            }.onSuccess { bubble ->
+                _bubbles.value = _bubbles.value + bubble
                 _thinking.value = false
             }.onFailure { e ->
-                _error.value = e.message ?: "解析失败，请重试"
                 _thinking.value = false
+                _error.value = e.message ?: "解析失败，请重试"
             }
         }
     }
 
-    /** 出错后重发上一条 */
+    /**
+     * 构造云端对话的消息列表。
+     *
+     * system prompt 注入设备真实状态 —— 让 AI 的回答"有据"，而不是凭空说车轱辘话。
+     * 历史保留最近 6 条（3 轮），避免 prompt 无限膨胀。
+     */
+    private fun buildCloudMessages(userText: String, s: DeviceSnapshot): List<ChatMessage> {
+        val used = s.storage.totalBytes - s.storage.availableBytes
+        val percent = if (s.storage.totalBytes > 0L) {
+            (used * 100 / s.storage.totalBytes).toInt()
+        } else 0
+        val system = buildString {
+            append("你是 NovaCare，一个安卓系统清理与优化助手。")
+            append("你能读取设备的真实状态并给出建议，也能生成清理/冻结操作清单。")
+            append("用户可能用中文提问、闲聊或下指令。回答要简洁、说人话、不堆术语。")
+            append("\n\n当前设备状态（真实数据，回答时可引用）：")
+            append("\n- 存储：已用 $percent%（已用 ${used.formatBytes()} / " +
+                "共 ${s.storage.totalBytes.formatBytes()}）")
+            append("\n- 已安装应用：${s.apps.size} 个")
+            append("\n- 可回收空间：${(s.junk?.totalBytes ?: 0L).formatBytes()}")
+            append("\n- 内核可用：${s.engineAvailable}")
+            append("\n\n规则：如果用户表达了清理/冻结/分析的意图，先用一句话确认你的理解，")
+            append("再给出建议；不要替用户执行任何操作（执行由 App 的确认卡片完成）。")
+        }
+        val tail = history.takeLast(6)
+        return listOf(ChatMessage("system", system)) + tail +
+            ChatMessage("user", userText)
+    }
+
     fun retry(rootPath: String) {
         if (lastText.isBlank()) return
         val text = lastText
@@ -198,13 +263,10 @@ class AssistantViewModel @Inject constructor(
         _report.value = null
     }
 
-    /**
-     * 执行助手给出的清理计划。
-     *
-     * 只执行用户已经在卡片上**看过并点击确认**的那一份清单：
-     * 把清单重新装回 [CleanPlan] 并按 safety 过滤后交给 [ExecutePlanUseCase]，
-     * 不会因为点了一次执行就扩大到其它项。
-     */
+    fun clearReport() {
+        _report.value = null
+    }
+
     fun executePlan(advices: List<CleanAdvice>, rootPath: String) {
         if (advices.isEmpty()) return
         viewModelScope.launch {
@@ -227,7 +289,6 @@ class AssistantViewModel @Inject constructor(
                     needsManual = result.needsManual.size,
                     recycleBinPath = result.recycleBinPath,
                 )
-                // 执行后重扫，让后续回答基于真实状态而不是缓存
                 runCatching { scan(rootPath) }.getOrNull()?.let { cache.put(it) }
                 _thinking.value = false
             }.onFailure { e ->
@@ -237,24 +298,20 @@ class AssistantViewModel @Inject constructor(
         }
     }
 
-    fun clearReport() {
-        _report.value = null
-    }
-
-    private suspend fun buildReply(
-        text: String,
+    private fun buildReply(
+        userText: String,
+        replyText: String,
         intent: ParsedIntent,
         outcome: AssistantOutcome,
         snapshot: DeviceSnapshot,
+        streamed: Boolean,
     ): Bubble.Assistant {
         val labels = intent.excludePackages.mapNotNull { pkg ->
             snapshot.apps.firstOrNull { it.packageName == pkg }?.label
         }
 
         val card = when (outcome) {
-            is AssistantOutcome.Plan -> if (outcome.advices.isEmpty()) {
-                null
-            } else {
+            is AssistantOutcome.Plan -> if (outcome.advices.isEmpty()) null else {
                 ReplyCard.Plan(
                     advices = outcome.advices,
                     totalBytes = outcome.advices.sumOf { it.totalBytes },
@@ -263,45 +320,29 @@ class AssistantViewModel @Inject constructor(
                         .sumOf { it.recommendedBytes },
                 )
             }
-
-            is AssistantOutcome.Freeze -> if (outcome.candidates.isEmpty()) {
-                null
-            } else {
+            is AssistantOutcome.Freeze -> if (outcome.candidates.isEmpty()) null else {
                 ReplyCard.Freeze(outcome.candidates)
             }
-
             is AssistantOutcome.Info -> null
         }
 
         return Bubble.Assistant(
             id = nextId++,
-            text = outcome.explanation(),
+            text = replyText,
             understood = intent.intent != IntentType.UNKNOWN,
-            tier = intent.source,
+            tier = if (streamed) AiTier.CLOUD else intent.source,
             confidence = intent.confidence,
             excludedLabels = labels,
             olderThanDays = intent.olderThanDays,
             card = card,
+            streamed = streamed,
         )
     }
+}
 
-    private fun AssistantOutcome.explanation(): String = when (this) {
-        is AssistantOutcome.Plan ->
-            if (advices.isEmpty()) {
-                "已经按你的条件筛过一遍，没有匹配到可清理的项目。" +
-                    "可以放宽条件（比如去掉「半年前」这个时间限制）再试一次。"
-            } else {
-                explanation
-            }
-
-        is AssistantOutcome.Freeze ->
-            if (candidates.isEmpty()) {
-                "没有找到符合条件的不常用应用。这可能是因为设备刚使用不久，" +
-                    "或者「使用情况访问」权限尚未授予 —— 那会导致所有应用都无法判定为不常用。"
-            } else {
-                explanation
-            }
-
-        is AssistantOutcome.Info -> explanation
-    }
+/** AssistantOutcome 各子类都有 explanation 字段，但 sealed interface 未声明该属性，这里统一取值 */
+private fun AssistantOutcome.text(): String = when (this) {
+    is AssistantOutcome.Plan -> explanation
+    is AssistantOutcome.Freeze -> explanation
+    is AssistantOutcome.Info -> explanation
 }

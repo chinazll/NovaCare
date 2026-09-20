@@ -1,184 +1,177 @@
-# NovaCare 管家
+# NovaCare
 
-> One UI 9 设计灵魂 · Rust 核心引擎 · 零网络权限的安卓系统优化 App
+> 安卓系统优化应用 · Rust 核心引擎 · 全程本机处理不联网
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-![Android](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-3DDC84)
-![Rust](https://img.shields.io/badge/Rust-核心引擎-orange)
-![Status](https://img.shields.io/badge/status-alpha(实验性)-red)
+![Android](https://img.shields.io/badge/Android-8.0+-3DDC84)
+![Rust](https://img.shields.io/badge/Rust-1.85+-orange)
+![Status](https://img.shields.io/badge/status-v0.7.2--alpha-yellow)
 
-**当前版本：`v0.4.0-alpha`（实验性，未上架任何应用商店）**
+**当前版本：`v0.7.2-alpha`**（已发布 [GitHub Releases](https://github.com/chinazll/NovaCare/releases)，实验性）
 
 ---
 
-## 一、这个项目的真实状态（请先读这段）
+## 这是什么
 
-这是一份**如实描述**的 README。此前版本曾夸大功能，现已全部修正。
-下表是「文档宣称」与「代码现实」的逐条对照：
+NovaCare 是一个**完全本机运行**的安卓系统优化 App：用 Rust 写的核心引擎扫描存储分类、识别可清理项、应用冻结与回收站机制。**全程不上传任何数据**。
 
-| 能力 | 状态 | 说明 |
+设计语言对标 One UI 9/9.5 的 Next-Gen 视觉语言（浮层胶囊底部导航、边缘光带、空间层次、群组飞入、Now Bar 体征条），不是 M3 的标准贴底导航。
+
+---
+
+## 当前能做什么（v0.7.2 实测）
+
+| 能力 | 状态 | 备注 |
 |------|------|------|
-| 设备健康评分 | ✅ 可用 | 四维加权：存储 35% / 内存 30% / 电池 20% / 应用 15% |
-| 存储分类分析 | ✅ 真实扫描 | 由 Rust 引擎并行扫描得出，**不是**估算比例 |
-| 大文件分析 | ✅ 可用 | Rust 引擎返回体积最大的文件列表 |
-| 垃圾清理 | ✅ 可用（受限） | 仅清理 Rust 判定为 `is_safe` 且位于路径白名单内的项 |
-| 应用列表与体积 | ✅ 可用 | 缓存/数据大小通过 `StorageStatsManager` 真实读取 |
-| 重复文件检测 | ⚠️ 引擎已实现，UI 未开放 | Rust `junk_detector` 支持 BLAKE3 去重，默认关闭 |
-| **应用冻结** | ⚠️ **需要 Shizuku** | 通过 `pm suspend`（可逆，不删数据）。未装 Shizuku 时会明确提示不可用 |
-| **fstrim 闪存整理** | ⚠️ **需要 Shizuku** | 需 ADB 级权限。不可用时**跳过且不谎报成功** |
-| 夜间自动维护 | ✅ 已注册 | 每天凌晨 3 点，设备空闲且电量充足时执行 |
-| 耗电排行 / 唤醒锁 | ❌ **未实现** | 此前文档提及但代码中不存在，已从文档移除 |
-| 内存整理 | ❌ **未实现** | 同上，已移除宣传 |
+| **首页一键清理** | ✅ 闭环 | 扫描→清单→执行→写历史，不再是死路 |
+| **深度清理页** | ✅ 完整 | 勾选/全选/分类筛选/路径白名单，回收站 7 天可撤销 |
+| **冻结应用** | ⚠️ 需 Shizuku | 通过 `pm suspend` 可逆冻结，需 ADB 工作 |
+| **自动化规则** | ✅ 可用 | 定时 / 电量 / 存储 / 空闲四种触发，**6 小时执行窗口**（不保证精确到分钟） |
+| **AI 自然语言** | ✅ 本地 | "每周日 3 点清理垃圾" 类说法，本地确定性解析 |
+| **云端 AI** | ⚠️ 需自配 Key | 默认关闭，未配置时一个网络请求都不发 |
+| **夜间自动维护** | ✅ 已注册 | 由 WorkManager 周期任务驱动 |
 
 ---
 
-## 二、架构
+## 已修复的真实 bug（v0.7.1 → v0.7.2）
 
-```
-┌──────────────────────────────────────────────────┐
-│ UI 层  Kotlin + Jetpack Compose + Material 3     │
-│       One UI 9 灵魂：大标题 / 六区色调 / 无阴影   │
-├──────────────────────────────────────────────────┤
-│ 表现层  MVI：State + Intent（StateFlow）          │
-├──────────────────────────────────────────────────┤
-│ 仓储层  DeviceRepository / AppFreezeManager       │
-│       （只做 Android 系统 API 调用与副作用）      │
-├──────────────────────────────────────────────────┤
-│ JNI 桥接层  RustCore.kt（org.json 解析）          │
-├──────────────────────────────────────────────────┤
-│ Rust 核心引擎  libnovacare_core.so                │
-│   scanner(rayon 并行) · storage · junk_detector   │
-│   (BLAKE3) · app_analyzer · battery_monitor       │
-└──────────────────────────────────────────────────┘
-```
+每一项都在代码里被验证可复现 → 修复后已 commit：
 
-**单一数据源原则**：所有重量级计算（扫描、分类、去重、排序、电池评分）
-一律由 Rust 完成。Kotlin 侧**不存在**任何重复的评分或统计算法——
-这是本项目最重要的架构约束（曾因 Kotlin 与 Rust 各有两套电池算法而产生矛盾数据）。
-
-**优雅降级**：若 `.so` 未被打包（例如纯 Kotlin 的本地构建），
-`RustCore.isAvailable == false`，App 依然可用，但存储分类会**留空并说明原因**，
-而不是展示估算出来的假数据。
+- ❌ 启动崩溃：`Configuration.Provider` 与 `@Inject lateinit` 互相调用导致 `UninitializedPropertyAccessException` → 改用 Hilt `EntryPoint` 解耦
+- ❌ 首页一键释放是死路：扫描完成没 CTA → 现在直接调用 `onConfirm()` 真正执行
+- ❌ 自动化「开机时」是合同谎：当前调度没有 BOOT_COMPLETED 监听 → 选项已移除
+- ❌ 通知权限跳错页：跳到应用详情页 → 跳到 `ACTION_APP_NOTIFICATION_SETTINGS`
+- ❌ "反馈问题"静默失败：浏览器缺失时无反馈 → 显示 URL 让用户复制打开
+- ❌ 时间解析丢分钟：`22:30` 被截成 `22` → 现在识别出分钟并告知「6h 窗口」
+- ❌ 视觉不一致：仅首页用了 NowBar / SpatialLayer / StaggerFlyIn → 5 个二级页全部统一
 
 ---
 
-## 三、技术栈
+## 架构
 
-| 层 | 技术 |
+```
+┌─────────────────────────────────────────────┐
+│ UI 层  Kotlin + Compose + Material 3        │
+│       One UI Next-Gen 浮层语言                │
+├─────────────────────────────────────────────┤
+│ 表现层  MVI（State + Intent, StateFlow）     │
+├─────────────────────────────────────────────┤
+│ 领域层  UseCase / Repository / Domain Models │
+├─────────────────────────────────────────────┤
+│ 系统层  SystemPermissions / ShizukuShell     │
+├─────────────────────────────────────────────┤
+│ FFI    UniFFI 0.28 + JNA（libjnidispatch.so） │
+├─────────────────────────────────────────────┤
+│ Rust   libuniffi_novacare.so × 4 ABI         │
+│   scanner(rayon 并行) · storage · junk ·     │
+│      · app_analyzer · battery_monitor        │
+└─────────────────────────────────────────────┘
+```
+
+模块结构：
+
+```
+core/{model, common, engine, ai, system, data, domain, automation}
+feature/{home, clean, freeze, automation, assistant}
+ui/designsystem
+app
+```
+
+---
+
+## 技术栈
+
+| 层 | 选型 |
 |----|------|
-| UI | Kotlin 2.0 · Jetpack Compose · Material 3 (BOM 2025.10) |
-| DI | Hilt + KSP |
+| UI | Kotlin 2.0 · Jetpack Compose · Material 3 |
+| 设计 | 浮动 dock · Now Bar · 边缘光带 · 群组飞入 · 空间浮层 |
+| DI | Hilt 2.52 + KSP |
 | 异步 | Coroutines + Flow |
-| 引擎 | **Rust 1.85**（`cdylib` → JNI） |
-| 构建 | AGP 8.7 · Gradle 8.9 · **cargo-ndk** · NDK 26.1 |
-| 可选提权 | Shizuku（仅冻结 / fstrim） |
+| 引擎 | **Rust 1.85**（cdylib + UniFFI 0.28） |
+| FFI | UniFFI Kotlin Bindings + JNA 5.14 |
+| 调度 | WorkManager（6 小时周期任务） |
+| 构建 | AGP 8.7 · Gradle 8.9 · cargo-ndk · NDK 26.1 |
+| 提权 | Shizuku（可选，仅冻结/fstrim 用） |
 
 SDK：`minSdk 26`（Android 8.0+）· `targetSdk 36` · `compileSdk 36`
 
 ---
 
-## 四、构建
+## 构建
 
-### 方式 A：只构建（不需要 Rust 工具链）
+### 仅 Kotlin（无 Rust）
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-Rust 引擎不会被打包，`RustCore.isAvailable == false`，App 以降级模式运行。
-这让你可以在没有 NDK 的环境里快速迭代 UI。
+Rust 引擎不会被打包，App 以降级模式运行（只能清理白名单内的基础项）。
 
-### 方式 B：完整构建（含 Rust 引擎）
+### 完整构建（带 Rust 引擎）
 
 ```bash
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-./scripts/build-rust.sh     # 编译 .so 到 app/src/main/jniLibs/
+./scripts/build-rust.sh
 ./gradlew :app:assembleDebug
 ```
 
-CI 完整流程见 [.github/workflows/android.yml](.github/workflows/android.yml)。
+CI 完整流程：[.github/workflows/android.yml](.github/workflows/android.yml)
 
 ---
 
-## 五、隐私与权限
+## 隐私
 
-### Manifest 实际声明的权限
+**主动放弃**的权限：
 
-| 权限 | 用途 |
-|------|------|
-| `WAKE_LOCK` | 夜间维护期间保持唤醒 |
-| `FOREGROUND_SERVICE` | 长时间扫描任务 |
-| `RECEIVE_BOOT_COMPLETED` | 重启后恢复定时任务 |
-
-**主动放弃的权限**：
-
-- ❌ `INTERNET` —— 见下方验证命令
-- ❌ `QUERY_ALL_PACKAGES` —— Google Play 严格管控且侵犯隐私。
-  代价是无法可靠判定「残留目录」，因此**默认关闭残留清理**（防误删在用应用数据）
+- ❌ `INTERNET` —— `app/src/main/AndroidManifest.xml` 无此声明
+- ❌ `QUERY_ALL_PACKAGES` —— Google Play 严控且侵犯隐私。代价是无法可靠判定「残留目录」，**默认关闭残留清理**
 - ❌ `MANAGE_EXTERNAL_STORAGE` —— 不做全盘文件访问
 
-`PACKAGE_USAGE_STATS` 为**可选的运行时授权**，未授权时仅「不常用应用识别」不可用，
-其余功能不受影响。首页会在未授权时给出明确的授权引导卡片。
+**运行时可选**（用户主动开启才有效）：
 
-### 零网络验证
-
-```bash
-# 1. Android 层
-grep -i "INTERNET" app/src/main/AndroidManifest.xml      # 应无输出
-
-# 2. Kotlin 层
-grep -riE "HttpURLConnection|OkHttp|Retrofit|Socket" app/src/main/java   # 应无输出
-
-# 3. Rust 依赖层（此前 README 的验证命令漏了这一层，现已补上）
-grep -rE "reqwest|hyper|tokio|ureq|curl" app/src/main/rust/Cargo.toml    # 应无输出
-```
-
-Rust 依赖仅为：`serde` / `serde_json` / `rayon` / `walkdir` / `thiserror` /
-`blake3` / `log` / `jni` / `android_logger` / `once_cell`，**全部无网络能力**。
+- `PACKAGE_USAGE_STATS` —— 识别长期未用应用
+- `MANAGE_EXTERNAL_STORAGE` —— 完整扫描存储
+- `POST_NOTIFICATIONS` —— 长时间任务通知
 
 ---
 
-## 六、依赖与开源协议
+## 已知限制
 
-本项目自研代码采用 **MIT**。
-
-**未复制任何第三方项目的源码**。以下项目仅作为设计思路的参考被研究与引用
-（算法与思路不受版权保护）：
-
-| 项目 | 协议 | 借鉴点 |
-|------|------|--------|
-| [SD Maid 2/SE](https://github.com/d4rken-org/sdmaid-se) | GPL-3.0 | 模块划分、安全分级模型、调度器设计 |
-| [Canta](https://github.com/samolego/Canta) | Apache-2.0 | Shizuku 集成方式、`pm suspend` 可逆卸载思路 |
-| [UAD-NG](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) | MIT | 应用安全分级（其本身完全用 Rust 编写） |
-| [AppManager](https://github.com/MuntashirAkon/AppManager) | GPL-3.0 | 应用信息展示维度 |
-
-运行时依赖均为宽松协议（Apache-2.0 / MIT）：Compose、Hilt、WorkManager、Shizuku、DataStore。
+1. **冻结 / fstrim 需要 Shizuku**，且需用户主动授权 ADB 权限
+2. **不做 root**。需要 sysfs 读取的指标显示为「未知」
+3. **不检测残留目录**：分区存储下无法可靠枚举已装应用，强比对会误删数据，宁可不做
+4. **清理范围受限**：只清白名单路径内的安全项
+5. **自动化规则** 6 小时执行窗口，**不保证精确到分钟**。这是 WorkManager 周期任务的硬限制
 
 ---
 
-## 七、已知限制
+## 协议
 
-1. **冻结 / fstrim 需要 Shizuku**，且需用户主动授权 ADB 权限。
-2. **不做 root**。充电周期等需读取 sysfs 的指标显示为「未知」，而不是凭空猜测。
-3. **不检测「残留目录」**：Android 11+ 分区存储下无法可靠枚举已安装应用，
-   强行比对会误删在用应用（微信、游戏存档）的数据。宁可不做。
-4. **清理范围受限**：只清理白名单路径内的安全项，不触及用户文档与照片。
-5. 处于 alpha 阶段，**不建议作为主力清理工具**，请自行评估风险后使用。
+本项目自研代码 **MIT**。详见 [LICENSE](./LICENSE)。
 
----
+未复制任何第三方项目源码。设计思路参考：
 
-## 八、文档
+| 项目 | 借鉴点 |
+|------|--------|
+| [SD Maid 2/SE](https://github.com/d4rken-org/sdmaid-se) | 模块划分、安全分级、调度器 |
+| [Canta](https://github.com/samolego/Canta) | Shizuku 集成、`pm suspend` 可逆卸载 |
+| [UAD-NG](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) | 应用安全分级（Rust 全栈项目） |
 
-- [INSTALL.md](./INSTALL.md) —— 安装步骤与各品牌 ROM 的「未知来源」开启路径
-- [DESIGN_SPEC.md](./DESIGN_SPEC.md) —— One UI 9 设计规范
-- [DISCLAIMER.md](./DISCLAIMER.md) —— 免责声明（**安装前请阅读**）
-- [PRIVACY.md](./PRIVACY.md) —— 隐私政策
+运行时依赖均为 Apache-2.0 / MIT。
 
 ---
 
-## 九、非官方声明
+## 非官方声明
 
 NovaCare **不是** Samsung Electronics 的官方产品，与 Samsung 无任何隶属或合作关系。
 「One UI」为 Samsung Electronics 的商标，本项目仅将其作为**设计风格参考**进行描述，
 不主张任何权利。
+
+---
+
+## 文档
+
+- [INSTALL.md](./INSTALL.md) —— 各品牌 ROM 开启「未知来源」步骤
+- [DISCLAIMER.md](./DISCLAIMER.md) —— 免责声明（**安装前请阅读**）
+- [PRIVACY.md](./PRIVACY.md) —— 隐私政策

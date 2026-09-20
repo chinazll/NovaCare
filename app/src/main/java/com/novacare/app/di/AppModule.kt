@@ -119,9 +119,10 @@ object AppProvidesModule {
     @Provides
     @Singleton
     fun provideWorkManager(@ApplicationContext context: Context): WorkManager =
-        WorkManagerHolder.workManager ?: WorkManager.getInstance(context).also {
-            WorkManagerHolder.workManager = it
-        }
+        // 此处通过 Application 提供的 Configuration.Provider 拿单例。
+        // 由 NovaCareApp.workManagerConfiguration 在第一次调用时安全注册
+        // HiltWorkerFactory（走 EntryPoint，规避 lateinit 时序问题）。
+        WorkManager.getInstance(context)
 
     @Provides
     @Singleton

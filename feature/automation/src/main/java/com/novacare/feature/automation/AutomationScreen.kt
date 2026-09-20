@@ -1,9 +1,13 @@
 package com.novacare.feature.automation
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -59,6 +64,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -76,9 +84,16 @@ import com.novacare.ui.designsystem.EmptyTone
 import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaSwipeThreshold
+import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.NovaToggle
+import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.SecondaryAction
 import com.novacare.ui.designsystem.SectionHeader
+import com.novacare.ui.designsystem.StaggerFlyIn
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -112,105 +127,160 @@ fun AutomationScreen(
     val editing by viewModel.editing.collectAsStateWithLifecycle()
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
     val naturalInput by viewModel.naturalInput.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val context = LocalContext.current
 
     AuroraBackground {
         Box(modifier = modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = 20.dp,
-                    bottom = 40.dp,
+                    start = 0.dp,
+                    end = 0.dp,
+                    top = 10.dp,
+                    bottom = 24.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                item(key = "header") {
-                    Column(modifier = Modifier.statusBarsPadding()) {
-                        Text(
-                            text = "自动化",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Text(
-                            text = if (rules.isEmpty()) {
+                item(key = "now-bar") {
+                    StaggerFlyIn(index = 0) {
+                        NovaNowBar(
+                            title = "自动化",
+                            subtitle = if (rules.isEmpty()) {
                                 "还没有规则"
                             } else {
                                 "${rules.size} 条规则 · 已启用 ${rules.count { it.enabled }} 条"
                             },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            status = if (rules.any { it.enabled }) {
+                                NowBarStatus.Healthy
+                            } else {
+                                NowBarStatus.Idle
+                            },
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }
 
                 // 调度限制：常驻说明，因为它直接影响用户对"准时"的预期
                 item(key = "scheduler-note") {
-                    InlineNotice(
-                        text = "规则由系统的后台调度执行：只保证最终会跑，不保证精确到分钟。" +
-                            "若手机长期省电模式或刚重启，执行时间会推迟。",
-                        tone = EmptyTone.Neutral,
-                        icon = Icons.Outlined.Info,
-                    )
+                    StaggerFlyIn(index = 1) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            InlineNotice(
+                                text = "规则由系统的后台调度执行：只保证最终会跑，不保证精确到分钟。" +
+                                    "若手机长期省电模式或刚重启，执行时间会推迟。",
+                                tone = EmptyTone.Neutral,
+                                icon = Icons.Outlined.Info,
+                            )
+                        }
+                    }
                 }
 
                 notice?.let { message ->
                     item(key = "notice") {
-                        InlineNotice(
-                            text = message,
-                            tone = EmptyTone.Success,
-                            actionText = "知道了",
-                            onAction = viewModel::dismissNotice,
-                            icon = Icons.Outlined.Check,
-                        )
+                        StaggerFlyIn(index = 2) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                InlineNotice(
+                                    text = message,
+                                    tone = EmptyTone.Success,
+                                    actionText = "知道了",
+                                    onAction = {
+                                        NovaTap(view)
+                                        viewModel.dismissNotice()
+                                    },
+                                    icon = Icons.Outlined.Check,
+                                )
+                            }
+                        }
                     }
                 }
 
                 if (rules.isEmpty()) {
                     item(key = "empty") {
-                        EmptyState(
-                            title = "还没有自动化规则",
-                            message = "规则可以让你不用记着清理：比如每周日凌晨自动清理垃圾，" +
-                                "或者电量低于 20% 时提醒你。执行前都会先比对一次真实状态，不会盲跑。",
-                            icon = Icons.Outlined.Bolt,
-                            actionText = "创建第一条规则",
-                            onAction = viewModel::startCreate,
-                        )
+                        StaggerFlyIn(index = 3) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                EmptyState(
+                                    title = "还没有自动化规则",
+                                    message = "规则可以让你不用记着清理：比如每周日凌晨自动清理垃圾，" +
+                                        "或者电量低于 20% 时提醒你。执行前都会先比对一次真实状态，不会盲跑。",
+                                    icon = Icons.Outlined.Bolt,
+                                    actionText = "创建第一条规则",
+                                    onAction = {
+                                        NovaTap(view)
+                                        viewModel.startCreate()
+                                    },
+                                )
+                            }
+                        }
                     }
                 } else {
-                    item(key = "rules-header") { SectionHeader(title = "规则") }
+                    item(key = "rules-header") {
+                        StaggerFlyIn(index = 3) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                SectionHeader(title = "规则")
+                            }
+                        }
+                    }
                     items(rules, key = { it.id }) { rule ->
-                        RuleCard(
-                            rule = rule,
-                            onToggle = { enabled -> viewModel.toggle(rule, enabled) },
-                            onEdit = { viewModel.startEdit(rule) },
-                            onDelete = { viewModel.askDelete(rule) },
-                        )
+                        StaggerFlyIn(index = 4) {
+                            SwipeableRuleRow(
+                                rule = rule,
+                                onToggle = { enabled ->
+                                    NovaToggle(context, enabled)
+                                    viewModel.toggle(rule, enabled)
+                                },
+                                onEdit = {
+                                    NovaTap(view)
+                                    viewModel.startEdit(rule)
+                                },
+                                onDelete = {
+                                    NovaTap(view)
+                                    viewModel.askDelete(rule)
+                                },
+                            )
+                        }
                     }
                 }
 
                 item(key = "quick-create") {
-                    QuickCreateCard(
-                        value = naturalInput,
-                        onValueChange = viewModel::setNaturalInput,
-                        onSubmit = viewModel::createFromText,
-                    )
+                    StaggerFlyIn(index = 90) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            QuickCreateCard(
+                                value = naturalInput,
+                                onValueChange = viewModel::setNaturalInput,
+                                onSubmit = {
+                                    NovaTap(view)
+                                    viewModel.createFromText()
+                                },
+                            )
+                        }
+                    }
                 }
 
                 item(key = "action") {
-                    PrimaryAction(
-                        text = if (rules.isEmpty()) "创建第一条规则" else "新建规则",
-                        subtitle = "选触发条件 → 选要做什么，两步完成",
-                        onClick = viewModel::startCreate,
-                    )
+                    StaggerFlyIn(index = 95) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            PrimaryAction(
+                                text = if (rules.isEmpty()) "创建第一条规则" else "新建规则",
+                                subtitle = "选触发条件 → 选要做什么，两步完成",
+                                onClick = {
+                                    NovaTap(view)
+                                    viewModel.startCreate()
+                                },
+                            )
+                        }
+                    }
                 }
 
                 item(key = "footer") {
-                    Text(
-                        text = "所有规则都在本机执行，不会上传任何设备信息",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    StaggerFlyIn(index = 100) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Text(
+                                text = "所有规则都在本机执行，不会上传任何设备信息",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
 
@@ -219,8 +289,14 @@ fun AutomationScreen(
                 RuleEditorSheet(
                     draft = draft,
                     onUpdate = viewModel::updateDraft,
-                    onSave = viewModel::saveDraft,
-                    onDismiss = viewModel::cancelEdit,
+                    onSave = {
+                        NovaSuccess(context)
+                        viewModel.saveDraft()
+                    },
+                    onDismiss = {
+                        NovaTap(view)
+                        viewModel.cancelEdit()
+                    },
                 )
             }
 
@@ -228,8 +304,14 @@ fun AutomationScreen(
             pendingDelete?.let { rule ->
                 DeleteConfirmSheet(
                     rule = rule,
-                    onConfirm = viewModel::confirmDelete,
-                    onDismiss = viewModel::cancelDelete,
+                    onConfirm = {
+                        NovaSuccess(context)
+                        viewModel.confirmDelete()
+                    },
+                    onDismiss = {
+                        NovaTap(view)
+                        viewModel.cancelDelete()
+                    },
                 )
             }
         }
@@ -240,6 +322,145 @@ fun AutomationScreen(
 // 规则卡片
 // ------------------------------------------------------------
 
+/**
+ * 可滑动的规则行 —— One UI 9/9.5 的 swipe-to-act 范式。
+ *
+ * 双向滑动：
+ *   - 右滑（drag > +阈值） → 切换启用状态
+ *   - 左滑（drag < -阈值） → 触发删除流程（弹出确认 sheet）
+ *
+ * 阈值用 96dp —— 比 One UI 列表默认的 56dp 更保守，
+ * 因为删除是不可逆动作，需要给用户多一点「反悔空间」。
+ *
+ * 视觉：
+ *   - 滑动时卡片本体按手指位移 1:1 偏移
+ *   - 卡片下方露出彩色背景 + 圆角图标（启用 = accent；删除 = riskRisky）
+ *   - 释放后用 spring 物理回到原点
+ */
+@Composable
+private fun SwipeableRuleRow(
+    rule: AutomationRule,
+    onToggle: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val colors = NovaCareTheme.colors
+    val view = LocalView.current
+    val context = LocalContext.current
+    // 滑动阈值：超过 96dp 即视为「commit」
+    val swipeThresholdPx = with(androidx.compose.ui.platform.LocalDensity.current) { 96.dp.toPx() }
+    // 当前拖动偏移（px）。用 mutableFloatStateOf 减少重组
+    var dragOffset by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    // 是否已越过阈值 —— 越阈值瞬间触发一次 NovaSwipeThreshold
+    var pastThreshold by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    // 释放后的 spring 回到 0 用 animateFloatAsState
+    val animatedOffset by animateFloatAsState(
+        targetValue = dragOffset,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "swipeOffset",
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(MaterialTheme.shapes.large),
+    ) {
+        // 滑动时露出的背景层（彩色 + 图标）
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    if (animatedOffset >= 0) {
+                        colors.accent.copy(alpha = 0.18f)
+                    } else {
+                        colors.riskRisky.copy(alpha = 0.18f)
+                    }
+                )
+                .padding(horizontal = 28.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (animatedOffset >= 0) Arrangement.Start else Arrangement.End,
+        ) {
+            Icon(
+                imageVector = if (animatedOffset >= 0) {
+                    Icons.Outlined.Bolt
+                } else {
+                    Icons.Outlined.Delete
+                },
+                contentDescription = null,
+                tint = if (animatedOffset >= 0) {
+                    colors.accent
+                } else {
+                    colors.riskRisky
+                },
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (animatedOffset >= 0) {
+                    if (rule.enabled) "停用" else "启用"
+                } else {
+                    "删除"
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = if (animatedOffset >= 0) colors.accent else colors.riskRisky,
+            )
+        }
+
+        // 前景卡片本体 —— 用 offset 跟随手指
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { androidx.compose.ui.unit.IntOffset(animatedOffset.toInt(), 0) }
+                .pointerInput(rule.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            // 释放：超过阈值才提交动作，然后回弹
+                            when {
+                                dragOffset > swipeThresholdPx -> {
+                                    NovaToggle(context, !rule.enabled)
+                                    onToggle(!rule.enabled)
+                                }
+                                dragOffset < -swipeThresholdPx -> onDelete()
+                                // 否则已经在 spring 回弹，无事可做
+                            }
+                            dragOffset = 0f
+                            pastThreshold = false
+                        },
+                        onDragCancel = {
+                            dragOffset = 0f
+                            pastThreshold = false
+                        },
+                        onHorizontalDrag = { _, delta ->
+                            // 累计偏移，但不让自己「超过太远」
+                            // （左右各加一个软上限防止误滑出屏幕）
+                            val next = (dragOffset + delta).coerceIn(-swipeThresholdPx * 1.6f, swipeThresholdPx * 1.6f)
+                            dragOffset = next
+                            // 越阈值时 NovaSwipeThreshold() —— 仅一次
+                            val nowPast = kotlin.math.abs(next) >= swipeThresholdPx
+                            if (nowPast && !pastThreshold) {
+                                pastThreshold = true
+                                NovaSwipeThreshold(view)
+                            } else if (!nowPast) {
+                                pastThreshold = false
+                            }
+                        },
+                    )
+                },
+        ) {
+            RuleCard(
+                rule = rule,
+                onToggle = onToggle,
+                onEdit = onEdit,
+                onDelete = onDelete,
+            )
+        }
+    }
+}
+
 @Composable
 private fun RuleCard(
     rule: AutomationRule,
@@ -248,6 +469,7 @@ private fun RuleCard(
     onDelete: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val context = LocalContext.current
     val triggerIcon = triggerIcon(rule.trigger.type)
 
     NovaCard {
@@ -329,7 +551,10 @@ private fun RuleCard(
 
             Switch(
                 checked = rule.enabled,
-                onCheckedChange = onToggle,
+                onCheckedChange = { newVal ->
+                    NovaToggle(context, newVal)
+                    onToggle(newVal)
+                },
                 modifier = Modifier.semantics {
                     contentDescription = if (rule.enabled) {
                         "停用规则 ${rule.name}"
@@ -407,7 +632,6 @@ private fun triggerText(rule: AutomationRule): String = when (rule.trigger.type)
     TriggerType.BATTERY_BELOW -> "电量低于 ${rule.trigger.thresholdPercent ?: 20}%"
     TriggerType.STORAGE_ABOVE -> "存储占用高于 ${rule.trigger.thresholdPercent ?: 85}%"
     TriggerType.DEVICE_IDLE -> "设备空闲且充电中"
-    TriggerType.BOOT -> "设备开机后"
 }
 
 private fun actionText(rule: AutomationRule): String =
@@ -418,7 +642,6 @@ private fun triggerIcon(type: TriggerType): ImageVector = when (type) {
     TriggerType.BATTERY_BELOW -> Icons.Outlined.BatteryAlert
     TriggerType.STORAGE_ABOVE -> Icons.Outlined.Storage
     TriggerType.DEVICE_IDLE -> Icons.Outlined.TimerOff
-    TriggerType.BOOT -> Icons.Outlined.PowerSettingsNew
 }
 
 private fun formatLastRun(epochMs: Long): String =
@@ -553,10 +776,12 @@ private fun RuleEditorSheet(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // v0.7.2 视觉统一：用主题的 softShadow 作为浮层遮罩
+        // （深色下是 0x66000000，浅色下是 0x1F0A2A33，与卡片同源）
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(NovaCareTheme.colors.softShadow)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -574,6 +799,7 @@ private fun RuleEditorSheet(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, colors.hairline),
+            shadowElevation = 8.dp,
         ) {
             Column(
                 modifier = Modifier
@@ -754,7 +980,6 @@ private fun triggerPreview(draft: AutomationViewModel.RuleDraft): String =
         AutomationViewModel.TriggerKind.BATTERY_BELOW -> "电量低于 ${draft.thresholdPercent}%"
         AutomationViewModel.TriggerKind.STORAGE_ABOVE -> "存储高于 ${draft.thresholdPercent}%"
         AutomationViewModel.TriggerKind.DEVICE_IDLE -> "设备空闲充电时"
-        AutomationViewModel.TriggerKind.BOOT -> "开机后"
     }
 
 @Composable
@@ -1137,6 +1362,7 @@ private fun ThresholdInput(value: Int, onValueChange: (Int) -> Unit) {
 @Composable
 private fun SafetyToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val colors = NovaCareTheme.colors
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1183,7 +1409,10 @@ private fun SafetyToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             )
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = { newVal ->
+            NovaToggle(context, newVal)
+            onCheckedChange(newVal)
+        })
     }
 }
 
@@ -1194,6 +1423,7 @@ private fun SimpleToggle(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1211,7 +1441,10 @@ private fun SimpleToggle(
             )
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = { newVal ->
+            NovaToggle(context, newVal)
+            onCheckedChange(newVal)
+        })
     }
 }
 
@@ -1227,10 +1460,11 @@ private fun DeleteConfirmSheet(
 ) {
     val colors = NovaCareTheme.colors
     Box(modifier = Modifier.fillMaxSize()) {
+        // v0.7.2 视觉统一：用主题的 softShadow 作为浮层遮罩
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(NovaCareTheme.colors.softShadow)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -1246,6 +1480,7 @@ private fun DeleteConfirmSheet(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, colors.hairline),
+            shadowElevation = 8.dp,
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -104,7 +104,10 @@ enum class CloudModel(
     ),
     DEEPSEEK(
         "DeepSeek",
-        "https://api.deepseek.com",
+        // DeepSeek 的 OpenAI 兼容端点是 /v1/chat/completions，不是 /chat/completions。
+        // 上一版 baseUrl 写成了 https://api.deepseek.com，拼接后少了 /v1，
+        // 请求打到 /chat/completions 会 404 —— 这是「AI 没跑起来」的直接原因之一。
+        "https://api.deepseek.com/v1",
         isChinaCompliant = true,
         defaultModel = "deepseek-chat",
     ),

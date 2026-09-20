@@ -163,8 +163,16 @@ class SystemPermissions @Inject constructor(
             when (capability) {
                 MissingCapability.USAGE_STATS -> usageStatsSettingsIntent()
                 MissingCapability.ALL_FILES -> allFilesAccessIntent()
-                // 通知权限走运行时对话框，这里只能兜底到应用详情页
-                MissingCapability.NOTIFICATIONS -> appDetailsIntent()
+                // 通知权限：Android 13+ 跳到通知专项页（不是应用详情页），
+                // 否则用户得从详情页再点一次"通知"。低版本没有专项页，
+                // 回落应用详情。
+                MissingCapability.NOTIFICATIONS ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    } else {
+                        appDetailsIntent()
+                    }
             }
         )
     }

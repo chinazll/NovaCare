@@ -6,11 +6,14 @@ package com.novacare.core.model
  */
 
 enum class TriggerType {
-    SCHEDULED,      // 定时（如每周日 3 点）
-    DEVICE_IDLE,    // 设备空闲且充电
-    STORAGE_ABOVE,  // 存储占用超过阈值
-    BATTERY_BELOW,  // 电量低于阈值
-    BOOT,           // 开机
+    SCHEDULED,      // 定时（如每周日 3 点）。由 WorkManager 周期任务（6h 一次）
+                    // 在窗口内命中条件即执行 —— 不保证精确到分钟。
+    DEVICE_IDLE,    // 设备空闲且充电（通过 WorkManager 轮询检测）
+    STORAGE_ABOVE,  // 存储占用超过阈值（通过 WorkManager 轮询检测）
+    BATTERY_BELOW,  // 电量低于阈值（通过 WorkManager 轮询检测）
+    // 注意：BOOT 触发器在 v0.7.2 移除。原因：当前调度器是 6 小时周期任务，
+    // 没有 BOOT_COMPLETED 监听，无法做到"开机即跑"。UI 上也不应该让用户选。
+    // 等后续接入 OneTimeWorkRequest + BootReceiver 再加回。
 }
 
 data class Trigger(
@@ -69,7 +72,6 @@ data class AutomationRule(
             TriggerType.DEVICE_IDLE -> "设备空闲充电时"
             TriggerType.STORAGE_ABOVE -> "存储占用 > ${trigger.thresholdPercent ?: 85}%"
             TriggerType.BATTERY_BELOW -> "电量 < ${trigger.thresholdPercent ?: 20}%"
-            TriggerType.BOOT -> "开机时"
         }
         val doText = actions.joinToString("、") {
             when (it.type) {
