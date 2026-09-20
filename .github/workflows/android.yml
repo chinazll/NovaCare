@@ -310,6 +310,10 @@ jobs:
               app/build/outputs/apk/debug/app-debug.apk \
               app/build/outputs/apk/release/app-release.apk
           fi
+          # 兜底：无论走 create 还是 upload 分支，最终都强制发布为非 draft 正式版。
+          # 历史 P0：当 release 已存在（多为前一个 draft）时走 upload 分支，
+          # 只追加资产、不翻 draft，导致普通用户打不开 release。
+          gh release edit "$TAG" --draft=false --latest 2>&1 || true
           echo "=== final state ==="
           # 注意字段名是 isDraft / isPrerelease，不是 draft / prerelease。
           # 之前写 --json draft 会让 gh 直接报 "Unknown JSON field" 并以退出码 1 失败，
