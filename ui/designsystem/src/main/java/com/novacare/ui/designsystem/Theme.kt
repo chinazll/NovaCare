@@ -1,5 +1,8 @@
 package com.novacare.ui.designsystem
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +68,18 @@ data class NovaCareColors(
     /** 氛围层渐变（极低透明度，铺在背景顶层） */
     val auraTop: Color,
     val auraBottom: Color,
+
+    // ---- 浮动层令牌（One UI 9/9.5 风格）----
+    // 关键差异：新语言用「半透明浮层 + 大扩散柔和阴影 + 发丝描边」三者叠加
+    // 来表达层级，而不是单靠明度差。玻璃感来自 alpha，不来自模糊。
+    /** 浮层承载面：半透明，叠在背景上会透出氛围渐变 */
+    val floatSurface: Color,
+    /** 浮层被按下时的加深色 */
+    val floatSurfacePressed: Color,
+    /** dock / 浮层的高光边（顶部内描边，模拟受光） */
+    val floatHighlight: Color,
+    /** 柔和外阴影色（大 blurRadius、低 alpha，绝非黑色硬阴影） */
+    val softShadow: Color,
 )
 
 private val LightPalette = NovaCareColors(
@@ -80,6 +95,10 @@ private val LightPalette = NovaCareColors(
     hairline = Color(0x14000000),
     auraTop = Color(0x1A00B4D8),
     auraBottom = Color(0x0A007E9E),
+    floatSurface = Color(0xF2FFFFFF),
+    floatSurfacePressed = Color(0xFFFFFFFF),
+    floatHighlight = Color(0x99FFFFFF),
+    softShadow = Color(0x1F0A2A33),
 )
 
 private val DarkPalette = NovaCareColors(
@@ -95,6 +114,10 @@ private val DarkPalette = NovaCareColors(
     hairline = Color(0x1AFFFFFF),
     auraTop = Color(0x2E4FD8FF),
     auraBottom = Color(0x00101820),
+    floatSurface = Color(0xE61C242B),
+    floatSurfacePressed = Color(0xF22A343C),
+    floatHighlight = Color(0x1FFFFFFF),
+    softShadow = Color(0x66000000),
 )
 
 val LocalNovaCareColors = staticCompositionLocalOf { DarkPalette }
@@ -302,6 +325,43 @@ private val NovaShapes = Shapes(
     medium = RoundedCornerShape(18.dp),
     large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(32.dp),
+)
+
+// ============================================================
+// 动效令牌
+//
+// 【为什么必须是弹簧而不是 tween】
+//   上一版全用 tween（定时曲线），观感是「播完动画」——被动、机械、有终点感。
+//   下一代语言的核心是**物理感**：元素有质量，被拖拽/释放/吸附。
+//   弹簧没有固定时长，它由目标与初速度决定，这才是「活」的来源。
+//
+// 【阻尼纪律】三条曲线，各司其职，不许混用：
+//   - Flowing  : 常态位移（页面转场、卡片进场）—— 微回弹，克制
+//   - Snappy   : 交互元素（dock 指示器、开关、勾选框）—— 干脆、几乎不过冲
+//   - Expressive: 强调瞬间（主按钮、dock 指示器跨越）—— 明显回弹，有性格
+//
+// reduceMotion 开启时，调用方需退回 tween(0) 或瞬时 —— 见 `motionAware` 辅助。
+// ============================================================
+
+/** 常态位移：有质量但不喧哗 */
+fun <T> flowingSpring(): SpringSpec<T> = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy * 1.2f,
+    stiffness = Spring.StiffnessMediumLow,
+    visibilityThreshold = null,
+)
+
+/** 交互元素：干脆吸附，几乎不过冲 */
+fun <T> snappySpring(): SpringSpec<T> = spring(
+    dampingRatio = 0.86f,
+    stiffness = Spring.StiffnessMedium,
+    visibilityThreshold = null,
+)
+
+/** 强调瞬间：明显回弹 —— 只在「主角动作」上用，用多就腻 */
+fun <T> expressiveSpring(): SpringSpec<T> = spring(
+    dampingRatio = 0.62f,
+    stiffness = Spring.StiffnessMediumLow,
+    visibilityThreshold = null,
 )
 
 /**

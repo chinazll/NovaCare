@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NovaCare v0.6.0-alpha · 实际界面还原</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#F5F8FA;--surface:#FFFFFF;--onBg:#151C20;--onSurfaceVariant:#41484D;
+--accent:#007E9E;--good:#1B7A46;--fair:#A86A00;--poor:#B3261E;
+--ringTrack:#E1E7EB;--hairline:rgba(0,0,0,.08);
+--auraTop:rgba(0,180,216,.10);--auraBottom:rgba(0,126,158,.04);
+}
+body{background:#20262B;font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+display:flex;flex-wrap:wrap;gap:28px;padding:32px;justify-content:center;align-items:flex-start}
+.phone{width:340px;height:720px;border-radius:32px;overflow:hidden;position:relative;
+box-shadow:0 18px 50px rgba(0,0,0,.5);flex-shrink:0}
+.screen{position:absolute;inset:0;background:var(--bg);overflow-y:auto;overflow-x:hidden}
+.screen::-webkit-scrollbar{width:0}
+.aura{position:absolute;inset:0;background:radial-gradient(1100px circle at 50% 0%,var(--auraTop),var(--auraBottom) 60%,transparent);pointer-events:none;z-index:0}
+.content{position:relative;z-index:1;padding:28px 20px 32px}
+.label{position:absolute;top:10px;left:16px;font-size:11px;color:#fff;background:rgba(0,0,0,.55);
+padding:4px 10px;border-radius:20px;z-index:10;font-weight:500;letter-spacing:.02em}
+
+/* header */
+.hdr{display:flex;align-items:center;margin-bottom:16px}
+.hdr .t1{font-size:26px;font-weight:500;color:var(--onBg);letter-spacing:-.02em;line-height:1.15}
+.hdr .t2{font-size:11px;color:var(--good);margin-top:3px}
+.hdr .t2.warn{color:var(--fair)}
+.settings{margin-left:auto;font-size:12px;color:var(--accent);background:rgba(0,126,158,.10);
+padding:8px 14px;border-radius:20px}
+
+/* ring */
+.ringwrap{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px}
+.ringscore{position:absolute;text-align:center}
+.ringnum{font-size:56px;font-weight:200;color:var(--onBg);letter-spacing:-.04em;line-height:1}
+.ringlbl{font-size:11px;color:var(--onSurfaceVariant);margin-top:4px}
+.ringverdict{font-size:13px;color:var(--onBg);margin-top:12px;font-weight:500}
+
+/* cards */
+.card{background:var(--surface);border-radius:14px;border:.5px solid var(--hairline);padding:14px}
+.notice{background:rgba(179,38,30,.06);border:.5px solid rgba(179,38,30,.20);border-radius:12px;
+padding:12px 14px;font-size:12px;color:#7a1a15;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+.notice .act{margin-left:auto;color:var(--poor);font-weight:500;white-space:nowrap}
+.sechead{display:flex;align-items:baseline;margin:22px 0 10px}
+.sechead .st{font-size:13px;font-weight:500;color:var(--onBg)}
+.sechead .tr{margin-left:auto;font-size:11px;color:var(--onSurfaceVariant)}
+
+/* permission card */
+.perm{background:var(--surface);border-radius:14px;border:.5px solid var(--hairline);
+padding:14px;display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.perm .ic{width:34px;height:34px;border-radius:10px;background:rgba(168,106,0,.12);
+display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.perm .pt{font-size:13px;font-weight:500;color:var(--onBg)}
+.perm .pd{font-size:11px;color:var(--onSurfaceVariant);margin-top:2px;line-height:1.5}
+.perm .go{margin-left:auto;font-size:11px;color:#fff;background:var(--fair);
+padding:7px 12px;border-radius:16px;white-space:nowrap;flex-shrink:0}
+
+/* stat grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{background:var(--surface);border-radius:14px;border:.5px solid var(--hairline);padding:14px}
+.stat.dis{opacity:.55}
+.stat .eyebrow{font-size:10px;color:var(--onSurfaceVariant);letter-spacing:.04em}
+.stat .val{font-size:22px;font-weight:500;color:var(--onBg);margin:6px 0 3px;letter-spacing:-.02em}
+.stat .val.g{color:var(--good)}
+.stat .sub{font-size:10px;color:var(--onSurfaceVariant);line-height:1.45}
+.stat .ico{position:absolute;top:12px;right:12px;font-size:13px;opacity:.35}
+.stat{position:relative}
+
+/* primary action */
+.cta{margin-top:20px;background:var(--accent);border-radius:16px;padding:17px;text-align:center;
+color:#fff;font-size:15px;font-weight:500;box-shadow:0 6px 18px rgba(0,126,158,.28)}
+.cta .sub{font-size:11px;opacity:.85;margin-top:3px;font-weight:400}
+
+/* bottom nav */
+.bnav{position:absolute;bottom:0;left:0;right:0;height:62px;background:rgba(255,255,255,.96);
+border-top:.5px solid var(--hairline);display:flex;align-items:center;justify-content:space-around;
+z-index:20;backdrop-filter:blur(12px)}
+.bnav .it{font-size:10px;color:var(--onSurfaceVariant);text-align:center;flex:1}
+.bnav .it .g{font-size:16px;display:block;margin-bottom:2px;opacity:.55}
+.bnav .it.on{color:var(--accent)}
+.bnav .it.on .g{opacity:1}
+
+/* risk chip */
+.chip{display:inline-block;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:500}
+.chip.safe{background:rgba(27,122,70,.12);color:var(--good)}
+.chip.caut{background:rgba(168,106,0,.12);color:var(--fair)}
+.chip.risk{background:rgba(179,38,30,.12);color:var(--poor)}
+
+.row{background:var(--surface);border-radius:12px;border:.5px solid var(--hairline);
+padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start}
+.ck{width:18px;height:18px;border-radius:5px;border:1.5px solid #B4B2A9;flex-shrink:0;margin-top:1px}
+.ck.on{background:var(--accent);border-color:var(--accent);position:relative}
+.ck.on:after{content:"✓";position:absolute;inset:0;color:#fff;font-size:12px;text-align:center;line-height:16px}
+.row .rt{font-size:13px;font-weight:500;color:var(--onBg)}
+.row .rs{font-size:11px;color:var(--onSurfaceVariant);margin-top:3px;line-height:1.5}
+.row .rp{font-size:10px;color:#8a9199;margin-top:4px;font-family:ui-monospace,monospace}
+
+/* progress */
+.pbar{height:8px;border-radius:6px;background:var(--ringTrack);overflow:hidden;margin:10px 0 8px;display:flex}
+.pbar i{display:block;height:100%}
+.kv{display:flex;font-size:11px;color:var(--onSurfaceVariant);padding:3px 0}
+.kv .d{width:9px;height:9px;border-radius:3px;margin:3px 8px 0 0;flex-shrink:0}
+.kv .v{margin-left:auto;color:var(--onBg);font-weight:500}
+</style>
+</head>
+<body>
+
+<!-- ================= 首页 ================= -->
+<div class="phone">
+  <div class="label">首页 L1</div>
+  <div class="screen">
+    <div class="aura"></div>
+    <div class="content">
+      <div class="hdr">
+        <div>
+          <div class="t1">NovaCare</div>
+          <div class="t2">0.6.0 · Rust 内核已就绪</div>
+        </div>
+        <div class="settings">设置</div>
+      </div>
+
+      <div class="ringwrap">
+        <svg width="196" height="196" viewBox="0 0 196 196">
+          <circle cx="98" cy="98" r="80" fill="none" stroke="#E1E7EB" stroke-width="14"/>
+          <circle cx="98" cy="98" r="80" fill="none" stroke="#007E9E" stroke-width="14"
+            stroke-linecap="round" stroke-dasharray="502" stroke-dashoffset="135"
+            transform="rotate(-90 98 98)"/>
+          <circle cx="98" cy="98" r="80" fill="none" stroke="rgba(0,180,216,.16)" stroke-width="24"/>
+        </svg>
+        <div style="position:relative;margin-top:-136px;text-align:center;height:88px">
+          <div class="ringnum">73</div>
+          <div class="ringlbl">健康分</div>
+        </div>
+        <div class="ringverdict">设备状态良好，还有优化空间</div>
+      </div>
+
+      <div class="notice" style="margin-top:14px">
+        <div>缺少「所有文件访问」权限，内核扫描范围受限，结果会明显偏少。</div>
+        <div class="act">去授权</div>
+      </div>
+
+      <div class="sechead"><div class="st">还需授权</div><div class="tr">2 项</div></div>
+      <div class="perm">
+        <div class="ic">📁</div>
+        <div><div class="pt">所有文件访问</div><div class="pd">内核完整扫描存储</div></div>
+        <div class="go">去开启</div>
+      </div>
+      <div class="perm">
+        <div class="ic">📊</div>
+        <div><div class="pt">使用情况访问</div><div class="pd">识别长期未使用的应用</div></div>
+        <div class="go">去开启</div>
+      </div>
+
+      <div class="sechead"><div class="st">设备概览</div></div>
+      <div class="grid">
+        <div class="stat">
+          <div class="ico">💾</div>
+          <div class="eyebrow">已用</div>
+          <div class="val">96.4 GB</div>
+          <div class="sub">共 128 GB · 可用 31.6 GB</div>
+        </div>
+        <div class="stat">
+          <div class="ico">🧹</div>
+          <div class="eyebrow">内核扫描</div>
+          <div class="val g">2.31 GB</div>
+          <div class="sub">含需确认项共 5.8 GB</div>
+        </div>
+        <div class="stat">
+          <div class="ico">📱</div>
+          <div class="eyebrow">长期未用</div>
+          <div class="val">12</div>
+          <div class="sub">90 天内未打开过</div>
+        </div>
+        <div class="stat">
+          <div class="ico">🔋</div>
+          <div class="eyebrow">电池健康</div>
+          <div class="val">91</div>
+          <div class="sub">温度 31.4℃ · 未充电</div>
+        </div>
+      </div>
+
+      <div class="cta">立即扫描并清理
+        <div class="sub">内核已完成预估，点一下开始</div>
+      </div>
+    </div>
+    <div class="bnav">
+      <div class="it on"><span class="g">◉</span>首页</div>
+      <div class="it"><span class="g">🧹</span>清理</div>
+      <div class="it"><span class="g">❄</span>冻结</div>
+      <div class="it"><span class="g">⚙</span>自动化</div>
+      <div class="it"><span class="g">✦</span>助手</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 清理页 ================= -->
+<div class="phone">
+  <div class="label">清理 L2</div>
+  <div class="screen">
+    <div class="aura"></div>
+    <div class="content">
+      <div class="hdr"><div><div class="t1">清理</div><div class="t2">内核扫描完成 · 0.42s</div></div></div>
+
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <svg width="66" height="66" viewBox="0 0 66 66">
+            <circle cx="33" cy="33" r="26" fill="none" stroke="#E1E7EB" stroke-width="8"/>
+            <circle cx="33" cy="33" r="26" fill="none" stroke="#1B7A46" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="163" stroke-dashoffset="110"
+              transform="rotate(-90 33 33)"/>
+          </svg>
+          <div>
+            <div style="font-size:11px;color:var(--onSurfaceVariant)">可清理占比</div>
+            <div style="font-size:20px;font-weight:500;color:var(--onBg)">2.31 GB <span style="font-size:12px;color:var(--onSurfaceVariant);font-weight:400">/ 96.4 GB</span></div>
+          </div>
+        </div>
+        <div class="pbar">
+          <i style="width:2.4%;background:var(--good)"></i>
+          <i style="width:3.6%;background:var(--fair)"></i>
+          <i style="width:1.2%;background:var(--poor)"></i>
+        </div>
+        <div class="kv"><span class="d" style="background:var(--good)"></span>安全可清<span class="v">2.31 GB</span></div>
+        <div class="kv"><span class="d" style="background:var(--fair)"></span>需确认<span class="v">3.49 GB</span></div>
+        <div class="kv"><span class="d" style="background:var(--poor)"></span>有风险<span class="v">1.12 GB</span></div>
+      </div>
+
+      <div class="sechead"><div class="st">安全可清</div><div class="tr">已全选 · 2.31 GB</div></div>
+      <div class="row">
+        <div class="ck on"></div>
+        <div style="flex:1">
+          <div class="rt">应用缓存</div>
+          <div class="rs">微信、抖音等 14 个应用的缓存文件</div>
+          <div class="rp">/storage/emulated/0/Android/data/…/cache</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;font-weight:500">1.84 GB</div>
+          <span class="chip safe">安全</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="ck on"></div>
+        <div style="flex:1">
+          <div class="rt">空文件夹</div>
+          <div class="rs">没有内容的目录，删除不影响任何数据</div>
+          <div class="rp">/storage/emulated/0/Download/tmp</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;font-weight:500">12 KB</div>
+          <span class="chip safe">安全</span>
+        </div>
+      </div>
+
+      <div class="sechead"><div class="st">需确认</div><div class="tr">4 项 · 3.49 GB</div></div>
+      <div class="row">
+        <div class="ck"></div>
+        <div style="flex:1">
+          <div class="rt">残留文件</div>
+          <div class="rs">来自已卸载应用的遗留目录，通常可删</div>
+          <div class="rp">/storage/emulated/0/Android/data/com.old.app</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;font-weight:500">3.21 GB</div>
+          <span class="chip caut">需确认</span>
+        </div>
+      </div>
+
+      <div class="sechead"><div class="st">有风险</div><div class="tr">1 项 · 1.12 GB</div></div>
+      <div class="row">
+        <div class="ck"></div>
+        <div style="flex:1">
+          <div class="rt">重复文件</div>
+          <div class="rs">与以下文件内容完全相同：<br>DCIM/Camera/IMG_2049.jpg</div>
+          <div class="rp">/storage/emulated/0/Download/IMG_2049 (1).jpg</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;font-weight:500">1.12 GB</div>
+          <span class="chip risk">有风险</span>
+        </div>
+      </div>
+
+      <div class="cta">清理 2 项 · 释放 1.84 GB
+        <div class="sub">移入应用内回收站，可撤销</div>
+      </div>
+    </div>
+    <div class="bnav">
+      <div class="it"><span class="g">◉</span>首页</div>
+      <div class="it on"><span class="g">🧹</span>清理</div>
+      <div class="it"><span class="g">❄</span>冻结</div>
+      <div class="it"><span class="g">⚙</span>自动化</div>
+      <div class="it"><span class="g">✦</span>助手</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 冻结页 ================= -->
+<div class="phone">
+  <div class="label">冻结 L2</div>
+  <div class="screen">
+    <div class="aura"></div>
+    <div class="content">
+      <div class="hdr"><div><div class="t1">冻结</div><div class="t2 warn">使用统计不可用 · 判定不完整</div></div></div>
+
+      <div class="notice" style="margin-bottom:14px">
+        <div>读不到使用记录，「多久没用」无法判定。这不是"没有不常用的应用"，而是权限缺失。</div>
+        <div class="act">去授权</div>
+      </div>
+
+      <div class="grid" style="margin-bottom:14px">
+        <div class="stat"><div class="eyebrow">已装应用</div><div class="val">184</div><div class="sub">含系统应用</div></div>
+        <div class="stat"><div class="eyebrow">长期未用</div><div class="val">—</div><div class="sub">需使用统计权限</div></div>
+      </div>
+
+      <div class="sechead"><div class="st">建议冻结</div><div class="tr">按待机耗电排序</div></div>
+      <div class="row">
+        <div class="ck"></div>
+        <div style="flex:1">
+          <div class="rt">某图库应用</div>
+          <div class="rs">com.example.gallery · 站台待机：频繁唤醒</div>
+          <div class="rp">大小 128 MB · 6 个月未打开</div>
+        </div>
+        <div style="text-align:right"><span class="chip caut">建议</span></div>
+      </div>
+
+      <div class="sechead"><div class="st">已冻结</div><div class="tr">3 个</div></div>
+      <div class="row">
+        <div class="ck on"></div>
+        <div style="flex:1">
+          <div class="rt">某购物应用</div>
+          <div class="rs">com.example.shop · 已冻结，不会被唤醒</div>
+          <div class="rp">解冻后恢复原有行为</div>
+        </div>
+        <div style="text-align:right"><span class="chip safe">已冻结</span></div>
+      </div>
+    </div>
+    <div class="bnav">
+      <div class="it"><span class="g">◉</span>首页</div>
+      <div class="it"><span class="g">🧹</span>清理</div>
+      <div class="it on"><span class="g">❄</span>冻结</div>
+      <div class="it"><span class="g">⚙</span>自动化</div>
+      <div class="it"><span class="g">✦</span>助手</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 自动化页 ================= -->
+<div class="phone">
+  <div class="label">自动化 L2</div>
+  <div class="screen">
+    <div class="aura"></div>
+    <div class="content">
+      <div class="hdr"><div><div class="t1">自动化</div><div class="t2">WorkManager 已接线</div></div></div>
+
+      <div class="row" style="padding:16px">
+        <div style="flex:1">
+          <div class="rt" style="font-size:14px">充电时自动清理</div>
+          <div class="rs">电量 &gt; 80% 且灭屏时，清理应用缓存</div>
+          <div style="margin-top:8px">
+            <span class="chip safe">已启用</span>
+            <span style="font-size:10px;color:var(--onSurfaceVariant);margin-left:6px">上次运行：今天 03:12</span>
+          </div>
+        </div>
+        <div style="width:40px;height:24px;border-radius:14px;background:var(--accent);position:relative;flex-shrink:0">
+          <div style="position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff"></div>
+        </div>
+      </div>
+
+      <div class="row" style="padding:16px">
+        <div style="flex:1">
+          <div class="rt" style="font-size:14px">每周深度扫描</div>
+          <div class="rs">每周日凌晨，扫描重复文件与大文件</div>
+          <div style="margin-top:8px"><span class="chip caut">等待空闲</span></div>
+        </div>
+        <div style="width:40px;height:24px;border-radius:14px;background:var(--ringTrack);position:relative;flex-shrink:0">
+          <div style="position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;border:1.5px dashed rgba(0,126,158,.35);border-radius:14px;
+        padding:22px;text-align:center;color:var(--accent);font-size:13px">
+        + 新建规则
+      </div>
+
+      <div class="card" style="margin-top:18px;background:rgba(168,106,0,.06);border-color:rgba(168,106,0,.2)">
+        <div style="font-size:11px;color:#6b4400;line-height:1.6">
+          <b>安全底线</b><br>
+          自动化只会执行「安全」级别的清理，需确认与有风险的项永远不会被自动删除。
+        </div>
+      </div>
+    </div>
+    <div class="bnav">
+      <div class="it"><span class="g">◉</span>首页</div>
+      <div class="it"><span class="g">🧹</span>清理</div>
+      <div class="it"><span class="g">❄</span>冻结</div>
+      <div class="it on"><span class="g">⚙</span>自动化</div>
+      <div class="it"><span class="g">✦</span>助手</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
