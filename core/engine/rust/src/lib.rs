@@ -293,6 +293,25 @@ pub fn analyze_apps(apps_json: String, sort_by: i32, ascending: bool) -> Option<
         }
     };
 
+    // ---------------------------------------------------------------------
+    // JSON 契约（P1 修复）
+    //
+    // 入参 `apps_json` 的字段名必须用 `models::AppInfo` 的 Rust 原名：
+    //   size / cache_size / data_size / install_time / update_time / last_used_time
+    //   / package_name / label / is_system / version / target_sdk
+    //
+    // 返回值用的是下面这个 `AppInfo`（uniffi::Record）的字段名：
+    //   size_bytes / cache_bytes / data_bytes / last_used_time …
+    //
+    // 两套名字**故意不同**，因为用途不同：入参是 JSON（Kotlin 侧构造），
+    // 返回值是 UniFFI 记录（跨 FFI 走二进制编码，不经过 JSON）。
+    //
+    // 注意：analyze_apps 目前**没有生产调用方** —— NovaEngine.analyzeApps() 存在，
+    // 但全工程无人调用它，首页/清理页走的是 scanJunk / analyzeStorage。
+    // 这里不伪造调用方；接入真实入口（"应用分析"视图）之前，该能力保持未接线状态。
+    // 历史缺陷：曾经 Kotlin 侧反序列化假定的字段名与上面不一致，一旦真的接上调用方
+    // 会静默解析失败（serde 报错被 log::warn 吞掉后返回 None）。
+    // ---------------------------------------------------------------------
     let filter = app_analyzer::AppFilter {
         only_user: false,
         sort_by: match sort_by {

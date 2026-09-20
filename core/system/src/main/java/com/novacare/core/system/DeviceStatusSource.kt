@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Environment
+import android.os.PowerManager
 import android.os.StatFs
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -100,6 +101,26 @@ class DeviceStatusSource @Inject constructor(
         BatteryManager.BATTERY_STATUS_FULL -> "full"
         BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "not_charging"
         else -> "unknown"
+    }
+
+    /**
+     * 设备是否"空闲"：屏幕关闭（或系统已进入 Doze）且插着电。
+     *
+     * 为什么要求充电：DEVICE_IDLE 触发的自动化往往是清理 / 整理这类有磁盘与
+     * CPU 开销的动作，在电池供电时后台跑会明显耗电，用户会把账算在应用头上。
+     * 亮屏时绝不执行 —— 用户正在用手机，此时后台重活会卡顿。
+     *
+     * 这里如实读系统状态，不猜测：拿不到 PowerManager 时保守返回 false
+     * （宁可不执行，也不在错误时机执行）。
+     */
+    fun isIdle(): Boolean {
+        val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            ?: return false
+        val interactive = runCatching { power.isInteractive }.getOrDefault(true)
+        val deviceIdle = runCatching { power.isDeviceIdleMode }.getOrDefault(false)
+        val screenOff = !interactive || deviceIdle
+        val plugged = battery().plugged != 0
+        return screenOff && plugged
     }
 
     private fun healthName(code: Int): String = when (code) {

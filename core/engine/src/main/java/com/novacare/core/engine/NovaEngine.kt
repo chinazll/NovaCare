@@ -112,6 +112,20 @@ class NovaEngine @Inject constructor() {
         )
     }
 
+    /**
+     * 应用统计 / 排序分析。
+     *
+     * ⚠️ 当前**无生产调用方**：全工程只有本方法定义，没有任何 UI 或 UseCase 调用它。
+     * 因此本次没有为它硬接一个假的入口 —— 接入真实调用点（例如"应用占用分析"视图）
+     * 之前，"应用分析"能力在 App 里不可达。
+     *
+     * JSON 契约（入参）：字段名必须用 Rust 侧 `models::AppInfo` 的 snake_case 原名
+     * ——`package_name` / `label` / `is_system` / `size` / `cache_size` / `data_size`
+     * / `install_time` / `update_time` / `version` / `target_sdk` / `last_used_time`。
+     * 之前审计记录的"Kotlin 用 sizeBytes 形式"指的是本文件里映射**返回值**的类型，
+     * 而返回值来自 UniFFI 记录（走二进制编码，字段名不参与传输），因此不构成缺陷；
+     * 真正的风险在入参 JSON，故此处显式记录契约以防未来接调用方时写错。
+     */
     suspend fun analyzeApps(
         appsJson: String,
         sortBy: Int,

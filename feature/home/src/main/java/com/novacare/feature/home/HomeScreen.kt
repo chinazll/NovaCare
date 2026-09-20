@@ -34,7 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,13 +83,13 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
-    val score by viewModel.score.collectAsState()
-    val missing by viewModel.missing.collectAsState()
-    val engineAvailable by viewModel.engineAvailable.collectAsState()
-    val engineVersion by viewModel.engineVersion.collectAsState()
-    val overview by viewModel.overview.collectAsState()
-    val selected by viewModel.selected.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val score by viewModel.score.collectAsStateWithLifecycle()
+    val missing by viewModel.missing.collectAsStateWithLifecycle()
+    val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
+    val engineVersion by viewModel.engineVersion.collectAsStateWithLifecycle()
+    val overview by viewModel.overview.collectAsStateWithLifecycle()
+    val selected by viewModel.selected.collectAsStateWithLifecycle()
 
     // 从系统设置页返回时重新检查权限状态
     val lifecycleOwner = LocalLifecycleOwner.current

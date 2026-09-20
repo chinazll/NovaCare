@@ -45,7 +45,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,11 +93,11 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val settings by viewModel.settings.collectAsState()
-    val capabilities by viewModel.capabilities.collectAsState()
-    val engineAvailable by viewModel.engineAvailable.collectAsState()
-    val engineVersion by viewModel.engineVersion.collectAsState()
-    val shizukuAvailable by viewModel.shizukuAvailable.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
+    val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
+    val engineVersion by viewModel.engineVersion.collectAsStateWithLifecycle()
+    val shizukuAvailable by viewModel.shizukuAvailable.collectAsStateWithLifecycle()
 
     var showPrivacy by remember { mutableStateOf(false) }
     var showDisclaimer by remember { mutableStateOf(false) }

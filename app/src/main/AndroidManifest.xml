@@ -59,6 +59,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          WorkManager 默认通过 androidx.startup 在 Application.onCreate 之前初始化。
+          那样会用默认 WorkerFactory 建好实例，NovaCareApp 的 Configuration.Provider
+          就永远不会被读取 —— @HiltWorker AutomationWorker 无法实例化，定时任务静默失败。
+          这里移除默认初始化节点，把初始化权交回 Configuration.Provider。
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>

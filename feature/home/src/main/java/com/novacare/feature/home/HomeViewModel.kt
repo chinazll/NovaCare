@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.core.ai.SuggestionEngine
 import com.novacare.core.common.formatBytes
+import com.novacare.core.data.HistoryDao
+import com.novacare.core.data.ScanHistoryEntity
 import com.novacare.core.data.SettingsRepository
 import com.novacare.core.domain.BuildOptimizePlanUseCase
 import com.novacare.core.domain.DeviceSnapshot
@@ -55,6 +57,7 @@ class HomeViewModel @Inject constructor(
     private val engine: NovaEngine,
     private val settings: SettingsRepository,
     private val permissions: SystemPermissions,
+    private val history: HistoryDao,
 ) : ViewModel() {
 
     sealed interface UiState {
@@ -173,6 +176,18 @@ class HomeViewModel @Inject constructor(
             _state.value = UiState.Executing
             val advanced = settings.settings.first().advancedMode
             val result = executePlan(plan, _selected.value, advanced)
+            // 记一条清理历史：SuggestionEngine 的「距上次清理多久」依赖它，
+            // 不写库就永远是 null → 建议引擎恒定走"从未清理"分支。
+            runCatching {
+                history.insert(
+                    ScanHistoryEntity(
+                        epochMs = System.currentTimeMillis(),
+                        kind = KIND_CLEAN,
+                        freedBytes = result.freedBytes,
+                        itemCount = result.succeeded.size,
+                    ),
+                )
+            }
             // 执行后重扫，让分数反映真实变化而不是乐观估计
             val fresh = runCatching { scan(rootPath()) }.getOrNull()
             if (fresh != null) {
@@ -196,7 +211,7 @@ class HomeViewModel @Inject constructor(
     /** 由 UI 调用：跳转授权页 */
     fun grant(capability: MissingCapability) = permissions.launchGrantFor(capability)
 
-    private fun refreshScore(snapshot: DeviceSnapshot): HealthScore {
+    private suspend fun refreshScore(snapshot: DeviceSnapshot): HealthScore {
         // 电池健康度依赖内核；不可用时 HealthScoreUseCase 会降级为真实电量而非伪造
         val score = healthScore(snapshot, batteryScore = null)
         _score.value = score
@@ -240,10 +255,22 @@ class HomeViewModel @Inject constructor(
         return score
     }
 
-    private fun lastCleanMs(): Long? = null
+    /**
+     * 最近一次成功清理的时间戳。
+     *
+     * 真的去查 Room：之前这里写死 `= null`，导致 SuggestionEngine 永远认为
+     * "从未清理过"，智能建议退化成固定文案。DB 不可用时如实返回 null（等价于"不知道"）。
+     */
+    private suspend fun lastCleanMs(): Long? =
+        runCatching { history.lastCleanEpochMs() }.getOrNull()
 
     private fun rootPath(): String =
         Environment.getExternalStorageDirectory()?.absolutePath
             ?: app.getExternalFilesDir(null)?.absolutePath
             ?: "/storage/emulated/0"
+
+    private companion object {
+        /** 与 HistoryDao.lastCleanEpochMs() 的 SQL 字面量保持一致 */
+        const val KIND_CLEAN = "CLEAN"
+    }
 }

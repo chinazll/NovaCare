@@ -91,7 +91,7 @@ class DeviceStatusBridge @Inject constructor(
         return RuleEngine.RuleContext(
             storageUsedPercent = usedPercent,
             batteryPercent = battery.levelPercent,
-            isIdle = false, // 空闲判定需要监听屏幕/充电状态，当前未实现 → 如实为 false
+            isIdle = device.isIdle(),
             reclaimableBytes = 0L,
         )
     }

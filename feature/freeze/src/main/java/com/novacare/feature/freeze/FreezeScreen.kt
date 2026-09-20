@@ -42,7 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,11 +107,11 @@ fun FreezeScreen(
     modifier: Modifier = Modifier,
     viewModel: FreezeViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
-    val frozen by viewModel.frozen.collectAsState()
-    val selected by viewModel.selected.collectAsState()
-    val includeSystem by viewModel.includeSystem.collectAsState()
-    val pending by viewModel.pending.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val frozen by viewModel.frozen.collectAsStateWithLifecycle()
+    val selected by viewModel.selected.collectAsStateWithLifecycle()
+    val includeSystem by viewModel.includeSystem.collectAsStateWithLifecycle()
+    val pending by viewModel.pending.collectAsStateWithLifecycle()
 
     LaunchedEffect(rootPath) { viewModel.load(rootPath) }
 

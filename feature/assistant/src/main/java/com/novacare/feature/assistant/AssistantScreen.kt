@@ -48,7 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,11 +109,11 @@ fun AssistantScreen(
     modifier: Modifier = Modifier,
     viewModel: AssistantViewModel = hiltViewModel(),
 ) {
-    val bubbles by viewModel.bubbles.collectAsState()
-    val thinking by viewModel.thinking.collectAsState()
-    val capability by viewModel.capability.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val report by viewModel.report.collectAsState()
+    val bubbles by viewModel.bubbles.collectAsStateWithLifecycle()
+    val thinking by viewModel.thinking.collectAsStateWithLifecycle()
+    val capability by viewModel.capability.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val report by viewModel.report.collectAsStateWithLifecycle()
 
     var draft by remember { mutableStateOf("") }
     val listState = rememberLazyListState()

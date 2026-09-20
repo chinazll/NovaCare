@@ -36,7 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,11 +103,11 @@ fun CleanScreen(
     modifier: Modifier = Modifier,
     viewModel: CleanViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
-    val selected by viewModel.selected.collectAsState()
-    val includeRisky by viewModel.includeRisky.collectAsState()
-    val moveToRecycleBin by viewModel.moveToRecycleBin.collectAsState()
-    val engineAvailable by viewModel.engineAvailable.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val selected by viewModel.selected.collectAsStateWithLifecycle()
+    val includeRisky by viewModel.includeRisky.collectAsStateWithLifecycle()
+    val moveToRecycleBin by viewModel.moveToRecycleBin.collectAsStateWithLifecycle()
+    val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
 
     // 首次进入：先拿引擎可用性（不必等扫描），再从缓存/系统扫描出清单
     LaunchedEffect(rootPath) {

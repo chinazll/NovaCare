@@ -48,7 +48,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,11 +107,11 @@ fun AutomationScreen(
     modifier: Modifier = Modifier,
     viewModel: AutomationViewModel = hiltViewModel(),
 ) {
-    val rules by viewModel.rules.collectAsState()
-    val notice by viewModel.notice.collectAsState()
-    val editing by viewModel.editing.collectAsState()
-    val pendingDelete by viewModel.pendingDelete.collectAsState()
-    val naturalInput by viewModel.naturalInput.collectAsState()
+    val rules by viewModel.rules.collectAsStateWithLifecycle()
+    val notice by viewModel.notice.collectAsStateWithLifecycle()
+    val editing by viewModel.editing.collectAsStateWithLifecycle()
+    val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
+    val naturalInput by viewModel.naturalInput.collectAsStateWithLifecycle()
 
     AuroraBackground {
         Box(modifier = modifier.fillMaxSize()) {
