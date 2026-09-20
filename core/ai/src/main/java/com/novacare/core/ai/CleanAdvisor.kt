@@ -86,11 +86,11 @@ object CleanAdvisor {
         daysUnused: Int?,
         bucket: StandbyBucket,
     ): Triple<CleanRecommendation, Long, String> = when {
-        // 使用数据缺失：保守策略，只清一半，并如实说明「不知道上次使用时间」
+        // 使用数据缺失：无法确认应用是否还在使用，保持 KEEP 让用户主动开启权限后重新扫描
         daysUnused == null -> Triple(
-            CleanRecommendation.CLEAN_PARTIAL,
-            cacheBytes / 2,
-            "未获取到使用记录（可能未授权使用情况访问权限），保守建议只清理一半",
+            CleanRecommendation.KEEP,
+            0L,
+            "未获取到使用记录（可能未授权使用情况访问权限），建议开启权限后重新扫描再清理",
         )
 
         daysUnused >= UNUSED_DAYS_FULL -> Triple(

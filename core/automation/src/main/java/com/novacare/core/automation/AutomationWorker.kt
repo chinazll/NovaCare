@@ -21,9 +21,16 @@ class AutomationWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val context = status.currentContext()
-        val summaries = runner.runDueRules(context, System.currentTimeMillis())
-        return if (summaries.isEmpty()) Result.success() else Result.success()
+        return try {
+            val context = status.currentContext()
+            val summaries = runner.runDueRules(context, System.currentTimeMillis())
+            // 规则执行本身成功（无论有没有规则被命中）才返回 success；
+            // 如果 summaries.isEmpty 说明没有该执行的规则，这是正常情况，不重试
+            Result.success()
+        } catch (e: Exception) {
+            // 仅在执行异常时重试，避免同类错误反复触发
+            Result.failure()
+        }
     }
 }
 

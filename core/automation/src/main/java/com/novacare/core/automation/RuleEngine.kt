@@ -50,7 +50,8 @@ object RuleEngine {
         if (rule.conditions.isEmpty()) return true
         return rule.conditions.all { condition ->
             when (condition.type) {
-                ConditionType.ONLY_SAFE_ITEMS -> true // 执行侧过滤，此处不阻断
+                // No-op: filtering is done at execution side (AutomationRunner passes `onlySafe` to actions.perform)
+                ConditionType.ONLY_SAFE_ITEMS -> true
                 ConditionType.MIN_RECLAIMABLE_MB -> {
                     val minMb = condition.intValue ?: 200
                     context.reclaimableBytes >= minMb * 1024L * 1024L

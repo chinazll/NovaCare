@@ -17,8 +17,8 @@ enum class JunkKind {
 /** 清理风险分级（借鉴 Canta 的 Safe/Caution/Risky） */
 enum class CleanRisk {
     SAFE,     // 删了无感知（缓存/缩略图/临时文件）
-    CAUTION,  // 需确认（日志、残留目录）
-    RISKY,    // 可能造成损失（应用数据目录、重复文件原件）
+    CAUTION,  // 需确认（日志/残留目录/重复文件——完全相同副本，删一个不影响另一个）
+    RISKY,    // 可能造成损失（应用数据目录）
 }
 
 data class JunkItem(
@@ -29,6 +29,4 @@ data class JunkItem(
     val risk: CleanRisk,
     /** 风险说明（为空表示无额外说明） */
     val riskNote: String = "",
-) {
-    val isSafe: Boolean get() = risk == CleanRisk.SAFE
-}
+)

@@ -29,10 +29,19 @@ class BuildOptimizePlanUseCase @Inject constructor() {
             .filter { it.recommendation != CleanRecommendation.KEEP }
 
         // 内核扫出的垃圾文件（缓存 / 临时 / 空目录 / 重复文件）
+        // 过滤规则：
+        //   - SAFE    → 始终显示，默认勾选
+        //   - CAUTION → 始终显示（如 DUPLICATE：同内容的另一个副本还在，删一个不影响）
+        //   - RISKY   → 仅 includeRisky=true 时显示（如应用数据目录）
         snapshot.junk?.items
-            ?.filter { includeRisky || it.risk == CleanRisk.SAFE }
+            ?.filter { item ->
+                item.risk == CleanRisk.SAFE ||
+                    item.risk == CleanRisk.CAUTION ||
+                    (includeRisky && item.risk == CleanRisk.RISKY)
+            }
             ?.filter { it.bytes > 0 }
             ?.forEach { item ->
+                val isSafe = item.risk == CleanRisk.SAFE
                 advices += CleanAdvice(
                     targetPackage = null,
                     targetLabel = item.label,
@@ -43,10 +52,20 @@ class BuildOptimizePlanUseCase @Inject constructor() {
                     risk = item.risk,
                     summary = "${item.label} ${item.bytes.formatBytes()}",
                     reason = "内核确定性扫描命中（类型：${item.kind.name}）",
-                    costNote = if (item.risk == CleanRisk.SAFE) {
+                    costNote = if (isSafe) {
                         "属于缓存 / 临时文件，删除无感知"
+                    } else if (item.risk == CleanRisk.CAUTION) {
+                        item.riskNote.ifBlank {
+                            when (item.kind) {
+                                com.novacare.core.model.JunkKind.DUPLICATE ->
+                                    "重复文件有另一份完全相同的副本，删一个不影响数据"
+                                com.novacare.core.model.JunkKind.RESIDUAL ->
+                                    "已卸载应用遗留，删除无影响"
+                                else -> "需要确认后再清理"
+                            }
+                        }
                     } else {
-                        item.riskNote.ifBlank { "需要确认：可能影响正在使用的应用" }
+                        item.riskNote.ifBlank { "风险较高，请确认后再清理" }
                     },
                     confidence = 0.95f,
                     source = com.novacare.core.model.AiTier.DETERMINISTIC,

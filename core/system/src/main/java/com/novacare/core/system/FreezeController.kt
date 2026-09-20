@@ -26,10 +26,12 @@ class FreezeController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val shell: ShizukuShell,
 ) {
+    // Shizuku 可用性在构造时探测一次，避免每次 UI recompose 都走反射
+    private val shizukuAvailable: Boolean = shell.isAvailable()
 
     fun availableMethods(): List<FreezeMethod> = buildList {
         add(FreezeMethod.OFFICIAL_GUIDE)
-        if (shell.isAvailable()) add(FreezeMethod.SHIZUKU_SUSPEND)
+        if (shizukuAvailable) add(FreezeMethod.SHIZUKU_SUSPEND)
     }
 
     /** 普通模式：打开系统「应用详情」页，由用户操作（零风险） */

@@ -29,9 +29,16 @@ class RecycleBin @Inject constructor(
         val dest = File(destDir, src.name)
         return runCatching {
             src.copyTo(dest, overwrite = true)
-            src.deleteRecursively()
+        }.getOrNull()?.let { copied ->
+            // copy 成功后尝试删除原文件；若删除失败则回滚已复制的文件，不返回路径（调用方不会删除原文件）
+            val deleted = runCatching { src.deleteRecursively() }.getOrDefault(false)
+            if (!deleted) {
+                // copy 成功但 delete 失败：回滚，避免留两份文件浪费空间
+                runCatching { dest.deleteRecursively() }
+                return@let null
+            }
             dest.absolutePath
-        }.getOrNull()
+        }
     }
 
     fun restore(binPath: String, originalPath: String): Boolean {
