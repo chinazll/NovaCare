@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -118,6 +119,7 @@ fun AssistantScreen(
 ) {
     val bubbles by viewModel.bubbles.collectAsStateWithLifecycle()
     val thinking by viewModel.thinking.collectAsStateWithLifecycle()
+    val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
     val capability by viewModel.capability.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val report by viewModel.report.collectAsStateWithLifecycle()
@@ -234,7 +236,15 @@ fun AssistantScreen(
                         }
 
                         if (thinking) {
-                            item(key = "thinking") { ThinkingIndicator() }
+                            item(key = "thinking") {
+                                // 流式对话时：显示正在逐 token 输出的气泡，而非"转圈"
+                                val streaming = streamingText
+                                if (streaming != null) {
+                                    StreamingBubble(text = streaming)
+                                } else {
+                                    ThinkingIndicator()
+                                }
+                            }
                         }
                     }
                 }
@@ -618,6 +628,78 @@ private fun FreezeRow(candidate: FreezeCandidate) {
 // ------------------------------------------------------------
 
 /**
+ * 流式对话气泡 —— 云端 LLM 逐 token 输出时，实时显示已生成的部分。
+ *
+ * 这是「AI 真的在对话」的体感来源：文字一个字一个字蹦出来，
+ * 而不是转圈 10 秒后整段弹出。末尾带一个闪烁的光标块表示还在继续。
+ */
+@Composable
+private fun StreamingBubble(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+    ) {
+        // AI orb 头像（One UI 10 Fluid AI 的圆形悬浮球语言）
+        AiOrb(modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(8.dp))
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, NovaCareTheme.colors.hairline),
+            modifier = Modifier.widthIn(max = 300.dp),
+        ) {
+            Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.width(2.dp))
+                // 尾部光标：闪烁方块表示"还在打字"
+                Box(
+                    modifier = Modifier
+                        .padding(top = 3.dp)
+                        .size(width = 2.dp, height = 16.dp)
+                        .background(NovaCareTheme.colors.accent),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * AI orb —— One UI 10 Fluid AI Design System 的圆形悬浮球。
+ *
+ * 一个带径向高光 + 呼吸光晕的小圆，是「AI agent」的视觉锚点。
+ * 用在助手气泡前，把"这是 AI 在说话"变成一眼可辨的形状。
+ */
+@Composable
+private fun AiOrb(modifier: Modifier = Modifier) {
+    val colors = NovaCareTheme.colors
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        colors.accent.copy(alpha = 0.35f),
+                        colors.accent.copy(alpha = 0.10f),
+                        colors.accentDim.copy(alpha = 0.05f),
+                    ),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(colors.accent.copy(alpha = 0.9f)),
+        )
+    }
+}
+
+/**
  * 三点跳动。
  * 不用 CircularProgressIndicator —— 那时长不可知的旋转会让用户以为卡住了，
  * 这里明确写出「正在做什么」，把等待变成可理解的进度。
@@ -646,7 +728,7 @@ private fun ThinkingIndicator() {
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "正在读取设备状态并解析这句话…",
+                    text = "正在读取设备状态…",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

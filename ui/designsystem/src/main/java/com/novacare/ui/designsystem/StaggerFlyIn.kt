@@ -1,6 +1,7 @@
 package com.novacare.ui.designsystem
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -65,10 +66,10 @@ fun StaggerFlyIn(
         enter = if (reduceMotion) {
             fadeIn(tween(0))
         } else {
-            fadeIn(tween(durationMs, delayMillis = 0)) +
+            fadeIn(spring(dampingRatio = 0.8f, stiffness = 380f)) +
                 slideInVertically(
-                    animationSpec = tween(durationMs),
-                    initialOffsetY = { it / (40 / contentOffsetY.coerceAtLeast(1)) },
+                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 380f),
+                    initialOffsetY = { it / 6 },
                 )
         },
         modifier = modifier,
