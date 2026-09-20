@@ -180,6 +180,7 @@ class SystemPermissions @Inject constructor(
                 MissingCapability.NOTIFICATIONS ->
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                     } else {
                         appDetailsIntent()

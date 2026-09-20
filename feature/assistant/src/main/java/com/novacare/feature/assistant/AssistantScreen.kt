@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,9 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.novacare.core.common.formatBytes
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
@@ -120,7 +124,11 @@ fun AssistantScreen(
                 items(items = bubbles, key = { it.id }) { bubble ->
                     when (bubble) {
                         is AssistantViewModel.Bubble.User -> UserBubble(bubble.text)
-                        is AssistantViewModel.Bubble.Assistant -> AssistantBubble(bubble)
+                        is AssistantViewModel.Bubble.Assistant -> AssistantBubble(
+                            bubble = bubble,
+                            onConfirm = { viewModel.confirmAction(bubble.id, rootPath) },
+                            onCancel = { viewModel.cancelAction(bubble.id) },
+                        )
                     }
                 }
             }
@@ -215,7 +223,11 @@ private fun UserBubble(text: String) {
 }
 
 @Composable
-private fun AssistantBubble(bubble: AssistantViewModel.Bubble.Assistant) {
+private fun AssistantBubble(
+    bubble: AssistantViewModel.Bubble.Assistant,
+    onConfirm: (Long) -> Unit,
+    onCancel: (Long) -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
     Row(
@@ -251,10 +263,179 @@ private fun AssistantBubble(bubble: AssistantViewModel.Bubble.Assistant) {
                     text = bubble.text.ifEmpty { "…" },
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                val card = bubble.card
+                val actionStatus = bubble.actionStatus
+                if (card != null && actionStatus != null) {
+                    Spacer(Modifier.height(10.dp))
+                    ActionCard(
+                        card = card,
+                        status = actionStatus,
+                        onConfirm = { onConfirm(bubble.id) },
+                        onCancel = { onCancel(bubble.id) },
+                    )
+                }
                 if (!bubble.understood && !bubble.streamed) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = "本地规则 · 没完全听懂，可以换个说法",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 行动卡片 —— 「感知 → 分析 → 行动 → 确认」闭环里的「行动 + 确认」载体。
+ *
+ * AI 给出可执行动作后，卡片显示「将做什么 + 影响」，用户点确认才真正执行，
+ * 执行结果直接回显在卡片内（Done 状态），随对话流保留。
+ */
+@Composable
+private fun ActionCard(
+    card: AssistantViewModel.ReplyCard,
+    status: AssistantViewModel.ActionStatus,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val view = LocalView.current
+
+    val (title, impact, previews) = when (card) {
+        is AssistantViewModel.ReplyCard.Plan -> Triple(
+            "建议清理 ${card.advices.size} 项",
+            "可释放 ${card.totalBytes.formatBytes()}",
+            card.advices.take(3).map { it.targetLabel },
+        )
+        is AssistantViewModel.ReplyCard.Freeze -> Triple(
+            "建议冻结 ${card.candidates.size} 个应用",
+            "冻结后停止后台活动，需要时可手动恢复",
+            card.candidates.take(3).map { it.app.label },
+        )
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)),
+        color = cs.onSurface.copy(alpha = 0.05f),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.W600,
+                color = cs.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = impact,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+            if (previews.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = previews.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+
+            when (status) {
+                is AssistantViewModel.ActionStatus.Pending -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            color = cs.primary,
+                            contentColor = cs.onPrimary,
+                            onClick = {
+                                NovaTap(view)
+                                onConfirm()
+                            },
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "确认执行",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.W600,
+                                )
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            color = cs.onSurface.copy(alpha = 0.06f),
+                            contentColor = cs.onSurfaceVariant,
+                            onClick = {
+                                NovaTap(view)
+                                onCancel()
+                            },
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "取消",
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                AssistantViewModel.ActionStatus.Running -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = cs.primary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "正在执行…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = cs.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                is AssistantViewModel.ActionStatus.Done -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircleOutline,
+                            contentDescription = null,
+                            tint = NovaCareTheme.colors.healthGood,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = status.summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = cs.onSurface,
+                        )
+                    }
+                }
+
+                is AssistantViewModel.ActionStatus.Failed -> {
+                    Text(
+                        text = status.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NovaCareTheme.colors.riskCaution,
+                    )
+                }
+
+                AssistantViewModel.ActionStatus.Cancelled -> {
+                    Text(
+                        text = "已取消",
                         style = MaterialTheme.typography.bodySmall,
                         color = cs.onSurfaceVariant,
                     )

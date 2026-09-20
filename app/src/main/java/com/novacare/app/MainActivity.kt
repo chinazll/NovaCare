@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,13 +21,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.novacare.app.navigation.NovaCareNavHost
+import com.novacare.core.data.SettingsRepository
+import com.novacare.core.data.ThemeMode
 import com.novacare.ui.designsystem.NovaCareTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -41,7 +50,16 @@ class MainActivity : ComponentActivity() {
             // 前庭功能障碍用户开启后，健康环的呼吸动画与入场序列都会停止。
             val reduceMotion = rememberReduceMotionSetting()
 
-            NovaCareTheme(reduceMotion = reduceMotion) {
+            val settings by settingsRepository.settings.collectAsStateWithLifecycle(
+                initialValue = SettingsRepository.Settings(),
+            )
+            val darkTheme = when (settings.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            NovaCareTheme(darkTheme = darkTheme, reduceMotion = reduceMotion) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,

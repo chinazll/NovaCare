@@ -1,14 +1,7 @@
 package com.novacare.feature.home
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +17,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,12 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -49,41 +42,39 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.common.formatBytes
+import com.novacare.core.model.DimensionScore
+import com.novacare.core.model.HealthScore
 import com.novacare.core.system.MissingCapability
+import com.novacare.ui.designsystem.NovaCareColors
 import com.novacare.ui.designsystem.NovaCareTheme
-import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * 首页 —— OneUI 9.5/10 真实设计语言。
+ * 首页 —— 设备健康总览 + 快捷入口（OneUI 9.5/10 真实设计语言）。
  *
  * ============================================================
- * 【信息架构重做 · 单一主张 + 单一操作】
+ * 【信息架构重做 · 首页与清理 tab 去重】
  *
- * 上一版的根本问题：把 6 个功能挤进首页（Hero 数字 + 2 个动作卡 +
- * 设备实况 + 任务块 + 工具行 + 悬浮 AI 球）。结果是「用户不知道
- * 现在该干什么」—— 视觉主角是数字 12.4 GB，但周围全是噪声。
+ * 上一版首页 = 「清理功能的另一个入口」：Hero 显示「可清理 X GB」+ 一键释放，
+ * 与「清理」tab 完全重复。用户点开首页和点开清理 tab 看到的是同一件事。
  *
- * OneUI 9.5 首页的核心原则：
- *   - 单一主张：屏幕只回答一个问题（"现在能清出多少空间？"）。
- *   - 单一操作：只有一个 primary CTA。
- *   - 其他信息全部折叠到次级层（顶部细状态条 + 底部一行辅助链接）。
+ * 参照三星 Good Lock / Good Guardians / Sam Helper：
+ *   - Good Lock：主界面只做「总览 + 导航」，具体功能下沉到模块；
+ *   - Good Guardians：每个模块聚焦一个维度，诊断与一键优化分离；
+ *   - Sam Helper：首页 = 硬件健康一眼看清 + 分类功能入口。
  *
  * 新结构（自上而下）：
- *   1. 顶条（36dp）   时间 + 系统就绪细字，不抢戏
- *   2. Hero 区        大数字「可清理 X GB」（35sp W200）+ 单位 + 状态徽章
- *   3. 主操作区       单按钮：扫描 / 释放 X（一个动作）
- *   4. 进程区         扫描中显示进度条 + 阶段名
- *   5. 完成区         释放成功后给一行小结果 + 「重新扫描」次按钮
- *   6. 权限/引擎提示  仅在有问题时插一行（紧凑，不抢戏）
+ *   1. 顶条            内核就绪状态 + 时间，不抢戏
+ *   2. 健康评分 Hero    大数字健康分 + verdict + 4 维度评分条
+ *   3. 存储概览（只读）  已用/总量 + 进度条 + 剩余/应用数/不常用数
+ *   4. 快捷入口          AI 助手主卡 + 清理/冻结/自动化三个模块入口
+ *   5. 最近活动摘要      一行真实读数 + 建议
+ *   6. 权限/引擎提示     仅在有问题时插一行（紧凑）
  *
- * 不再有：
- *   - 悬浮 AI orb（已在 v0.8 移除，这次彻底不再加回来）
- *   - 自动化 / AI 助手二级入口（这两个是设置类，去设置页或底栏）
- *   - 六宫格 StatCard / 6 个动作卡堆叠
+ * 首页**绝不做**清理动作 —— 清理/冻结只在各自 tab 里执行。
  * ============================================================
  */
 @Composable
@@ -92,8 +83,9 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val score by viewModel.score.collectAsStateWithLifecycle()
     val overview by viewModel.overview.collectAsStateWithLifecycle()
+    val summary by viewModel.summary.collectAsStateWithLifecycle()
     val missing by viewModel.missing.collectAsStateWithLifecycle()
     val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
     val engineVersion by viewModel.engineVersion.collectAsStateWithLifecycle()
@@ -108,7 +100,6 @@ fun HomeScreen(
     }
 
     val view = LocalView.current
-    val context = LocalContext.current
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -119,7 +110,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             Spacer(Modifier.height(56.dp))
 
@@ -129,43 +119,35 @@ fun HomeScreen(
                 engineVersion = engineVersion,
             )
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(28.dp))
 
-            // ---- 2. Hero · 单一主张 ----
-            HeroStatement(
-                overview = overview,
-                state = state,
-                engineAvailable = engineAvailable,
-            )
+            // ---- 2. 健康评分 Hero ----
+            HealthHero(score = score)
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // ---- 3. 主操作 / 进程 / 完成 ----
-            ActionZone(
-                state = state,
-                overview = overview,
-                engineAvailable = engineAvailable,
-                onScan = {
+            // ---- 3. 存储概览（只读） ----
+            StorageOverview(overview = overview)
+
+            Spacer(Modifier.height(24.dp))
+
+            // ---- 4. 快捷入口 ----
+            QuickEntries(
+                onNavigate = { route ->
                     NovaTap(view)
-                    viewModel.onOptimizeClick()
-                },
-                onConfirm = {
-                    NovaSuccess(context)
-                    viewModel.onConfirm()
-                },
-                onRetry = {
-                    NovaTap(view)
-                    viewModel.onOptimizeClick()
-                },
-                onReset = {
-                    NovaTap(view)
-                    viewModel.reset()
+                    onNavigate(route)
                 },
             )
 
-            // ---- 4. 引擎 / 权限提示（仅在有问题时显示，24dp 留白）----
+            // ---- 5. 最近活动摘要 ----
+            if (summary.isNotBlank()) {
+                Spacer(Modifier.height(20.dp))
+                SummaryRow(summary = summary)
+            }
+
+            // ---- 6. 引擎 / 权限提示（仅在有问题时显示） ----
             if (!engineAvailable || missing.isNotEmpty()) {
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
                 if (!engineAvailable) {
                     EngineWarning { viewModel.refreshCapabilities() }
                 }
@@ -180,16 +162,6 @@ fun HomeScreen(
                     )
                 }
             }
-
-            // ---- 5. 次级入口 ----
-            Spacer(Modifier.height(40.dp))
-            SecondaryRow(
-                onNavigate = { route ->
-                    NovaTap(view)
-                    onNavigate(route)
-                },
-                engineAvailable = engineAvailable,
-            )
 
             Spacer(Modifier.height(160.dp))
         }
@@ -242,301 +214,298 @@ private fun TopStatusBar(
 }
 
 // ============================================================
-// Hero · 单一主张
+// 健康评分 Hero —— 单一主张：设备现在有多健康
 // ============================================================
 @Composable
-private fun HeroStatement(
-    overview: HomeViewModel.Overview?,
-    state: HomeViewModel.UiState,
-    engineAvailable: Boolean,
-) {
+private fun HealthHero(score: HealthScore?) {
+    val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
-    val (numberText, unitText, statusText, numberColor) = when {
-        !engineAvailable -> Quadruple("—", "GB", "内核不可用", MaterialTheme.colorScheme.onSurfaceVariant)
-        state is HomeViewModel.UiState.Scanning -> Quadruple("…", "GB", "正在扫描", colors.accent)
-        overview == null -> Quadruple("…", "GB", "准备就绪", MaterialTheme.colorScheme.onSurface)
-        overview.junkTotalBytes > 0L -> Quadruple(
-            formatBytesNumber(overview.junkTotalBytes),
-            "GB 可清理",
-            "已读取设备存储与缓存",
-            MaterialTheme.colorScheme.onSurface,
-        )
-        else -> Quadruple("0", "B 可清理", "设备状态良好", colors.healthGood)
-    }
 
     Column {
         Text(
-            text = statusText,
+            text = "设备健康",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = numberText,
+                text = score?.total?.toString() ?: "—",
                 style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.W200),
-                color = numberColor,
+                color = score?.let { scoreColor(it.total, colors) } ?: cs.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(10.dp))
             Text(
-                text = unitText,
+                text = score?.verdict ?: "正在评估",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = cs.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }
-    }
-}
 
-private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
-
-private fun formatBytesNumber(bytes: Long): String {
-    val gb = bytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
-    return when {
-        gb >= 1.0 -> String.format(Locale.US, "%.1f", gb)
-        bytes >= 1024L * 1024L -> String.format(Locale.US, "%.1f", bytes / (1024.0 * 1024.0))
-        else -> String.format(Locale.US, "%.0f", bytes / 1024.0)
-    }
-}
-
-private fun formatTimeAgo(epochMs: Long): String {
-    if (epochMs <= 0) return "从未"
-    val delta = (System.currentTimeMillis() - epochMs) / 1000
-    return when {
-        delta < 60 -> "刚刚"
-        delta < 3600 -> "${delta / 60} 分钟前"
-        delta < 86400 -> "${delta / 3600} 小时前"
-        else -> "${delta / 86400} 天前"
-    }
-}
-
-// ============================================================
-// 操作区（idle / scanning / executing / preview / done / error）
-// ============================================================
-@Composable
-private fun ActionZone(
-    state: HomeViewModel.UiState,
-    overview: HomeViewModel.Overview?,
-    engineAvailable: Boolean,
-    onScan: () -> Unit,
-    onConfirm: () -> Unit,
-    onRetry: () -> Unit,
-    onReset: () -> Unit,
-) {
-    val colors = NovaCareTheme.colors
-
-    when (state) {
-        is HomeViewModel.UiState.Idle -> {
-            PrimaryButton(
-                text = if (overview == null) "扫描设备" else "重新扫描",
-                onClick = onScan,
-                enabled = engineAvailable,
-            )
-            if (overview != null) {
-                Spacer(Modifier.height(12.dp))
-                SecondaryTextButton(
-                    text = "查看清理项（${overview.junkSafeBytes.formatBytes()} 可立即清）",
-                    onClick = onConfirm,
-                    enabled = overview.junkSafeBytes > 0,
-                )
+        if (score != null) {
+            Spacer(Modifier.height(16.dp))
+            score.dimensions.forEach { dim ->
+                DimensionRow(dim)
             }
         }
-
-        HomeViewModel.UiState.Scanning -> {
-            ProgressZone(
-                label = "正在扫描",
-                detail = "分析存储与缓存",
-                progress = null,
-            )
-        }
-
-        HomeViewModel.UiState.Executing -> {
-            ProgressZone(
-                label = "正在释放",
-                detail = "清理已选项目",
-                progress = null,
-            )
-        }
-
-        is HomeViewModel.UiState.Preview -> {
-            val bytes = state.plan.advices.sumOf { it.recommendedBytes }
-            val count = state.plan.advices.size
-            PrimaryButton(
-                text = if (bytes > 0) "释放 ${bytes.formatBytes()}" else "执行清理",
-                onClick = onConfirm,
-                enabled = engineAvailable,
-            )
-            Spacer(Modifier.height(12.dp))
-            SecondaryTextButton(
-                text = "查看 $count 项清单",
-                onClick = onConfirm,
-            )
-        }
-
-        is HomeViewModel.UiState.Done -> {
-            val failed = state.result.failed.size
-            SuccessZone(
-                message = buildString {
-                    append("已释放 ${state.result.freedBytes.formatBytes()}")
-                    if (failed > 0) append(" · $failed 项失败")
-                },
-                onDone = onReset,
-            )
-        }
-
-        is HomeViewModel.UiState.Error -> {
-            ErrorZone(
-                message = state.message,
-                onRetry = onRetry,
-            )
-        }
     }
 }
 
 @Composable
-private fun PrimaryButton(
-    text: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-) {
-    val colors = NovaCareTheme.colors
+private fun DimensionRow(dim: DimensionScore) {
     val cs = MaterialTheme.colorScheme
-    val container = if (enabled) cs.primary else cs.onSurface.copy(alpha = 0.12f)
-    val content = if (enabled) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f)
+    val colors = NovaCareTheme.colors
+    val fraction = (dim.score.coerceIn(0, 100)) / 100f
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = dim.dimension.displayName,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.width(64.dp),
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(cs.onSurface.copy(alpha = 0.08f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction)
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(scoreColor(dim.score, colors)),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = "${dim.score}",
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.W600),
+            color = cs.onSurface,
+            modifier = Modifier.width(24.dp),
+        )
+    }
+}
+
+private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.graphics.Color = when {
+    total >= 85 -> colors.healthGood
+    total >= 60 -> colors.riskCaution
+    else -> colors.riskRisky
+}
+
+// ============================================================
+// 存储概览（只读，无任何清理动作）
+// ============================================================
+@Composable
+private fun StorageOverview(overview: HomeViewModel.Overview?) {
+    val cs = MaterialTheme.colorScheme
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
             .clip(RoundedCornerShape(20.dp)),
-        color = container,
-        contentColor = content,
-        onClick = { if (enabled) onClick() },
+        color = cs.surfaceContainer,
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = text,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                text = "存储空间",
+                style = MaterialTheme.typography.titleSmall,
+                color = cs.onSurface,
             )
+            if (overview == null) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "正在读取…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant,
+                )
+                return@Column
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "已用 ${overview.usedBytes.formatBytes()} / ${overview.totalBytes.formatBytes()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            val fraction = if (overview.totalBytes > 0L) {
+                (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
+            } else 0f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(cs.onSurface.copy(alpha = 0.08f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(cs.primary),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                StatItem("剩余", overview.freeBytes.formatBytes(), Modifier.weight(1f))
+                StatItem("应用", "${overview.appCount} 个", Modifier.weight(1f))
+                StatItem("不常用", "${overview.staleAppCount} 个", Modifier.weight(1f))
+            }
         }
     }
 }
 
 @Composable
-private fun SecondaryTextButton(
-    text: String,
+private fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
+    val cs = MaterialTheme.colorScheme
+    Column(modifier = modifier) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W600),
+            color = cs.onSurface,
+            maxLines = 1,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
+    }
+}
+
+// ============================================================
+// 快捷入口 —— AI 助手主卡 + 三个模块入口
+// ============================================================
+@Composable
+private fun QuickEntries(onNavigate: (String) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+
+    // AI 助手主卡：首页唯一「突出」的入口
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp)),
+        color = cs.primary,
+        contentColor = cs.onPrimary,
+        onClick = { onNavigate("assistant") },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Star,
+                contentDescription = null,
+                modifier = Modifier.size(26.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "问问 AI 助手",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "读设备状态 · 给建议 · 帮你动手",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onPrimary.copy(alpha = 0.85f),
+                )
+            }
+            Text(
+                text = "→",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        EntryCard(
+            title = "清理",
+            icon = Icons.Outlined.CleaningServices,
+            onClick = { onNavigate("clean") },
+            modifier = Modifier.weight(1f),
+        )
+        EntryCard(
+            title = "冻结",
+            icon = Icons.Outlined.AcUnit,
+            onClick = { onNavigate("freeze") },
+            modifier = Modifier.weight(1f),
+        )
+        EntryCard(
+            title = "自动化",
+            icon = Icons.Outlined.Speed,
+            onClick = { onNavigate("automation") },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun EntryCard(
+    title: String,
+    icon: ImageVector,
     onClick: () -> Unit,
-    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp)),
+        color = cs.surfaceContainer,
+        onClick = onClick,
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = cs.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.W500),
+                color = cs.onSurface,
+            )
+        }
+    }
+}
+
+// ============================================================
+// 最近活动摘要（一行真实读数 + 建议）
+// ============================================================
+@Composable
+private fun SummaryRow(summary: String) {
     val cs = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(enabled = enabled) { onClick() }
-            .padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.Center,
+            .background(cs.onSurface.copy(alpha = 0.04f))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W500),
-            color = if (enabled) cs.primary else cs.onSurface.copy(alpha = 0.38f),
-        )
-    }
-}
-
-@Composable
-private fun ProgressZone(
-    label: String,
-    detail: String,
-    progress: Float?,
-) {
-    val cs = MaterialTheme.colorScheme
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = cs.primary,
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                color = cs.onSurface,
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = detail,
-            style = MaterialTheme.typography.bodyMedium,
+            text = summary,
+            style = MaterialTheme.typography.bodySmall,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(16.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(cs.onSurface.copy(alpha = 0.08f)),
-        ) {
-            if (progress != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(cs.primary),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SuccessZone(
-    message: String,
-    onDone: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Outlined.CheckCircleOutline,
-                contentDescription = null,
-                tint = colors.healthGood,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.titleMedium,
-                color = cs.onSurface,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        SecondaryTextButton(text = "完成", onClick = onDone)
-    }
-}
-
-@Composable
-private fun ErrorZone(
-    message: String,
-    onRetry: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    Column {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(12.dp))
-        SecondaryTextButton(text = "重试", onClick = onRetry)
     }
 }
 
@@ -576,7 +545,6 @@ private fun PermissionRow(
     onGrant: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
     val (title, why) = when (capability) {
         MissingCapability.USAGE_STATS ->
             "使用情况访问" to "识别长期未用应用"
@@ -612,79 +580,6 @@ private fun PermissionRow(
             style = MaterialTheme.typography.labelMedium,
             color = cs.primary,
         )
-    }
-}
-
-// ============================================================
-// 次级入口（一行小字 + chevron）—— 只放真正低频的入口
-// ============================================================
-@Composable
-private fun SecondaryRow(
-    onNavigate: (String) -> Unit,
-    engineAvailable: Boolean,
-) {
-    val cs = MaterialTheme.colorScheme
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .clickable { onNavigate("automation") }
-                .padding(vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "自动化",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(enabled = engineAvailable) { onNavigate("assistant") }
-                .padding(vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "AI 助手",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (engineAvailable) cs.onSurface else cs.onSurface.copy(alpha = 0.38f),
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = if (engineAvailable) "→" else "需内核",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .clickable { onNavigate("settings") }
-                .padding(vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "设置",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
-            )
-        }
     }
 }
 

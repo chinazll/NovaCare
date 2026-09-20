@@ -260,8 +260,8 @@ private val NovaTypography = Typography(
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 17.sp,
-        lineHeight = 26.sp,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
         letterSpacing = 0.sp,
     ),
     headlineSmall = TextStyle(
@@ -281,29 +281,29 @@ private val NovaTypography = Typography(
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = 17.sp,
+        lineHeight = 26.sp,
         letterSpacing = 0.005.sp,
     ),
     titleSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W500,
-        fontSize = 13.sp,
-        lineHeight = 20.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
         letterSpacing = 0.01.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 24.sp,
+        fontSize = 17.sp,
+        lineHeight = 26.sp,
         letterSpacing = 0.01.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 22.sp,
+        fontSize = 15.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.015.sp,
     ),
     bodySmall = TextStyle(

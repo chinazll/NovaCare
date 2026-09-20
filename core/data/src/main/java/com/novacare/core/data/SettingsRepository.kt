@@ -16,6 +16,9 @@ import javax.inject.Singleton
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore("novacare_settings")
 
+/** 主题模式：跟随系统 / 强制浅色 / 强制深色 */
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 /**
  * 设置仓库（DataStore）
  *
@@ -23,6 +26,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
  * - [advancedMode]：高级模式（Shizuku / 组件管理）默认关闭
  * - [cloudAiEnabled]：云端 AI 默认**关闭** —— 未开启时 App 不发任何网络请求
  * - [cloudModel]：云端模型，中国区默认 MiniMax（已备案，数据不出境）
+ * - [themeMode]：主题模式，默认跟随系统
  */
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -34,6 +38,7 @@ class SettingsRepository @Inject constructor(
         val cloudAiEnabled: Boolean = false,
         val cloudModel: CloudModel = CloudModel.MINIMAX,
         val cloudApiKey: String = "",
+        val themeMode: ThemeMode = ThemeMode.SYSTEM,
         val lastCleanEpochMs: Long? = null,
     )
 
@@ -45,6 +50,9 @@ class SettingsRepository @Inject constructor(
                 CloudModel.valueOf(prefs[KEY_CLOUD_MODEL] ?: CloudModel.MINIMAX.name)
             }.getOrDefault(CloudModel.MINIMAX),
             cloudApiKey = prefs[KEY_CLOUD_KEY] ?: "",
+            themeMode = runCatching {
+                ThemeMode.valueOf(prefs[KEY_THEME_MODE] ?: ThemeMode.SYSTEM.name)
+            }.getOrDefault(ThemeMode.SYSTEM),
             lastCleanEpochMs = prefs[KEY_LAST_CLEAN],
         )
     }
@@ -65,6 +73,10 @@ class SettingsRepository @Inject constructor(
         context.settingsDataStore.edit { it[KEY_CLOUD_KEY] = key }
     }
 
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.settingsDataStore.edit { it[KEY_THEME_MODE] = mode.name }
+    }
+
     suspend fun setLastClean(nowMs: Long) {
         context.settingsDataStore.edit { it[KEY_LAST_CLEAN] = nowMs }
     }
@@ -74,6 +86,7 @@ class SettingsRepository @Inject constructor(
         val KEY_CLOUD_AI = booleanPreferencesKey("cloud_ai_enabled")
         val KEY_CLOUD_MODEL = stringPreferencesKey("cloud_model")
         val KEY_CLOUD_KEY = stringPreferencesKey("cloud_api_key")
+        val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_LAST_CLEAN = androidx.datastore.preferences.core.longPreferencesKey("last_clean_epoch_ms")
     }
 }

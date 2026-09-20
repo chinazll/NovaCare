@@ -1,27 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  自适应图标前景层。
-  历史问题：上一版把 ic_launcher 指向 drawable/ic_launcher.xml（一个 108dp 的
-  VectorDrawable），既没有 mipmap 密度分级，也没有 adaptive-icon 包装，
-  在 Android 8+ 上会被系统以「非方形/非自适应」处理，部分 ROM 直接拒绝安装
-  或安装后图标空白。此处按官方三层结构重建。
--->
+<!-- OneUI 风格自适应图标前景：白色盾牌（保护）+ 蓝色闪电（清理/加速，挖空效果） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 星芒：在安全区（中心 66dp）内绘制 -->
-    <group android:translateX="18" android:translateY="18">
-        <!-- 主四角星 -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M36,6 L41.5,30.5 L66,36 L41.5,41.5 L36,66 L30.5,41.5 L6,36 L30.5,30.5 Z" />
-        <!-- 右上小星（点缀，制造「下一代」的层次感） -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillAlpha="0.75"
-            android:pathData="M54,10 L56.5,17.5 L64,20 L56.5,22.5 L54,30 L51.5,22.5 L44,20 L51.5,17.5 Z" />
-    </group>
+    <!-- 盾牌（填充白色，落在安全区 24..84 内） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,24 L79,34 L79,55 C79,67 68,78 54,86 C40,78 29,67 29,55 L29,34 Z" />
+
+    <!-- 闪电（填充背景色 #2F6FED，形成盾牌上的挖空符号） -->
+    <path
+        android:fillColor="#FF2F6FED"
+        android:pathData="M58,37 L44,57 L52,57 L49,71 L67,50 L57,50 Z" />
 </vector>

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novacare.core.data.SettingsRepository
+import com.novacare.core.data.ThemeMode
 import com.novacare.core.engine.NovaEngine
 import com.novacare.core.model.CloudModel
 import com.novacare.core.system.MissingCapability
@@ -107,6 +108,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setApiKey(key: String) = viewModelScope.launch {
         repository.setCloudApiKey(key)
+    }
+
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch {
+        repository.setThemeMode(mode)
     }
 
     private val _notice = MutableStateFlow<String?>(null)

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">NovaCare 缓存清理</string>
+    <string name="accessibility_service_description">仅在您主动发起单应用缓存清理时，于系统设置页自动点击「清除缓存」。不会在后台自行操作。</string>
+</resources>

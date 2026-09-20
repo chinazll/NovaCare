@@ -143,7 +143,7 @@ class CleanViewModel @Inject constructor(
         )
         // 高级模式是异步读的，单独补一次，避免阻塞首帧
         viewModelScope.launch {
-            val advanced = settings.settings.first().advancedMode
+            val advanced = runCatching { settings.settings.first().advancedMode }.getOrDefault(false)
             val current = _state.value
             if (current is UiState.Results) {
                 _state.value = current.copy(advancedMode = advanced)
@@ -195,14 +195,14 @@ class CleanViewModel @Inject constructor(
         if (_selected.value.isEmpty()) return
         viewModelScope.launch {
             _state.value = UiState.Executing
-            val advanced = settings.settings.first().advancedMode
+            val advanced = runCatching { settings.settings.first().advancedMode }.getOrDefault(false)
             val result = runCatching {
                 executePlan(current.plan, _selected.value, advanced)
             }.getOrElse { error ->
                 _state.value = UiState.Failed(error.message ?: "执行清理失败，请重试")
                 return@launch
             }
-            settings.setLastClean(System.currentTimeMillis())
+            runCatching { settings.setLastClean(System.currentTimeMillis()) }
             // 执行后缓存作废：下一次进入必须重新扫描，否则会看到已清理的旧清单
             cache.clear()
             lastSnapshot = null
