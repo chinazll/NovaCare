@@ -27,11 +27,13 @@ object RuleEngine {
         val reclaimableBytes: Long = 0L,
     )
 
-    /** 触发条件是否满足（定时 / 空闲 / 阈值 / 开机） */
+    /** 触发条件是否满足（定时 / 空闲 / 阈值）。
+     *  v0.7.2 移除 BOOT：当前调度是 6h 周期任务，没有 BOOT_COMPLETED 监听，
+     *  旧 BOOT 触发器在每个周期都会"命中"，等于"每周期执行"，与文档承诺不符。 */
     fun triggerMatches(rule: AutomationRule, context: RuleContext, nowMs: Long): Boolean {
         if (!rule.enabled) return false
         return when (rule.trigger.type) {
-            TriggerType.SCHEDULED -> true // 由 WorkManager 保证时间点，命中即执行
+            TriggerType.SCHEDULED -> true // 由 WorkManager 保证时间窗口
             TriggerType.DEVICE_IDLE -> context.isIdle
             TriggerType.STORAGE_ABOVE -> {
                 val threshold = rule.trigger.thresholdPercent ?: 85
@@ -41,7 +43,6 @@ object RuleEngine {
                 val threshold = rule.trigger.thresholdPercent ?: 20
                 (context.batteryPercent ?: 100) < threshold
             }
-            TriggerType.BOOT -> true
         }
     }
 

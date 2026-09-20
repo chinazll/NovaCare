@@ -70,10 +70,20 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.KeyValueRow
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NowBarChip
+import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.SectionHeader
+import com.novacare.ui.designsystem.StaggerFlyIn
 
 /**
  * 设置（L3）
+ *
+ * 【v0.7.2 视觉统一】与 HomeScreen 同一设计语言：
+ *   - 顶部 NovaNowBar（替代老 BackAffordance + 大标题两行）
+ *   - 返回按钮挪进 NowBar 的 leading 槽位（24dp 小圆形，与呼吸点共存）
+ *   - 所有顶层 item 包 StaggerFlyIn
+ *   - 圆角统一 22dp；LazyColumn padding：top 10dp / bottom 24dp
  *
  * 分组顺序刻意按「先风险、后信息」排列：
  *   1. 高级模式     —— 唯一会改变权限边界的开关，放在最上面
@@ -116,263 +126,326 @@ fun SettingsScreen(
         LazyColumn(
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = 20.dp,
-                bottom = 40.dp,
+                start = 0.dp,
+                end = 0.dp,
+                top = 10.dp,
+                bottom = 24.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // ---------- 顶栏 ----------
+            // ---------- 顶栏（NowBar 形态） ----------
             item(key = "topbar") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BackAffordance(onBack = onBack)
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "设置",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Text(
-                            text = if (capabilities.none { !it.granted }) {
-                                "所有必需权限均已授予"
-                            } else {
-                                "${capabilities.count { !it.granted }} 项权限尚未授予"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                StaggerFlyIn(index = 0) {
+                    // v0.7.2 视觉统一：用 NowBar 替代 BackAffordance + 角落大标题
+                    NovaNowBar(
+                        title = "设置",
+                        subtitle = if (capabilities.none { !it.granted }) {
+                            "所有必需权限均已授予"
+                        } else {
+                            "${capabilities.count { !it.granted }} 项权限尚未授予"
+                        },
+                        status = if (capabilities.none { !it.granted }) {
+                            NowBarStatus.Healthy
+                        } else {
+                            NowBarStatus.Warning
+                        },
+                        leading = {
+                            // 24dp 小圆形返回按钮 —— 与呼吸点同高，视觉一致
+                            NowBarBackChip(onBack = onBack)
+                        },
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+
+            // ---------- 1. 高级模式 ----------
+            item(key = "advanced-header") {
+                StaggerFlyIn(index = 1) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "高级模式")
+                    }
+                }
+            }
+            item(key = "advanced") {
+                StaggerFlyIn(index = 2) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        AdvancedModeCard(
+                            enabled = settings.advancedMode,
+                            shizukuAvailable = shizukuAvailable,
+                            onChange = viewModel::setAdvanced,
                         )
                     }
                 }
             }
 
-            // ---------- 1. 高级模式 ----------
-            item(key = "advanced-header") { SectionHeader(title = "高级模式") }
-            item(key = "advanced") {
-                AdvancedModeCard(
-                    enabled = settings.advancedMode,
-                    shizukuAvailable = shizukuAvailable,
-                    onChange = viewModel::setAdvanced,
-                )
-            }
-
             // ---------- 2. 云端 AI ----------
-            item(key = "cloud-header") { SectionHeader(title = "云端 AI") }
+            item(key = "cloud-header") {
+                StaggerFlyIn(index = 3) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "云端 AI")
+                    }
+                }
+            }
             item(key = "cloud") {
-                CloudAiCard(
-                    enabled = settings.cloudAiEnabled,
-                    model = settings.cloudModel,
-                    apiKey = settings.cloudApiKey,
-                    onToggle = viewModel::setCloudAi,
-                    onModelChange = viewModel::setModel,
-                    onApiKeyChange = viewModel::setApiKey,
-                )
+                StaggerFlyIn(index = 4) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        CloudAiCard(
+                            enabled = settings.cloudAiEnabled,
+                            model = settings.cloudModel,
+                            apiKey = settings.cloudApiKey,
+                            onToggle = viewModel::setCloudAi,
+                            onModelChange = viewModel::setModel,
+                            onApiKeyChange = viewModel::setApiKey,
+                        )
+                    }
+                }
             }
 
             // ---------- 3. 权限状态 ----------
-            item(key = "perms-header") { SectionHeader(title = "权限状态") }
+            item(key = "perms-header") {
+                StaggerFlyIn(index = 5) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "权限状态")
+                    }
+                }
+            }
             item(key = "perms") {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    capabilities.forEach { cap ->
-                        CapabilityCard(
-                            capability = cap,
-                            onGrant = { viewModel.grant(cap.capability) },
-                        )
+                StaggerFlyIn(index = 6) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        capabilities.forEach { cap ->
+                            CapabilityCard(
+                                capability = cap,
+                                onGrant = { viewModel.grant(cap.capability) },
+                            )
+                        }
                     }
                 }
             }
 
             // ---------- 4. 数据与隐私 ----------
-            item(key = "privacy-header") { SectionHeader(title = "数据与隐私") }
+            item(key = "privacy-header") {
+                StaggerFlyIn(index = 7) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "数据与隐私")
+                    }
+                }
+            }
             item(key = "privacy") {
-                NovaCard {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(
-                            imageVector = Icons.Outlined.Shield,
-                            contentDescription = null,
-                            tint = NovaCareTheme.colors.healthGood,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "零网络权限",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                StaggerFlyIn(index = 8) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        NovaCard {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Shield,
+                                    contentDescription = null,
+                                    tint = NovaCareTheme.colors.healthGood,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "零网络权限",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = "应用的清单文件里没有声明 INTERNET 权限，" +
+                                            "从代码层面保证不会发出任何网络请求。" +
+                                            "所有扫描与分析都在本机完成。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+
+                            LinkRow(
+                                title = "阅读完整隐私政策",
+                                subtitle = "逐条列出本地处理的数据、权限原则与用户权利",
+                                icon = Icons.Outlined.Lock,
+                                onClick = { showPrivacy = true },
                             )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "应用的清单文件里没有声明 INTERNET 权限，" +
-                                    "从代码层面保证不会发出任何网络请求。" +
-                                    "所有扫描与分析都在本机完成。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                            Spacer(Modifier.height(8.dp))
+
+                            LinkRow(
+                                title = "阅读免责声明",
+                                subtitle = "项目状态、数据责任边界、已知不做的事",
+                                icon = Icons.Outlined.WarningAmber,
+                                onClick = { showDisclaimer = true },
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            LinkRow(
+                                title = "反馈问题",
+                                subtitle = "在 GitHub Issues 提交，附上机型和复现步骤",
+                                icon = Icons.Outlined.BugReport,
+                                onClick = viewModel::openIssues,
                             )
                         }
                     }
-
-                    Spacer(Modifier.height(14.dp))
-
-                    LinkRow(
-                        title = "阅读完整隐私政策",
-                        subtitle = "逐条列出本地处理的数据、权限原则与用户权利",
-                        icon = Icons.Outlined.Lock,
-                        onClick = { showPrivacy = true },
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    LinkRow(
-                        title = "阅读免责声明",
-                        subtitle = "项目状态、数据责任边界、已知不做的事",
-                        icon = Icons.Outlined.WarningAmber,
-                        onClick = { showDisclaimer = true },
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    LinkRow(
-                        title = "反馈问题",
-                        subtitle = "在 GitHub Issues 提交，附上机型和复现步骤",
-                        icon = Icons.Outlined.BugReport,
-                        onClick = viewModel::openIssues,
-                    )
                 }
             }
 
             // ---------- 5. 外观 ----------
-            item(key = "appearance-header") { SectionHeader(title = "外观") }
-            item(key = "appearance") {
-                NovaCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Outlined.DarkMode,
-                            contentDescription = null,
-                            tint = NovaCareTheme.colors.accent,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "跟随系统深浅色",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "深色与浅色两套配色均已适配。当前使用" +
-                                    "系统设置，应用内不单独提供切换开关，避免与系统行为冲突。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+            item(key = "appearance-header") {
+                StaggerFlyIn(index = 9) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "外观")
                     }
+                }
+            }
+            item(key = "appearance") {
+                StaggerFlyIn(index = 10) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        NovaCard {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.DarkMode,
+                                    contentDescription = null,
+                                    tint = NovaCareTheme.colors.accent,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "跟随系统深浅色",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = "深色与浅色两套配色均已适配。当前使用" +
+                                            "系统设置，应用内不单独提供切换开关，避免与系统行为冲突。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
 
-                    Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(14.dp))
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Outlined.Palette,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "标准字号与动效",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "界面不锁定字号，跟随系统「显示大小与文字」设置缩放。" +
-                                    "若你在系统里关闭了过渡动画，应用内的动画也会一并关闭。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Palette,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "标准字号与动效",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = "界面不锁定字号，跟随系统「显示大小与文字」设置缩放。" +
+                                            "若你在系统里关闭了过渡动画，应用内的动画也会一并关闭。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
             // ---------- 6. 关于 ----------
-            item(key = "about-header") { SectionHeader(title = "关于") }
-            item(key = "about") {
-                NovaCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(NovaCareTheme.colors.accent.copy(alpha = 0.14f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Settings,
-                                contentDescription = null,
-                                tint = NovaCareTheme.colors.accent,
-                                modifier = Modifier.size(21.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "NovaCare 管家",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "开源 · 无广告 · 不联网",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+            item(key = "about-header") {
+                StaggerFlyIn(index = 11) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "关于")
                     }
+                }
+            }
+            item(key = "about") {
+                StaggerFlyIn(index = 12) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        NovaCard {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(NovaCareTheme.colors.accent.copy(alpha = 0.14f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Settings,
+                                        contentDescription = null,
+                                        tint = NovaCareTheme.colors.accent,
+                                        modifier = Modifier.size(21.dp),
+                                    )
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "NovaCare 管家",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = "开源 · 无广告 · 不联网",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
 
-                    Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(14.dp))
 
-                    KeyValueRow(key = "应用版本", value = APP_VERSION)
-                    KeyValueRow(
-                        key = "分析内核",
-                        value = if (engineAvailable) engineVersion.ifBlank { "已加载" } else "不可用",
-                        valueColor = if (engineAvailable) {
-                            NovaCareTheme.colors.healthGood
-                        } else {
-                            NovaCareTheme.colors.riskCaution
-                        },
-                    )
-                    KeyValueRow(
-                        key = "冻结通道",
-                        value = if (shizukuAvailable) "Shizuku 已就绪" else "未检测到 Shizuku",
-                        valueColor = if (shizukuAvailable) {
-                            NovaCareTheme.colors.healthGood
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+                            KeyValueRow(key = "应用版本", value = APP_VERSION)
+                            KeyValueRow(
+                                key = "分析内核",
+                                value = if (engineAvailable) engineVersion.ifBlank { "已加载" } else "不可用",
+                                valueColor = if (engineAvailable) {
+                                    NovaCareTheme.colors.healthGood
+                                } else {
+                                    NovaCareTheme.colors.riskCaution
+                                },
+                            )
+                            KeyValueRow(
+                                key = "冻结通道",
+                                value = if (shizukuAvailable) "Shizuku 已就绪" else "未检测到 Shizuku",
+                                valueColor = if (shizukuAvailable) {
+                                    NovaCareTheme.colors.healthGood
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
 
-                    if (!engineAvailable) {
-                        Spacer(Modifier.height(12.dp))
-                        InlineNotice(
-                            text = "分析内核未能加载（通常是该设备 ABI 缺少对应的原生库）。" +
-                                "此时所有数值仍为系统真实读数，但垃圾扫描与存储分析不可用，" +
-                                "不会用估算值替代。",
-                            tone = EmptyTone.Warning,
-                        )
+                            if (!engineAvailable) {
+                                Spacer(Modifier.height(12.dp))
+                                InlineNotice(
+                                    text = "分析内核未能加载（通常是该设备 ABI 缺少对应的原生库）。" +
+                                        "此时所有数值仍为系统真实读数，但垃圾扫描与存储分析不可用，" +
+                                        "不会用估算值替代。",
+                                    tone = EmptyTone.Warning,
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             item(key = "footer") {
-                Text(
-                    text = "本应用为实验性开源项目，请在使用前阅读免责声明。" +
-                        "建议首次使用前备份重要数据。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                StaggerFlyIn(index = 99) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Text(
+                            text = "本应用为实验性开源项目，请在使用前阅读免责声明。" +
+                                "建议首次使用前备份重要数据。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
@@ -398,6 +471,37 @@ fun SettingsScreen(
 // 返回入口
 // ------------------------------------------------------------
 
+/**
+ * 设置页顶栏用的小返回按钮（24dp 圆）。
+ * 比 BackAffordance 更紧凑，能塞进 NowBar 的 leading 槽位，与呼吸点共存。
+ */
+@Composable
+private fun NowBarBackChip(onBack: () -> Unit) {
+    val colors = NovaCareTheme.colors
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(colors.accent.copy(alpha = 0.14f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClick = onBack,
+            )
+            .semantics { contentDescription = "返回" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.ArrowBack,
+            contentDescription = null,
+            tint = colors.accent,
+            modifier = Modifier.size(15.dp),
+        )
+    }
+}
+
+/** 全屏文档浮层用的返回按钮（44dp 大圆，仍由 TextDocumentSheet 调用） */
 @Composable
 private fun BackAffordance(onBack: () -> Unit) {
     val colors = NovaCareTheme.colors

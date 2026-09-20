@@ -76,9 +76,12 @@ import com.novacare.ui.designsystem.EmptyTone
 import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.SecondaryAction
 import com.novacare.ui.designsystem.SectionHeader
+import com.novacare.ui.designsystem.StaggerFlyIn
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -118,99 +121,133 @@ fun AutomationScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = 20.dp,
-                    bottom = 40.dp,
+                    start = 0.dp,
+                    end = 0.dp,
+                    top = 10.dp,
+                    bottom = 24.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                item(key = "header") {
-                    Column(modifier = Modifier.statusBarsPadding()) {
-                        Text(
-                            text = "自动化",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Text(
-                            text = if (rules.isEmpty()) {
+                item(key = "now-bar") {
+                    StaggerFlyIn(index = 0) {
+                        NovaNowBar(
+                            title = "自动化",
+                            subtitle = if (rules.isEmpty()) {
                                 "还没有规则"
                             } else {
                                 "${rules.size} 条规则 · 已启用 ${rules.count { it.enabled }} 条"
                             },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            status = if (rules.any { it.enabled }) {
+                                NowBarStatus.Healthy
+                            } else {
+                                NowBarStatus.Idle
+                            },
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }
 
                 // 调度限制：常驻说明，因为它直接影响用户对"准时"的预期
                 item(key = "scheduler-note") {
-                    InlineNotice(
-                        text = "规则由系统的后台调度执行：只保证最终会跑，不保证精确到分钟。" +
-                            "若手机长期省电模式或刚重启，执行时间会推迟。",
-                        tone = EmptyTone.Neutral,
-                        icon = Icons.Outlined.Info,
-                    )
+                    StaggerFlyIn(index = 1) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            InlineNotice(
+                                text = "规则由系统的后台调度执行：只保证最终会跑，不保证精确到分钟。" +
+                                    "若手机长期省电模式或刚重启，执行时间会推迟。",
+                                tone = EmptyTone.Neutral,
+                                icon = Icons.Outlined.Info,
+                            )
+                        }
+                    }
                 }
 
                 notice?.let { message ->
                     item(key = "notice") {
-                        InlineNotice(
-                            text = message,
-                            tone = EmptyTone.Success,
-                            actionText = "知道了",
-                            onAction = viewModel::dismissNotice,
-                            icon = Icons.Outlined.Check,
-                        )
+                        StaggerFlyIn(index = 2) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                InlineNotice(
+                                    text = message,
+                                    tone = EmptyTone.Success,
+                                    actionText = "知道了",
+                                    onAction = viewModel::dismissNotice,
+                                    icon = Icons.Outlined.Check,
+                                )
+                            }
+                        }
                     }
                 }
 
                 if (rules.isEmpty()) {
                     item(key = "empty") {
-                        EmptyState(
-                            title = "还没有自动化规则",
-                            message = "规则可以让你不用记着清理：比如每周日凌晨自动清理垃圾，" +
-                                "或者电量低于 20% 时提醒你。执行前都会先比对一次真实状态，不会盲跑。",
-                            icon = Icons.Outlined.Bolt,
-                            actionText = "创建第一条规则",
-                            onAction = viewModel::startCreate,
-                        )
+                        StaggerFlyIn(index = 3) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                EmptyState(
+                                    title = "还没有自动化规则",
+                                    message = "规则可以让你不用记着清理：比如每周日凌晨自动清理垃圾，" +
+                                        "或者电量低于 20% 时提醒你。执行前都会先比对一次真实状态，不会盲跑。",
+                                    icon = Icons.Outlined.Bolt,
+                                    actionText = "创建第一条规则",
+                                    onAction = viewModel::startCreate,
+                                )
+                            }
+                        }
                     }
                 } else {
-                    item(key = "rules-header") { SectionHeader(title = "规则") }
+                    item(key = "rules-header") {
+                        StaggerFlyIn(index = 3) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                SectionHeader(title = "规则")
+                            }
+                        }
+                    }
                     items(rules, key = { it.id }) { rule ->
-                        RuleCard(
-                            rule = rule,
-                            onToggle = { enabled -> viewModel.toggle(rule, enabled) },
-                            onEdit = { viewModel.startEdit(rule) },
-                            onDelete = { viewModel.askDelete(rule) },
-                        )
+                        StaggerFlyIn(index = 4) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                RuleCard(
+                                    rule = rule,
+                                    onToggle = { enabled -> viewModel.toggle(rule, enabled) },
+                                    onEdit = { viewModel.startEdit(rule) },
+                                    onDelete = { viewModel.askDelete(rule) },
+                                )
+                            }
+                        }
                     }
                 }
 
                 item(key = "quick-create") {
-                    QuickCreateCard(
-                        value = naturalInput,
-                        onValueChange = viewModel::setNaturalInput,
-                        onSubmit = viewModel::createFromText,
-                    )
+                    StaggerFlyIn(index = 90) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            QuickCreateCard(
+                                value = naturalInput,
+                                onValueChange = viewModel::setNaturalInput,
+                                onSubmit = viewModel::createFromText,
+                            )
+                        }
+                    }
                 }
 
                 item(key = "action") {
-                    PrimaryAction(
-                        text = if (rules.isEmpty()) "创建第一条规则" else "新建规则",
-                        subtitle = "选触发条件 → 选要做什么，两步完成",
-                        onClick = viewModel::startCreate,
-                    )
+                    StaggerFlyIn(index = 95) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            PrimaryAction(
+                                text = if (rules.isEmpty()) "创建第一条规则" else "新建规则",
+                                subtitle = "选触发条件 → 选要做什么，两步完成",
+                                onClick = viewModel::startCreate,
+                            )
+                        }
+                    }
                 }
 
                 item(key = "footer") {
-                    Text(
-                        text = "所有规则都在本机执行，不会上传任何设备信息",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    StaggerFlyIn(index = 100) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Text(
+                                text = "所有规则都在本机执行，不会上传任何设备信息",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
 
@@ -407,7 +444,6 @@ private fun triggerText(rule: AutomationRule): String = when (rule.trigger.type)
     TriggerType.BATTERY_BELOW -> "电量低于 ${rule.trigger.thresholdPercent ?: 20}%"
     TriggerType.STORAGE_ABOVE -> "存储占用高于 ${rule.trigger.thresholdPercent ?: 85}%"
     TriggerType.DEVICE_IDLE -> "设备空闲且充电中"
-    TriggerType.BOOT -> "设备开机后"
 }
 
 private fun actionText(rule: AutomationRule): String =
@@ -418,7 +454,6 @@ private fun triggerIcon(type: TriggerType): ImageVector = when (type) {
     TriggerType.BATTERY_BELOW -> Icons.Outlined.BatteryAlert
     TriggerType.STORAGE_ABOVE -> Icons.Outlined.Storage
     TriggerType.DEVICE_IDLE -> Icons.Outlined.TimerOff
-    TriggerType.BOOT -> Icons.Outlined.PowerSettingsNew
 }
 
 private fun formatLastRun(epochMs: Long): String =
@@ -553,10 +588,12 @@ private fun RuleEditorSheet(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // v0.7.2 视觉统一：用主题的 softShadow 作为浮层遮罩
+        // （深色下是 0x66000000，浅色下是 0x1F0A2A33，与卡片同源）
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(NovaCareTheme.colors.softShadow)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -754,7 +791,6 @@ private fun triggerPreview(draft: AutomationViewModel.RuleDraft): String =
         AutomationViewModel.TriggerKind.BATTERY_BELOW -> "电量低于 ${draft.thresholdPercent}%"
         AutomationViewModel.TriggerKind.STORAGE_ABOVE -> "存储高于 ${draft.thresholdPercent}%"
         AutomationViewModel.TriggerKind.DEVICE_IDLE -> "设备空闲充电时"
-        AutomationViewModel.TriggerKind.BOOT -> "开机后"
     }
 
 @Composable
@@ -1227,10 +1263,11 @@ private fun DeleteConfirmSheet(
 ) {
     val colors = NovaCareTheme.colors
     Box(modifier = Modifier.fillMaxSize()) {
+        // v0.7.2 视觉统一：用主题的 softShadow 作为浮层遮罩
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(NovaCareTheme.colors.softShadow)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

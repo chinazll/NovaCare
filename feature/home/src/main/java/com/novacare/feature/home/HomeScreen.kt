@@ -254,6 +254,8 @@ fun HomeScreen(
                         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                             TaskBlock(
                                 state = state,
+                                onConfirm = viewModel::onConfirm,
+                                onNavigateToClean = { onNavigate("clean") },
                                 onReset = viewModel::reset,
                                 onRetry = viewModel::onOptimizeClick,
                             )
@@ -572,6 +574,8 @@ private fun DeviceVitals(
 @Composable
 private fun TaskBlock(
     state: HomeViewModel.UiState,
+    onConfirm: () -> Unit,
+    onNavigateToClean: () -> Unit,
     onReset: () -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -640,12 +644,7 @@ private fun TaskBlock(
         is HomeViewModel.UiState.Preview -> {
             val total = state.plan.advices.size
             val bytes = state.plan.advices.sumOf { it.recommendedBytes }
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                border = BorderStroke(1.dp, NovaCareTheme.colors.hairline),
-            ) {
+            SpatialLayer(corner = 22.dp) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -663,9 +662,29 @@ private fun TaskBlock(
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "预计可释放 ${bytes.formatBytes()}，前往「清理」逐项确认",
+                        text = "预计可释放 ${bytes.formatBytes()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(14.dp))
+
+                    // ===== 这是真正的入口 =====
+                    // 上一版只显示一段说明文字，没有可点元素：用户被告知"应该去做"
+                    // 但 UI 不提供路径。一键释放的真实执行入口是 viewModel::onConfirm，
+                    // Home 已经持有 plan（在 HomeViewModel.currentPlan 里），所以
+                    // 用户在 Home 就能完成完整闭环（扫描→执行→看结果），
+                    // 不必先跳转清理页。
+                    // 同时给一个"逐项查看"次要入口，让需要精细控制的用户
+                    // 仍能跳到清理页。
+                    PrimaryAction(
+                        text = if (bytes > 0) "释放 ${bytes.formatBytes()}" else "执行清理",
+                        subtitle = "将仅清理你已勾选的项目",
+                        onClick = onConfirm,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    SecondaryAction(
+                        text = "逐项查看",
+                        onClick = { onNavigateToClean() },
                     )
                 }
             }

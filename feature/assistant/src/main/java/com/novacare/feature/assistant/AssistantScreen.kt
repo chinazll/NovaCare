@@ -79,13 +79,20 @@ import com.novacare.ui.designsystem.EmptyTone
 import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.RingSpinner
 import com.novacare.ui.designsystem.RiskChip
 import com.novacare.ui.designsystem.SectionHeader
+import com.novacare.ui.designsystem.StaggerFlyIn
 
 /**
  * AI 助手（L2）—— 对话式指令界面
+ *
+ * 【v0.7.2 视觉统一】与 HomeScreen 同一设计语言：
+ *   - 顶部 NovaNowBar（替代老 AssistantHeader 角落大头像 + 标题）
+ *   - 圆角统一 22dp；NowBar 已有水平 padding，子项不再额外 padding
  *
  * 【这个屏幕到底是什么，不装】
  * 它不是通用聊天机器人。用户输入的每句话都会被解析成一个**结构化意图**，
@@ -148,33 +155,49 @@ fun AssistantScreen(
                 .fillMaxSize()
                 .imePadding(),
         ) {
-            AssistantHeader(capability = capability)
+            // v0.7.2 视觉统一：AssistantHeader → NovaNowBar
+            NovaNowBar(
+                title = "助手",
+                subtitle = capability.tierLabel,
+                status = when {
+                    !capability.engineAvailable -> NowBarStatus.Error
+                    capability.cloudEnabled -> NowBarStatus.Healthy
+                    else -> NowBarStatus.Idle
+                },
+                modifier = Modifier.padding(top = 10.dp),
+            )
 
             // 云端模型未开启时如实说明能力边界 —— 用户有权知道对面是什么
             if (!capability.cloudEnabled) {
-                InlineNotice(
-                    text = "当前使用本地规则解析（不联网）。它能听懂清理缓存 / 清理垃圾 / " +
-                        "冻结不常用应用 / 分析存储这四类说法。要理解更复杂的句子，" +
-                        "可在「设置 → 云端 AI」中自行开启。",
-                    tone = EmptyTone.Neutral,
-                    icon = Icons.Outlined.Shield,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
+                StaggerFlyIn(index = 0) {
+                    InlineNotice(
+                        text = "当前使用本地规则解析（不联网）。它能听懂清理缓存 / 清理垃圾 / " +
+                            "冻结不常用应用 / 分析存储这四类说法。要理解更复杂的句子，" +
+                            "可在「设置 → 云端 AI」中自行开启。",
+                        tone = EmptyTone.Neutral,
+                        icon = Icons.Outlined.Shield,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
             }
 
             error?.let { message ->
-                InlineNotice(
-                    text = message,
-                    tone = EmptyTone.Error,
-                    actionText = "重试",
-                    onAction = { viewModel.retry(rootPath) },
-                    icon = Icons.Outlined.SearchOff,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
+                StaggerFlyIn(index = 1) {
+                    InlineNotice(
+                        text = message,
+                        tone = EmptyTone.Error,
+                        actionText = "重试",
+                        onAction = { viewModel.retry(rootPath) },
+                        icon = Icons.Outlined.SearchOff,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
             }
 
             report?.let { r ->
-                ExecutionNotice(r = r, onDismiss = viewModel::clearReport)
+                StaggerFlyIn(index = 2) {
+                    ExecutionNotice(r = r, onDismiss = viewModel::clearReport)
+                }
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -223,53 +246,6 @@ fun AssistantScreen(
                 onSend = send,
                 enabled = !thinking,
                 canSend = canSend,
-            )
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// 顶栏
-// ------------------------------------------------------------
-
-@Composable
-private fun AssistantHeader(capability: AssistantViewModel.Capability) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(NovaCareTheme.colors.accent.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.SmartToy,
-                contentDescription = null,
-                tint = NovaCareTheme.colors.accent,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "状态助手",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = capability.tierLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (capability.engineAvailable) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    NovaCareTheme.colors.riskCaution
-                },
             )
         }
     }

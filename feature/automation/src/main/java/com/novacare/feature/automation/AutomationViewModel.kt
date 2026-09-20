@@ -37,13 +37,14 @@ class AutomationViewModel @Inject constructor(
     private val scheduler: AutomationScheduler,
 ) : ViewModel() {
 
-    /** 触发器类型 —— 决定表单显示哪些字段 */
+    /** 触发器类型 —— 决定表单显示哪些字段。
+ *  v0.7.2 移除 BOOT：当前 6 小时周期任务无法监听到 BOOT_COMPLETED，
+ *  显示给用户是合同谎。 */
     enum class TriggerKind(val label: String, val explanation: String) {
-        SCHEDULED("按时间", "由系统在维护窗口内择机执行，不保证精确到分钟"),
+        SCHEDULED("按时间", "由系统在 6 小时维护窗口内执行，不保证精确到分钟"),
         BATTERY_BELOW("电量低于", "读取到电量低于阈值时执行"),
         STORAGE_ABOVE("存储超过", "读取到存储占用高于阈值时执行"),
         DEVICE_IDLE("设备空闲充电时", "屏幕关闭且正在充电时执行"),
-        BOOT("开机时", "设备重启完成后执行一次"),
     }
 
     /** 表单可编辑的规则草稿（id 为 null 表示新建） */
@@ -71,7 +72,6 @@ class AutomationViewModel @Inject constructor(
             TriggerKind.BATTERY_BELOW -> "电量低于 $thresholdPercent% 时执行"
             TriggerKind.STORAGE_ABOVE -> "存储超过 $thresholdPercent% 时执行"
             TriggerKind.DEVICE_IDLE -> "设备空闲充电时执行"
-            TriggerKind.BOOT -> "开机后执行"
         }
 
         val canSave: Boolean
@@ -153,7 +153,6 @@ class AutomationViewModel @Inject constructor(
             TriggerType.BATTERY_BELOW -> TriggerKind.BATTERY_BELOW
             TriggerType.STORAGE_ABOVE -> TriggerKind.STORAGE_ABOVE
             TriggerType.DEVICE_IDLE -> TriggerKind.DEVICE_IDLE
-            TriggerType.BOOT -> TriggerKind.BOOT
         }
         _editing.value = RuleDraft(
             id = rule.id,
@@ -194,7 +193,6 @@ class AutomationViewModel @Inject constructor(
                     TriggerKind.BATTERY_BELOW -> TriggerType.BATTERY_BELOW
                     TriggerKind.STORAGE_ABOVE -> TriggerType.STORAGE_ABOVE
                     TriggerKind.DEVICE_IDLE -> TriggerType.DEVICE_IDLE
-                    TriggerKind.BOOT -> TriggerType.BOOT
                 },
                 hourOfDay = if (draft.kind == TriggerKind.SCHEDULED) draft.hourOfDay else null,
                 dayOfWeek = if (draft.kind == TriggerKind.SCHEDULED) draft.dayOfWeek else null,
@@ -248,6 +246,17 @@ class AutomationViewModel @Inject constructor(
             ?.groupValues?.get(1)?.toIntOrNull()
             ?.takeIf { it in 0..23 }
 
+        // 解析分钟：「22:30」/「9 点 30 分」/「22 点 30」等。
+        // 仅做"我们识别出来了"的反馈，调度粒度仍由 WorkManager 的 6h 周期决定，
+        // 不能精确到分钟——所以 minute 当前只用于提示用户，不写库。
+        val minute = Regex("(\\d{1,2})\\s*[:点]\\s*(\\d{1,2})").find(text)
+            ?.let { m ->
+                val h = m.groupValues[1].toIntOrNull()
+                val mi = m.groupValues[2].toIntOrNull()
+                if (h != null && mi != null && mi in 0..59 && h in 0..23) mi else null
+            } ?: Regex("[点时:]\\s*(\\d{1,2})\\s*分").find(text)
+                ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..59 }
+
         val dayOfWeek = DAY_KEYWORDS.entries.firstOrNull { text.contains(it.key) }?.value
 
         val actionType = when {
@@ -270,6 +279,12 @@ class AutomationViewModel @Inject constructor(
             _notice.value = "没识别出时间。试试加上「每天 22 点」或「每周日 3 点」"
             return
         }
+
+        val timeHint = if (hour != null && minute != null) {
+            "%02d:%02d".format(hour, minute)
+        } else if (hour != null) {
+            "%02d:00（分钟未识别，按整点）".format(hour)
+        } else "未识别"
 
         val draft = RuleDraft(
             kind = TriggerKind.SCHEDULED,
@@ -297,8 +312,10 @@ class AutomationViewModel @Inject constructor(
             repository.save(rule)
             scheduler.ensureScheduled()
             _naturalInput.value = ""
-            _notice.value = "已创建：${rule.describe()}（仅清理安全项）。" +
-                "如需改时间或动作，请点这条规则编辑。"
+            // 明确告诉用户分钟被识别但不会精确执行 —— 上一版只是默默丢分钟，
+            // 用户以为"22:30"能准点跑，实际漂移 6 小时。这是合同谎。
+            _notice.value = "已创建：${rule.describe()}（识别时间 $timeHint）。" +
+                "系统执行粒度为 6 小时，可能在你设置时间的 ±3 小时内。"
         }
     }
 

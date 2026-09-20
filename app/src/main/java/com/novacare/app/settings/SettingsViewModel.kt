@@ -95,14 +95,25 @@ class SettingsViewModel @Inject constructor(
         repository.setCloudApiKey(key)
     }
 
+    private val _notice = MutableStateFlow<String?>(null)
+    val notice: StateFlow<String?> = _notice.asStateFlow()
+    fun consumeNotice() { _notice.value = null }
+
     /** 打开 GitHub Issues（反馈入口必须是能真的点开的） */
     fun openIssues() {
-        runCatching {
+        val result = runCatching {
             app.startActivity(
                 Intent(Intent.ACTION_VIEW, Uri.parse(ISSUES_URL)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 },
             )
+            true
+        }
+        if (result.isFailure) {
+            // 设备上没装任何浏览器或浏览器拦截 → 上一版只 runCatching 静默吞错，
+            // 用户点完什么都没发生，还以为 App 坏了。
+            // 现在把失败暴露给 UI 显示一条 Snackbar，并附仓库 URL 让用户复制打开。
+            _notice.value = "没找到可用的浏览器。请打开浏览器访问：$ISSUES_URL"
         }
     }
 
