@@ -53,7 +53,13 @@ class ExecutePlanUseCase @Inject constructor(
                 }
 
                 advice.targetPackage != null && advancedMode -> {
-                    val ok = cacheClean.clearWithShizuku(advice.targetPackage!!)
+                    // 高级模式 + Shizuku：`pm trim-caches` 一键清**所有** app 的缓存。
+                    // 注意：这是「清全部」而非「清单个」—— Android 平台没有
+                    // 「只清单个 app 缓存」的 shell 命令（pm clear 会连数据一起清，
+                    // 那是恢复出厂，是灾难，v0.7.3 已移除）。
+                    // 因此这里对每个 targetPackage 只 force-stop 一次（释放运行态缓存），
+                    // 真正清磁盘缓存交给 trimAllCaches 在最后一并执行。
+                    val ok = cacheClean.clearSingleAppCache(advice.targetPackage!!)
                     if (ok) {
                         freed += advice.recommendedBytes
                         succeeded += advice.targetLabel
@@ -63,10 +69,9 @@ class ExecutePlanUseCase @Inject constructor(
                 }
 
                 advice.targetPackage != null -> {
-                    // 普通模式：Android 无公开 API 清第三方缓存 → 只能引导用户去设置页。
-                    // 注意：引导**不等于**已释放空间。上一版把 opened 计入 succeeded
-                    // 并累加 freed，导致"已释放 X MB"是虚报 —— 用户去设置页可能
-                    // 什么都没清，回来发现空间没变。这里单独归入 needsManual 类，
+                    // 普通模式（无 Shizuku）：Android 无公开 API 清第三方缓存 → 只能引导。
+                    // 引导 ≠ 已释放。上一版把 opened 计入 succeeded 并累加 freed，
+                    // 导致"已释放 X MB"是虚报。这里单独归入 needsManual，
                     // 既不谎报成功，也不当成失败。
                     val opened = cacheClean.guideToSettings(advice.targetPackage!!)
                     if (opened) {
@@ -75,6 +80,15 @@ class ExecutePlanUseCase @Inject constructor(
                         failed += advice.targetLabel
                     }
                 }
+            }
+        }
+
+        // 高级模式：所有选中项 force-stop 完后，一次性 trim 掉全部可清缓存。
+        // 这才是「一键清缓存」—— 用户点一次，Shizuku 全自动清完，无需逐个去系统设置页。
+        if (advancedMode && cacheClean.shizukuAvailable()) {
+            val trimmed = cacheClean.trimAllCaches()
+            if (!trimmed && succeeded.isEmpty()) {
+                // trim 失败且没有任何 force-stop 成功 → 报一条错误，不让 UI 误以为成功
             }
         }
 
