@@ -14,8 +14,8 @@ android {
         applicationId = "com.novacare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 5
-        versionName = "0.5.0-alpha"
+        versionCode = 6
+        versionName = "0.6.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -44,6 +44,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // UniFFI/JNA 走反射 + Native.load。R8 全量优化下即使有 keep 规则，
+            // 仍存在「类被保留但 <clinit> 里的 loadLibrary 被内联丢弃」的边界情况。
+            // 工程上把 -dontoptimize 只作用于 keeps 命中的类不可行，
+            // 因此这里保持 optimize 但确保规则完整（见 proguard-rules.pro）。
             if (signingConfigs.getByName("release").storeFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -58,6 +62,19 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    packaging {
+        jniLibs {
+            // .so 已是 strip 过的 release 产物（Cargo profile 里 strip = "symbols"）
+            useLegacyPackaging = false
+        }
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE*"
+            excludes += "/META-INF/NOTICE*"
+        }
+    }
 
     lint {
         // NullSafeMutableLiveData 检测器在 lifecycle-lint + 当前 Kotlin 组合下会崩溃
@@ -88,6 +105,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)

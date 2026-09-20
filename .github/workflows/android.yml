@@ -208,6 +208,24 @@ jobs:
               echo "::error::Rust engine missing from $apk (expected 3 ABIs)"
             fi
           done
+
+          # ---- JNA 原生派发库守卫 ----
+          # P0 事故复盘：UniFFI 的 Kotlin 绑定通过 JNA 调用 .so，而 JNA 依赖
+          # libjnidispatch.so。曾因只依赖 jna 的普通 jar（不含 .so）导致
+          # APK 里 libuniffi_novacare.so 齐全、jnidispatch 缺失，
+          # Native.load() 抛 UnsatisfiedLinkError 被静默吞掉 →
+          # 引擎永远不可用。这道守卫防止该问题再次静默回归。
+          echo "=== JNA libjnidispatch.so 检查 ==="
+          for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release.apk; do
+            echo "--- $(basename $apk) ---"
+            unzip -l "$apk" | grep "libjnidispatch.so" || echo "(no jnidispatch found)"
+            JCOUNT=$(unzip -l "$apk" | grep -c "libjnidispatch.so" || true)
+            echo "libjnidispatch.so count: $JCOUNT"
+            if [ "$JCOUNT" -lt 3 ]; then
+              echo "::error::JNA native lib missing from $apk — Rust engine will never load"
+            fi
+          done
+
           echo "=== aapt badging ==="
           "$AAPT" dump badging app/build/outputs/apk/release/app-release.apk | head -10
           ls -lh app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk
@@ -220,6 +238,11 @@ jobs:
             C=$(unzip -l "$apk" | grep -c "libuniffi_novacare.so" || true)
             if [ "$C" -lt 3 ]; then
               echo "::error::Rust engine missing from $apk"
+              exit 1
+            fi
+            J=$(unzip -l "$apk" | grep -c "libjnidispatch.so" || true)
+            if [ "$J" -lt 3 ]; then
+              echo "::error::JNA native lib missing from $apk — engine cannot load"
               exit 1
             fi
           done

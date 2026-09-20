@@ -58,4 +58,11 @@ data class CleanResult(
     val failed: List<String>,
     /** 回收站路径 —— 支持 7 天内撤销 */
     val recycleBinPath: String?,
+    /**
+     * 已引导用户去系统设置页、但本应用无法代为完成的项。
+     *
+     * 与 [succeeded] 严格区分：这些项**没有**释放任何空间，
+     * 不能计入 [freedBytes]。上一版把它们算作成功，导致「已释放 X MB」虚报。
+     */
+    val needsManual: List<String> = emptyList(),
 )

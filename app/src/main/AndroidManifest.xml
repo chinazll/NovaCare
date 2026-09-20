@@ -1,15 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 枚举已安装应用（清理残留 / 冻结）；Play 上架需在数据安全表单说明用途 -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <!-- 应用使用时长（判定「不常用」），需用户在设置中授权 -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" xmlns:tools="http://schemas.android.com/tools" />
+        tools:ignore="ProtectedPermissions" />
 
     <!-- 卸载应用 -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <!--
+      完整文件访问（Android 11+）。
+      为什么必须要有：内核 Rust 侧用 walkdir 直接按路径扫描 /storage/emulated/0。
+      没有这个权限时，分区存储会让内核在访问其他应用的目录时拿到 EACCES，
+      扫描结果严重偏少 —— 用户看到的是"扫描不出东西"，会直接认为应用坏了。
+      申请入口：SystemPermissions.allFilesAccessIntent() → 系统设置页手动开启。
+    -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <!-- 清理完成通知 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -29,15 +41,18 @@
     <application
         android:name=".NovaCareApp"
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.NovaCare">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.NovaCare">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

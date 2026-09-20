@@ -48,4 +48,4 @@ core/engine/rust/target/
 # KSP/Hilt 编译缓存（路径超长，Windows 下 git 会失败）
 **/.transforms/
 **/kspCaches/
-**/tmp/
+**/tmp/release-artifacts/

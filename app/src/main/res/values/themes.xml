@@ -1,6 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<!--
+  启动主题。
+
+  修复记录：
+  1. 上一版继承 android:Theme.Material.Light.NoActionBar（平台 Material 1）。
+     在深色模式下会白底 + 浅色文字，启动瞬间闪白，与 Compose 配色割裂。
+  2. 不能直接用 android:Theme.DeviceDefault.DayNight.NoActionBar —— 它是 API 29+
+     才有的（minSdk = 26，AAPT 会直接报资源找不到）。
+     正确做法：values/ 用 API 26 可用的浅色 NoActionBar，
+     values-night/ 覆盖为深色，再由 Compose 完全接管配色。
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
     <style name="Theme.NovaCare" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+
+        <!-- 边到边：系统栏交给 Compose 的 enableEdgeToEdge() 处理 -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
+
+        <!-- 窗口背景跟随深浅色，消除启动白闪 -->
+        <item name="android:windowBackground">@color/nv_window_background</item>
+        <item name="android:windowContentTransitions" tools:targetApi="lollipop">true</item>
     </style>
+
 </resources>

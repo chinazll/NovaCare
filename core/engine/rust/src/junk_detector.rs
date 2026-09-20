@@ -122,7 +122,10 @@ pub fn scan(opts: &JunkOptions) -> NovaResult<JunkReport> {
                                 size,
                                 kind: JunkKind::Residual.as_str().to_string(),
                                 is_safe: false,
-                                risk: "应用未安装，数据可能仍有价值".to_string(),
+                                risk: "caution".to_string(),
+                                risk_note: "应用已卸载，但其数据目录仍在。其中可能包含未导出的\
+                                            聊天记录、游戏存档或配置，删除前建议先确认。"
+                                    .to_string(),
                             });
                         }
                     }
@@ -165,13 +168,15 @@ fn scan_dir_item(path: &Path, label: &str, kind: JunkKind) -> Option<JunkItem> {
         size,
         kind: kind.as_str().to_string(),
         is_safe: kind.is_safe(),
-        risk: if kind.is_safe() { String::new() } else {
-            match kind {
-                JunkKind::Log => "日志可能用于调试".to_string(),
-                JunkKind::Crash => "崩溃日志，可清理".to_string(),
-                JunkKind::Residual => "应用未安装，数据可能仍有价值".to_string(),
-                _ => String::new(),
-            }
+        risk: crate::risk_of(kind.as_str(), kind.is_safe()).to_string(),
+        risk_note: match kind {
+            JunkKind::Log => "系统日志。通常可安全删除，但排障时可能有用。".to_string(),
+            JunkKind::Crash => "崩溃转储。删除不影响系统运行，但会丢失故障线索。".to_string(),
+            JunkKind::Residual => "应用已卸载而数据目录仍在，可能含未导出的数据。".to_string(),
+            JunkKind::Cache => "应用缓存。删除后应用会重新生成，首次打开可能稍慢。".to_string(),
+            JunkKind::Thumbnail => "媒体缩略图缓存。删除后系统会重新生成。".to_string(),
+            JunkKind::Tmp => "临时文件。通常可安全删除。".to_string(),
+            JunkKind::Duplicate => "重复文件，详见同组文件说明。".to_string(),
         },
     })
 }
@@ -246,13 +251,32 @@ fn detect_duplicates(root: &Path, min_size: u64) -> NovaResult<Vec<JunkItem>> {
                     if i == 0 {
                         continue; // 保留第一份
                     }
+                    // 确定性表述：不声称"可安全删除"。重复文件的可删性取决于
+                    // 用户是否还需要这一份副本，内核无权替用户决定。
+                    // 保留一份的规则由上层呈现给用户确认，内核只做事实描述。
                     items.push(JunkItem {
                         path: p.to_string_lossy().to_string(),
-                        label: format!("重复文件 (BLAKE3:{})", &h[..8]),
+                        label: format!(
+                            "重复文件 · 内容与同组其他 {} 份完全一致 (BLAKE3:{})",
+                            group.len(),
+                            &h[..8]
+                        ),
                         size: *size,
                         kind: JunkKind::Duplicate.as_str().to_string(),
-                        is_safe: true, // 重复文件可安全删除（保留一份）
-                        risk: String::new(),
+                        // 重复文件不是"垃圾"：它是用户数据的冗余副本。
+                        // 内核不判定可删，交由上层让用户确认。
+                        is_safe: false,
+                        // duplicate 在 risk_of() 中确定性判定为 risky
+                        risk: crate::risk_of(JunkKind::Duplicate.as_str(), false).to_string(),
+                        risk_note: format!(
+                            "与以下文件内容完全相同，删除前请确认不再需要副本：\n{}",
+                            group
+                                .iter()
+                                .filter(|x| **x != *p)
+                                .map(|x| x.to_string_lossy().to_string())
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        ),
                     });
                 }
             }

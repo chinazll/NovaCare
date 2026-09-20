@@ -1,6 +1,6 @@
 [package]
 name = "novacare_core"
-version = "0.4.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["chinazll <noreply@github.com>"]
 description = "NovaCare 确定性内核 —— 扫描 / 去重(BLAKE3) / 存储分析 / 电池分析"

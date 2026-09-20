@@ -32,6 +32,8 @@ class ExecutePlanUseCase @Inject constructor(
     ): CleanResult = withContext(Dispatchers.IO) {
         val succeeded = mutableListOf<String>()
         val failed = mutableListOf<String>()
+        // 需要用户手动去系统设置页完成的项目：不计入 released，但也不算失败
+        val manual = mutableListOf<String>()
         var freed = 0L
         var recyclePath: String? = null
 
@@ -61,9 +63,17 @@ class ExecutePlanUseCase @Inject constructor(
                 }
 
                 advice.targetPackage != null -> {
-                    // 普通模式：Android 无公开 API 清第三方缓存 → 只能引导
+                    // 普通模式：Android 无公开 API 清第三方缓存 → 只能引导用户去设置页。
+                    // 注意：引导**不等于**已释放空间。上一版把 opened 计入 succeeded
+                    // 并累加 freed，导致"已释放 X MB"是虚报 —— 用户去设置页可能
+                    // 什么都没清，回来发现空间没变。这里单独归入 needsManual 类，
+                    // 既不谎报成功，也不当成失败。
                     val opened = cacheClean.guideToSettings(advice.targetPackage!!)
-                    if (opened) succeeded += advice.targetLabel else failed += advice.targetLabel
+                    if (opened) {
+                        manual += advice.targetLabel
+                    } else {
+                        failed += advice.targetLabel
+                    }
                 }
             }
         }
@@ -73,6 +83,7 @@ class ExecutePlanUseCase @Inject constructor(
             succeeded = succeeded,
             failed = failed,
             recycleBinPath = recyclePath,
+            needsManual = manual,
         )
     }
 }

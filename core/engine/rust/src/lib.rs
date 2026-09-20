@@ -26,7 +26,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 pub const NAME: &str = "NovaCare Core";
-pub const VERSION: &str = "0.4.0";
+pub const VERSION: &str = "0.6.0";
 
 // ============================================================
 // 跨语言 DTO（UniFFI 自动生成 Kotlin data class）
@@ -207,26 +207,45 @@ pub fn scan_junk(
         }
     };
 
-    let items = internal
+    // 先做一次统一分级，再据此生成 FFI DTO 与 safe_bytes。
+    // 必须先把分级结果落到一个 Vec 里，否则 items 被 move 后无法再统计 safe_bytes。
+    let graded: Vec<(models::JunkItem, &'static str)> = internal
         .items
         .into_iter()
         .map(|i| {
-            let risk = risk_of(&i.kind, i.is_safe).to_string();
-            JunkItem {
-                path: i.path,
-                label: i.label,
-                bytes: i.size,
-                kind: i.kind,
-                risk,
-                risk_note: i.risk,
-            }
+            // 统一由 risk_of() 做确定性分级，不采信 detector 侧的 is_safe 布尔值 ——
+            // 后者只是粗粒度提示，两处若不一致会出现"标着安全却重分级为 risky"的漂移。
+            let risk = risk_of(&i.kind, i.is_safe);
+            (i, risk)
+        })
+        .collect();
+
+    // safe_bytes 的语义必须是「用户不确认也可以直接清掉的量」。
+    // 上一版直接用 detector 的 safe_size（按 is_safe 累加），把 duplicate /
+    // residual 这类需要用户判断的项也算了进去 —— 首页那行「可安全释放 X」
+    // 会显著高估。这里改为按最终 risk 重新累计。
+    let safe_bytes: u64 = graded
+        .iter()
+        .filter(|(_, risk)| *risk == "safe")
+        .map(|(i, _)| i.size)
+        .sum();
+
+    let items = graded
+        .into_iter()
+        .map(|(i, risk)| JunkItem {
+            path: i.path,
+            label: i.label,
+            bytes: i.size,
+            kind: i.kind,
+            risk: risk.to_string(),
+            risk_note: i.risk_note,
         })
         .collect();
 
     Some(JunkReport {
         items,
         total_bytes: internal.total_size,
-        safe_bytes: internal.safe_size,
+        safe_bytes,
         duration_ms: start.elapsed().as_millis() as u64,
     })
 }

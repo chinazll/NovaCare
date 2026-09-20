@@ -57,11 +57,14 @@ pub struct JunkItem {
     pub size: u64,
     /// 分类（cache / thumbnail / log / tmp / residual / duplicate）
     pub kind: String,
-    /// 是否安全可清理
+    /// 是否安全可清理（确定性判定；**仅供参考**，最终分级见 risk）
     pub is_safe: bool,
-    /// 风险描述
-    #[serde(skip_serializing_if = "String::is_empty")]
+    /// 风险分级：safe | caution | risky
     pub risk: String,
+    /// 风险说明：为什么是这一级、删除前需要用户注意什么。
+    /// 内核只做事实描述，不替用户做删除决策。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub risk_note: String,
 }
 
 /// 垃圾扫描结果

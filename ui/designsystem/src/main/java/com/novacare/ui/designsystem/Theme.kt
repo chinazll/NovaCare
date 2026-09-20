@@ -1,44 +1,331 @@
 package com.novacare.ui.designsystem
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF00658F),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFC7E7FF),
-    secondary = Color(0xFF4E6359),
-    surface = Color(0xFFFBFDF8),
-    background = Color(0xFFFBFDF8),
-    error = Color(0xFFBA1A1A),
+// ============================================================
+// NovaCare 设计系统 —— 令牌层
+//
+// 【定调说明 / Direction Lock】
+//   受众：普通 Android 用户（非极客）。他们要的是「打开就知道该按哪」。
+//   调性：克制的下一代（One UI next-gen）—— 深色优先、大圆角浮层、
+//         单一电光青强调色、极浅的氛围渐变、发丝描边代替重阴影。
+//   记忆点：首页那枚会呼吸的健康环。全应用只有这一处动效主角。
+//
+// 【配色纪律 60 / 30 / 10】
+//   60% 基底  —— background / surface 系列（冷调近黑，非纯黑）
+//   30% 承载  —— surfaceContainer 卡片与面板
+//   10% 强调  —— Aurora 电光青，只给「主操作按钮」与「健康环」
+//   语义色（好/中/差、安全/需确认/有风险）独立于强调色，绝不混用。
+//
+// 【为什么不用 Material You 动态取色】
+//   动态取色会让品牌色被壁纸劫持 —— 健康环的颜色语义会失真，
+//   同一个分数在不同壁纸下变成不同颜色。因此固定强调色，但完整支持深/浅模式。
+// ============================================================
+
+/**
+ * NovaCare 扩展色彩令牌。
+ *
+ * Material3 的 ColorScheme 不覆盖「健康度三档」「风险分级」「环轨底色」
+ * 这些业务语义色。用 CompositionLocal 补充，组件内禁止硬编码色值。
+ */
+@Immutable
+data class NovaCareColors(
+    /** 品牌强调色（电光青）—— 全应用唯一强调色 */
+    val accent: Color,
+    val accentDim: Color,
+    /** 健康度三档（语义色，与强调色分离） */
+    val healthGood: Color,
+    val healthFair: Color,
+    val healthPoor: Color,
+    /** 清理风险分级 */
+    val riskSafe: Color,
+    val riskCaution: Color,
+    val riskRisky: Color,
+    /** 健康环未填充轨道 */
+    val ringTrack: Color,
+    /** 发丝描边：制造层次而不靠重阴影 */
+    val hairline: Color,
+    /** 氛围层渐变（极低透明度，铺在背景顶层） */
+    val auraTop: Color,
+    val auraBottom: Color,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FCEFF),
-    onPrimary = Color(0xFF00344C),
-    primaryContainer = Color(0xFF004B6B),
-    secondary = Color(0xFFB6CCBF),
+private val LightPalette = NovaCareColors(
+    accent = Color(0xFF007E9E),
+    accentDim = Color(0xFFB9E4F0),
+    healthGood = Color(0xFF1B7A46),
+    healthFair = Color(0xFFA86A00),
+    healthPoor = Color(0xFFB3261E),
+    riskSafe = Color(0xFF1B7A46),
+    riskCaution = Color(0xFFA86A00),
+    riskRisky = Color(0xFFB3261E),
+    ringTrack = Color(0xFFE1E7EB),
+    hairline = Color(0x14000000),
+    auraTop = Color(0x1A00B4D8),
+    auraBottom = Color(0x0A007E9E),
+)
+
+private val DarkPalette = NovaCareColors(
+    accent = Color(0xFF4FD8FF),
+    accentDim = Color(0xFF0B4A61),
+    healthGood = Color(0xFF6FE0A0),
+    healthFair = Color(0xFFFFC46B),
+    healthPoor = Color(0xFFFF8A80),
+    riskSafe = Color(0xFF6FE0A0),
+    riskCaution = Color(0xFFFFC46B),
+    riskRisky = Color(0xFFFF8A80),
+    ringTrack = Color(0xFF22303A),
+    hairline = Color(0x1AFFFFFF),
+    auraTop = Color(0x2E4FD8FF),
+    auraBottom = Color(0x00101820),
+)
+
+val LocalNovaCareColors = staticCompositionLocalOf { DarkPalette }
+
+/** 无障碍：`prefers-reduced-motion` 的 Compose 等价物 */
+val LocalReduceMotion = staticCompositionLocalOf { false }
+
+/** 便捷访问：`NovaCareTheme.colors.healthGood` */
+object NovaCareTheme {
+    val colors: NovaCareColors
+        @Composable @ReadOnlyComposable
+        get() = LocalNovaCareColors.current
+}
+
+// ---- Material3 角色映射 ----
+
+private val LightScheme = lightColorScheme(
+    primary = Color(0xFF007E9E),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFC3E8F5),
+    onPrimaryContainer = Color(0xFF00303C),
+    secondary = Color(0xFF4A626D),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFCDE7F2),
+    onSecondaryContainer = Color(0xFF051F28),
+    tertiary = Color(0xFF5A5B7E),
+    onTertiary = Color(0xFFFFFFFF),
+    background = Color(0xFFF5F8FA),
+    onBackground = Color(0xFF151C20),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF151C20),
+    surfaceVariant = Color(0xFFDCE3E8),
+    onSurfaceVariant = Color(0xFF41484D),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF0F4F7),
+    surfaceContainer = Color(0xFFEAEFF3),
+    surfaceContainerHigh = Color(0xFFE4EAEF),
+    surfaceContainerHighest = Color(0xFFDEE4EA),
+    outline = Color(0xFF70787E),
+    outlineVariant = Color(0xFFC0C7CD),
+    error = Color(0xFFB3261E),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B),
+)
+
+private val DarkScheme = darkColorScheme(
+    primary = Color(0xFF4FD8FF),
+    onPrimary = Color(0xFF003544),
+    primaryContainer = Color(0xFF004D61),
+    onPrimaryContainer = Color(0xFFB8EAFB),
+    secondary = Color(0xFFB1CBD7),
+    onSecondary = Color(0xFF1C343D),
+    secondaryContainer = Color(0xFF334B54),
+    onSecondaryContainer = Color(0xFFCDE7F2),
+    tertiary = Color(0xFFC3C3EA),
+    onTertiary = Color(0xFF2C2E4C),
+    // 深色底：带冷调的近黑，不用纯黑（OLED 纯黑会让浮层边界消失）
+    background = Color(0xFF0E1216),
+    onBackground = Color(0xFFE2E8EC),
+    // 卡片浮起一级 —— 用亮度分层替代重阴影（现代 Android 的做法）
+    surface = Color(0xFF151A1F),
+    onSurface = Color(0xFFE2E8EC),
+    surfaceVariant = Color(0xFF3F484E),
+    onSurfaceVariant = Color(0xFFBFC8CE),
+    surfaceContainerLowest = Color(0xFF0A0E11),
+    surfaceContainerLow = Color(0xFF141A1E),
+    surfaceContainer = Color(0xFF1A2126),
+    surfaceContainerHigh = Color(0xFF222A30),
+    surfaceContainerHighest = Color(0xFF2C353B),
+    outline = Color(0xFF899399),
+    outlineVariant = Color(0xFF3F484E),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+)
+
+// ============================================================
+// 字体
+//
+// 约束：Android 上无法像 Web 那样随意加载展示字（包体积 + 版权 + 中文缺字）。
+// 用 FontFamily.SansSerif（设备厂商字体 —— One UI 上是 Samsung Sans，
+// MIUI 上是 Mi Sans）作为正文，这是「系统原生感」的正确选择。
+//
+// 差异化靠**字重 / 字号 / 字距 / 行高**的精确控制实现，
+// 比硬塞 Web 字体更可靠，且不破坏系统中文渲染。
+// ============================================================
+
+private val NovaTypography = Typography(
+    // 健康分数：超大、极细、超紧字距 —— 全应用视觉主角
+    displayLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W200,
+        fontSize = 64.sp,
+        lineHeight = 66.sp,
+        letterSpacing = (-0.04).sp,
+    ),
+    displayMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W200,
+        fontSize = 48.sp,
+        lineHeight = 52.sp,
+        letterSpacing = (-0.03).sp,
+    ),
+    displaySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W300,
+        fontSize = 36.sp,
+        lineHeight = 42.sp,
+        letterSpacing = (-0.02).sp,
+    ),
+    headlineLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 30.sp,
+        lineHeight = 38.sp,
+        letterSpacing = (-0.02).sp,
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 25.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.015).sp,
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 21.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.01).sp,
+    ),
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 19.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 0.sp,
+    ),
+    titleMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.01.sp,
+    ),
+    titleSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W500,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.01.sp,
+    ),
+    // 中文正文：行高 ≥ 1.6，字距 0.01em —— 中文比拉丁文需要更多呼吸
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 0.01.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 23.sp,
+        letterSpacing = 0.01.sp,
+    ),
+    bodySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.5.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.015.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.02.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W500,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.04.sp,
+    ),
+    // 分区眉标 / 状态 chip：全大写 + 大字距
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.W600,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.08.sp,
+    ),
+)
+
+// 圆角体系：现代 Android 用大圆角承载卡片，用超大圆角承载主操作
+private val NovaShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(32.dp),
 )
 
 /**
- * NovaCare 设计系统主题
+ * 应用主题入口。
  *
- * 设计约束来自蓝图 §4.5：L1 首页只给「评分 + 一句话结论 + 一个按钮」，
- * 因此设计系统只提供少量高信息密度组件，不提供花哨装饰。
+ * @param darkTheme 默认跟随系统
+ * @param reduceMotion 无障碍降级：关闭环动画与入场序列
  */
 @Composable
 fun NovaCareTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    reduceMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = Typography(),
-        content = content,
-    )
+    val novaColors = if (darkTheme) DarkPalette else LightPalette
+    CompositionLocalProvider(
+        LocalNovaCareColors provides novaColors,
+        LocalReduceMotion provides reduceMotion,
+    ) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) DarkScheme else LightScheme,
+            typography = NovaTypography,
+            shapes = NovaShapes,
+            content = content,
+        )
+    }
 }
