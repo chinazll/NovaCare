@@ -65,6 +65,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -83,6 +85,10 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaSwipeThreshold
+import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.SecondaryAction
@@ -121,6 +127,8 @@ fun AutomationScreen(
     val editing by viewModel.editing.collectAsStateWithLifecycle()
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
     val naturalInput by viewModel.naturalInput.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val context = LocalContext.current
 
     AuroraBackground {
         Box(modifier = modifier.fillMaxSize()) {
@@ -175,7 +183,10 @@ fun AutomationScreen(
                                     text = message,
                                     tone = EmptyTone.Success,
                                     actionText = "知道了",
-                                    onAction = viewModel::dismissNotice,
+                                    onAction = {
+                                        NovaTap(view)
+                                        viewModel.dismissNotice()
+                                    },
                                     icon = Icons.Outlined.Check,
                                 )
                             }
@@ -193,7 +204,10 @@ fun AutomationScreen(
                                         "或者电量低于 20% 时提醒你。执行前都会先比对一次真实状态，不会盲跑。",
                                     icon = Icons.Outlined.Bolt,
                                     actionText = "创建第一条规则",
-                                    onAction = viewModel::startCreate,
+                                    onAction = {
+                                        NovaTap(view)
+                                        viewModel.startCreate()
+                                    },
                                 )
                             }
                         }
@@ -210,9 +224,18 @@ fun AutomationScreen(
                         StaggerFlyIn(index = 4) {
                             SwipeableRuleRow(
                                 rule = rule,
-                                onToggle = { enabled -> viewModel.toggle(rule, enabled) },
-                                onEdit = { viewModel.startEdit(rule) },
-                                onDelete = { viewModel.askDelete(rule) },
+                                onToggle = { enabled ->
+                                    NovaToggle(context, enabled)
+                                    viewModel.toggle(rule, enabled)
+                                },
+                                onEdit = {
+                                    NovaTap(view)
+                                    viewModel.startEdit(rule)
+                                },
+                                onDelete = {
+                                    NovaTap(view)
+                                    viewModel.askDelete(rule)
+                                },
                             )
                         }
                     }
@@ -224,7 +247,10 @@ fun AutomationScreen(
                             QuickCreateCard(
                                 value = naturalInput,
                                 onValueChange = viewModel::setNaturalInput,
-                                onSubmit = viewModel::createFromText,
+                                onSubmit = {
+                                    NovaTap(view)
+                                    viewModel.createFromText()
+                                },
                             )
                         }
                     }
@@ -236,7 +262,10 @@ fun AutomationScreen(
                             PrimaryAction(
                                 text = if (rules.isEmpty()) "创建第一条规则" else "新建规则",
                                 subtitle = "选触发条件 → 选要做什么，两步完成",
-                                onClick = viewModel::startCreate,
+                                onClick = {
+                                    NovaTap(view)
+                                    viewModel.startCreate()
+                                },
                             )
                         }
                     }
@@ -260,8 +289,14 @@ fun AutomationScreen(
                 RuleEditorSheet(
                     draft = draft,
                     onUpdate = viewModel::updateDraft,
-                    onSave = viewModel::saveDraft,
-                    onDismiss = viewModel::cancelEdit,
+                    onSave = {
+                        NovaSuccess(context)
+                        viewModel.saveDraft()
+                    },
+                    onDismiss = {
+                        NovaTap(view)
+                        viewModel.cancelEdit()
+                    },
                 )
             }
 
@@ -269,8 +304,14 @@ fun AutomationScreen(
             pendingDelete?.let { rule ->
                 DeleteConfirmSheet(
                     rule = rule,
-                    onConfirm = viewModel::confirmDelete,
-                    onDismiss = viewModel::cancelDelete,
+                    onConfirm = {
+                        NovaSuccess(context)
+                        viewModel.confirmDelete()
+                    },
+                    onDismiss = {
+                        NovaTap(view)
+                        viewModel.cancelDelete()
+                    },
                 )
             }
         }
@@ -304,10 +345,14 @@ private fun SwipeableRuleRow(
     onDelete: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val view = LocalView.current
+    val context = LocalContext.current
     // 滑动阈值：超过 96dp 即视为「commit」
     val swipeThresholdPx = with(androidx.compose.ui.platform.LocalDensity.current) { 96.dp.toPx() }
     // 当前拖动偏移（px）。用 mutableFloatStateOf 减少重组
     var dragOffset by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    // 是否已越过阈值 —— 越阈值瞬间触发一次 NovaSwipeThreshold
+    var pastThreshold by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     // 释放后的 spring 回到 0 用 animateFloatAsState
     val animatedOffset by animateFloatAsState(
         targetValue = dragOffset,
@@ -375,18 +420,33 @@ private fun SwipeableRuleRow(
                         onDragEnd = {
                             // 释放：超过阈值才提交动作，然后回弹
                             when {
-                                dragOffset > swipeThresholdPx -> onToggle(!rule.enabled)
+                                dragOffset > swipeThresholdPx -> {
+                                    NovaToggle(context, !rule.enabled)
+                                    onToggle(!rule.enabled)
+                                }
                                 dragOffset < -swipeThresholdPx -> onDelete()
                                 // 否则已经在 spring 回弹，无事可做
                             }
                             dragOffset = 0f
+                            pastThreshold = false
                         },
-                        onDragCancel = { dragOffset = 0f },
+                        onDragCancel = {
+                            dragOffset = 0f
+                            pastThreshold = false
+                        },
                         onHorizontalDrag = { _, delta ->
                             // 累计偏移，但不让自己「超过太远」
                             // （左右各加一个软上限防止误滑出屏幕）
                             val next = (dragOffset + delta).coerceIn(-swipeThresholdPx * 1.6f, swipeThresholdPx * 1.6f)
                             dragOffset = next
+                            // 越阈值时 NovaSwipeThreshold() —— 仅一次
+                            val nowPast = kotlin.math.abs(next) >= swipeThresholdPx
+                            if (nowPast && !pastThreshold) {
+                                pastThreshold = true
+                                NovaSwipeThreshold(view)
+                            } else if (!nowPast) {
+                                pastThreshold = false
+                            }
                         },
                     )
                 },
@@ -409,6 +469,7 @@ private fun RuleCard(
     onDelete: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val context = LocalContext.current
     val triggerIcon = triggerIcon(rule.trigger.type)
 
     NovaCard {
@@ -490,7 +551,10 @@ private fun RuleCard(
 
             Switch(
                 checked = rule.enabled,
-                onCheckedChange = onToggle,
+                onCheckedChange = { newVal ->
+                    NovaToggle(context, newVal)
+                    onToggle(newVal)
+                },
                 modifier = Modifier.semantics {
                     contentDescription = if (rule.enabled) {
                         "停用规则 ${rule.name}"
@@ -735,6 +799,7 @@ private fun RuleEditorSheet(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, colors.hairline),
+            shadowElevation = 8.dp,
         ) {
             Column(
                 modifier = Modifier
@@ -1297,6 +1362,7 @@ private fun ThresholdInput(value: Int, onValueChange: (Int) -> Unit) {
 @Composable
 private fun SafetyToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val colors = NovaCareTheme.colors
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1343,7 +1409,10 @@ private fun SafetyToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             )
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = { newVal ->
+            NovaToggle(context, newVal)
+            onCheckedChange(newVal)
+        })
     }
 }
 
@@ -1354,6 +1423,7 @@ private fun SimpleToggle(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1371,7 +1441,10 @@ private fun SimpleToggle(
             )
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = { newVal ->
+            NovaToggle(context, newVal)
+            onCheckedChange(newVal)
+        })
     }
 }
 
@@ -1407,6 +1480,7 @@ private fun DeleteConfirmSheet(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, colors.hairline),
+            shadowElevation = 8.dp,
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

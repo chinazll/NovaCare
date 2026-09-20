@@ -3,6 +3,8 @@ package com.novacare.feature.clean
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.ui.platform.LocalView
+import com.novacare.ui.designsystem.NovaSwipeThreshold
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,6 +49,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -63,7 +66,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -91,6 +96,9 @@ import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaNowBar
 import com.novacare.ui.designsystem.NovaProgressBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.RiskChip
@@ -152,6 +160,9 @@ fun CleanScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val view = LocalView.current
+    val context = LocalContext.current
+
     AuroraBackground {
         // v0.7.2 视觉统一：移除 AnimatedVisibility 单组入场，
         // 改为每个子屏的 item 用 StaggerFlyIn 错峰飞入。
@@ -159,7 +170,10 @@ fun CleanScreen(
             CleanViewModel.UiState.Idle -> IdleScreen(
                 modifier = modifier,
                 engineAvailable = engineAvailable,
-                onScan = { viewModel.scanNow(rootPath, force = true) },
+                onScan = {
+                    NovaTap(view)
+                    viewModel.scanNow(rootPath, force = true)
+                },
             )
 
             CleanViewModel.UiState.Scanning -> ScanningScreen(modifier = modifier)
@@ -167,7 +181,10 @@ fun CleanScreen(
             is CleanViewModel.UiState.Failed -> FailedScreen(
                 modifier = modifier,
                 message = s.message,
-                onRetry = { viewModel.scanNow(rootPath, force = true) },
+                onRetry = {
+                    NovaTap(view)
+                    viewModel.scanNow(rootPath, force = true)
+                },
             )
 
             is CleanViewModel.UiState.Executing -> ExecutingScreen(modifier = modifier)
@@ -175,7 +192,10 @@ fun CleanScreen(
             is CleanViewModel.UiState.Done -> DoneScreen(
                 modifier = modifier,
                 state = s,
-                onRescan = { viewModel.rescan(rootPath) },
+                onRescan = {
+                    NovaTap(view)
+                    viewModel.rescan(rootPath)
+                },
             )
 
             is CleanViewModel.UiState.Results -> ResultsScreen(
@@ -188,8 +208,14 @@ fun CleanScreen(
                 onSelectAll = viewModel::selectAll,
                 onIncludeRiskyChange = viewModel::setIncludeRisky,
                 onMoveToRecycleBinChange = viewModel::setMoveToRecycleBin,
-                onExecute = viewModel::execute,
-                onRescan = { viewModel.scanNow(rootPath, force = true) },
+                onExecute = {
+                    NovaSuccess(context)
+                    viewModel.execute()
+                },
+                onRescan = {
+                    NovaTap(view)
+                    viewModel.scanNow(rootPath, force = true)
+                },
                 onGrant = viewModel::grant,
             )
         }
@@ -510,6 +536,8 @@ private fun ResultsScreen(
 ) {
     val plan = state.plan
     val colors = NovaCareTheme.colors
+    val view = LocalView.current
+    val context = LocalContext.current
     val safeAdvices = plan.advices.filter { it.risk == CleanRisk.SAFE }
     val cautionAdvices = plan.advices.filter { it.risk == CleanRisk.CAUTION }
     val riskyAdvices = plan.advices.filter { it.risk == CleanRisk.RISKY }
@@ -776,7 +804,10 @@ private fun ResultsScreen(
                     advices = safeAdvices,
                     selected = selected,
                     onToggle = onToggle,
-                    onSelectAll = onSelectAll,
+                    onSelectAll = { sel ->
+                        NovaTap(view)
+                        onSelectAll(sel)
+                    },
                 )
 
                 adviceGroup(
@@ -786,7 +817,10 @@ private fun ResultsScreen(
                     advices = cautionAdvices,
                     selected = selected,
                     onToggle = onToggle,
-                    onSelectAll = onSelectAll,
+                    onSelectAll = { sel ->
+                        NovaTap(view)
+                        onSelectAll(sel)
+                    },
                     emptyHint = if (includeRisky) {
                         "这一类本次没有命中项目"
                     } else {
@@ -801,7 +835,10 @@ private fun ResultsScreen(
                     advices = riskyAdvices,
                     selected = selected,
                     onToggle = onToggle,
-                    onSelectAll = onSelectAll,
+                    onSelectAll = { sel ->
+                        NovaTap(view)
+                        onSelectAll(sel)
+                    },
                     emptyHint = "这一类本次没有命中项目",
                 )
 
@@ -889,13 +926,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.adviceGroup(
 }
 
 /**
- * 可滑动的清理建议行 —— One UI 9/9.5 的 swipe-to-select 范式。
+ * 可滑动的清理建议行 —— One UI 9/9.5 的 swipe-to-select 范式（v2 物理感）。
  *
- * 与 Material 默认长按弹出菜单相反，One UI 的列表项手势是：
- *   - **右滑过阈值** → 切换勾选状态（弹回原点）
- *   - 滑动时实时露出底色 + 勾选图标，给用户「我正在做什么」的视觉反馈
+ * 与上一版的关键差异：
+ *   - **1:1 跟随 → 越过阈值后 1:0.2 衰减**（"橡皮筋"）：拖动有阻力,
+ *     越过阈值后卡片不再继续大距离移动,只做软反馈 —— One UI 真实体感
+ *   - **背景饱和度跟拖动距离实时变化**：alpha = (dragOffset/threshold) * 0.4,
+ *     越阈值瞬间跳满,颜色确认
+ *   - **越过阈值时 NovaSwipeThreshold()**："咔哒"一下,确认动作已 commit
+ *   - **松手越阈值 → spring 1:1,无回弹**：吸附到 swipe 终点 + onToggle + 立刻归位
+ *   - **松手未达 → spring MediumBouncy**：未达阈值,卡片弹簧回原位
  *
- * 阈值 96dp —— 比 One UI 系统级略保守，因为清理是不可撤销动作。
+ * 阈值 96dp —— 比 One UI 系统级略保守,因为清理是不可撤销动作。
  */
 @Composable
 private fun SwipeableAdviceRow(
@@ -905,16 +947,31 @@ private fun SwipeableAdviceRow(
 ) {
     val colors = NovaCareTheme.colors
     val density = LocalDensity.current
+    val view = LocalView.current
     val swipeThresholdPx = with(density) { 96.dp.toPx() }
+    val maxStretchPx = swipeThresholdPx * 1.5f
     var dragOffset by remember(advice.key()) { mutableFloatStateOf(0f) }
+    // 是否已越过阈值 —— 用于在 onHorizontalDrag 内做"刚越过时触发一次振动"
+    var pastThreshold by remember(advice.key()) { mutableStateOf(false) }
+
+    // 释放后的 spring 回弹 —— 越阈值用 NoBouncy(吸附,无回弹),
+    // 未达阈值用 MediumBouncy(回弹,告诉用户"没 commit")。
     val animatedOffset by animateFloatAsState(
         targetValue = dragOffset,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = if (dragOffset >= swipeThresholdPx) {
+                Spring.DampingRatioNoBouncy
+            } else {
+                Spring.DampingRatioMediumBouncy
+            },
             stiffness = Spring.StiffnessMediumLow,
         ),
         label = "adviceSwipe",
     )
+
+    // 背景颜色饱和度 —— 1:1 跟随 dragOffset,越阈值瞬间跳满
+    val bgAlpha = if (dragOffset >= swipeThresholdPx) 0.4f
+    else (dragOffset / swipeThresholdPx).coerceIn(0f, 1f) * 0.4f
 
     Box(
         modifier = Modifier
@@ -922,11 +979,11 @@ private fun SwipeableAdviceRow(
             .padding(horizontal = 20.dp)
             .clip(MaterialTheme.shapes.large),
     ) {
-        // 右滑时露出的背景：accent 浅底 + 左侧勾选图标
+        // 右滑时露出的背景：accent 颜色 + 实时 alpha 跟随拖动距离
         Row(
             modifier = Modifier
                 .matchParentSize()
-                .background(colors.accent.copy(alpha = 0.14f))
+                .background(colors.accent.copy(alpha = bgAlpha))
                 .padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
@@ -945,7 +1002,7 @@ private fun SwipeableAdviceRow(
             )
         }
 
-        // 前景卡片：跟随手指偏移，松手 spring 回弹
+        // 前景卡片：跟随手指偏移，松手 spring 回弹/吸附
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -953,17 +1010,44 @@ private fun SwipeableAdviceRow(
                 .pointerInput(advice.key()) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (dragOffset > swipeThresholdPx) onToggle()
-                            // 没到阈值：已经在 spring 回弹
+                            if (dragOffset >= swipeThresholdPx) {
+                                // 松手越阈值：吸附 + onToggle + 立刻归位
+                                // —— checked 状态变化交给 SelectIndicator,
+                                // 不再保留 swipe 态以免视觉重叠
+                                onToggle()
+                            }
+                            // 不论越/未越,都要归零 —— 拖动状态不能让卡片一直偏移
                             dragOffset = 0f
+                            pastThreshold = false
                         },
-                        onDragCancel = { dragOffset = 0f },
+                        onDragCancel = {
+                            dragOffset = 0f
+                            pastThreshold = false
+                        },
                         onHorizontalDrag = { _, delta ->
-                            // 仅支持右滑（One UI 单向列表选择手势）；
-                            // 反向拖拽加阻力（×0.2）让用户感到「这不是要删除」
+                            // 左滑（delta < 0）：加阻力（×0.2）,
+                            // 避免误触让用户以为"这是要删除"
                             val resisted = if (delta < 0) delta * 0.2f else delta
-                            dragOffset = (dragOffset + resisted)
-                                .coerceIn(0f, swipeThresholdPx * 1.6f)
+
+                            val next = if (dragOffset >= swipeThresholdPx) {
+                                // 已越过阈值：橡皮筋（1:0.2 衰减）
+                                dragOffset + resisted * 0.2f
+                            } else {
+                                // 阈值前：1:1 跟随
+                                dragOffset + resisted
+                            }
+                            val clamped = next.coerceIn(0f, maxStretchPx)
+                            dragOffset = clamped
+
+                            // 刚越过阈值时触发"动作锁定"振动 —— 仅一次,
+                            // 由 pastThreshold 标志防止拖动过程中重复振动
+                            val nowPast = clamped >= swipeThresholdPx
+                            if (nowPast && !pastThreshold) {
+                                pastThreshold = true
+                                NovaSwipeThreshold(view)
+                            } else if (!nowPast) {
+                                pastThreshold = false
+                            }
                         },
                     )
                 },
@@ -1054,6 +1138,7 @@ private fun CleanBottomActionBar(
         ),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
         border = androidx.compose.foundation.BorderStroke(1.dp, colors.hairline),
+        shadowElevation = 8.dp,
         tonalElevation = 2.dp,
     ) {
         Column(
@@ -1388,7 +1473,13 @@ private fun AdviceRow(
     checked: Boolean,
     onToggle: () -> Unit,
 ) {
-    NovaCard(onClick = onToggle) {
+    val context = LocalContext.current
+    NovaCard(onClick = {
+        // 普通点击路径走 NovaToggle(checked)；swipe 路径走 NovaSwipeThreshold
+        // 两条路径互不重叠（pointerInput drag 与 clickable touch-up 不同时触发）
+        NovaToggle(context, !checked)
+        onToggle()
+    }) {
         Row(verticalAlignment = Alignment.Top) {
             SelectIndicator(
                 checked = checked,
@@ -1522,7 +1613,12 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val colors = NovaCareTheme.colors
-    NovaCard(onClick = { onCheckedChange(!checked) }) {
+    val context = LocalContext.current
+    NovaCard(onClick = {
+        val newVal = !checked
+        NovaToggle(context, newVal)
+        onCheckedChange(newVal)
+    }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(

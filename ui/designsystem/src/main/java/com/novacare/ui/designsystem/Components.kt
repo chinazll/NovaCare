@@ -300,6 +300,7 @@ fun NovaCard(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, colors.hairline),
+        shadowElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier
@@ -360,6 +361,7 @@ fun StatCard(
             MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
         },
         border = BorderStroke(1.dp, colors.hairline),
+        shadowElevation = 1.dp,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
@@ -456,6 +458,7 @@ fun PrimaryAction(
     subtitle: String? = null,
 ) {
     val active = enabled && !loading
+    val colors = NovaCareTheme.colors
 
     Surface(
         modifier = modifier
@@ -486,6 +489,7 @@ fun PrimaryAction(
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh
         },
+        shadowElevation = if (active) 3.dp else 0.dp,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -558,6 +562,7 @@ fun SecondaryAction(
             1.dp,
             if (enabled) colors.accent.copy(alpha = 0.55f) else colors.hairline,
         ),
+        shadowElevation = 1.dp,
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 20.dp),

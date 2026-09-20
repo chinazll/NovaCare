@@ -82,6 +82,8 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
 import com.novacare.ui.designsystem.RingSpinner
@@ -144,9 +146,24 @@ fun AssistantScreen(
         if (target > 0) listState.animateScrollToItem(target - 1)
     }
 
+    // AI 流式首个 token 到达 → NovaSuccess(): 用户感知"对话开始了"
+    val view = androidx.compose.ui.platform.LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var hasFirstTokenFired by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(streamingText) {
+        if (!hasFirstTokenFired && !streamingText.isNullOrBlank()) {
+            hasFirstTokenFired = true
+            NovaSuccess(context)
+        }
+        if (streamingText.isNullOrBlank()) {
+            hasFirstTokenFired = false
+        }
+    }
+
     val canSend = draft.isNotBlank() && !thinking
     val send = {
         if (canSend) {
+            NovaTap(view)
             viewModel.submit(draft, rootPath)
             draft = ""
         }
@@ -280,6 +297,7 @@ private fun UserBubble(text: String) {
                 1.dp,
                 NovaCareTheme.colors.accent.copy(alpha = 0.28f),
             ),
+            shadowElevation = 1.dp,
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
             Text(
@@ -340,6 +358,7 @@ private fun AssistantBubble(
                     1.dp,
                     NovaCareTheme.colors.hairline,
                 ),
+                shadowElevation = 2.dp,
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                     // 没听懂时，第一行就是明确的否认，避免用户误以为被理解了
@@ -647,6 +666,7 @@ private fun StreamingBubble(text: String) {
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, NovaCareTheme.colors.hairline),
+            shadowElevation = 1.dp,
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
             Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -718,6 +738,7 @@ private fun ThinkingIndicator() {
                 1.dp,
                 NovaCareTheme.colors.hairline,
             ),
+            shadowElevation = 1.dp,
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -952,6 +973,7 @@ private fun AssistantComposer(
             bottomStart = 0.dp,
             bottomEnd = 0.dp,
         ),
+        shadowElevation = 8.dp,
     ) {
         Row(
             modifier = Modifier

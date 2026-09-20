@@ -74,6 +74,9 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.KeyValueRow
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.NowBarChip
 import com.novacare.ui.designsystem.SectionHeader
 import com.novacare.ui.designsystem.SecondaryAction
@@ -109,6 +112,8 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
+    val view = androidx.compose.ui.platform.LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val engineVersion by viewModel.engineVersion.collectAsStateWithLifecycle()
     val shizukuAvailable by viewModel.shizukuAvailable.collectAsStateWithLifecycle()
 
@@ -140,7 +145,10 @@ fun SettingsScreen(
             item(key = "topbar") {
                 StaggerFlyIn(index = 0) {
                     SettingsTopBar(
-                        onBack = onBack,
+                        onBack = {
+                            NovaTap(view)
+                            onBack()
+                        },
                         subtitle = if (capabilities.none { !it.granted }) {
                             "所有必需权限均已授予"
                         } else {
@@ -216,7 +224,10 @@ fun SettingsScreen(
                         capabilities.forEach { cap ->
                             CapabilityCard(
                                 capability = cap,
-                                onGrant = { viewModel.grant(cap.capability) },
+                                onGrant = {
+                                    NovaTap(view)
+                                    viewModel.grant(cap.capability)
+                                },
                             )
                         }
                     }
@@ -266,7 +277,10 @@ fun SettingsScreen(
                                 title = "阅读完整隐私政策",
                                 subtitle = "逐条列出本地处理的数据、权限原则与用户权利",
                                 icon = Icons.Outlined.Lock,
-                                onClick = { showPrivacy = true },
+                                onClick = {
+                                    NovaTap(view)
+                                    showPrivacy = true
+                                },
                             )
 
                             Spacer(Modifier.height(8.dp))
@@ -275,7 +289,10 @@ fun SettingsScreen(
                                 title = "阅读免责声明",
                                 subtitle = "项目状态、数据责任边界、已知不做的事",
                                 icon = Icons.Outlined.WarningAmber,
-                                onClick = { showDisclaimer = true },
+                                onClick = {
+                                    NovaTap(view)
+                                    showDisclaimer = true
+                                },
                             )
 
                             Spacer(Modifier.height(8.dp))
@@ -284,7 +301,10 @@ fun SettingsScreen(
                                 title = "反馈问题",
                                 subtitle = "在 GitHub Issues 提交，附上机型和复现步骤",
                                 icon = Icons.Outlined.BugReport,
-                                onClick = viewModel::openIssues,
+                                onClick = {
+                                    NovaTap(view)
+                                    viewModel.openIssues()
+                                },
                             )
                         }
                     }
@@ -490,6 +510,7 @@ private fun SettingsTopBar(
     accent: androidx.compose.ui.graphics.Color,
 ) {
     val colors = NovaCareTheme.colors
+    val view = androidx.compose.ui.platform.LocalView.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         // 不规则圆角：上边直角，下边两侧大圆角
@@ -501,6 +522,7 @@ private fun SettingsTopBar(
         ),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
         border = BorderStroke(1.dp, colors.hairline),
+        shadowElevation = 6.dp,
     ) {
         Column(
             modifier = Modifier
@@ -514,7 +536,10 @@ private fun SettingsTopBar(
                     .padding(start = 12.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BackAffordance(onBack = onBack)
+                BackAffordance(onBack = {
+                    NovaTap(view)
+                    onBack()
+                })
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "设置",
@@ -603,6 +628,7 @@ private fun RoundPillSwitch(
     activeColor: androidx.compose.ui.graphics.Color = NovaCareTheme.colors.accent,
 ) {
     val colors = NovaCareTheme.colors
+    val context = androidx.compose.ui.platform.LocalContext.current
     val trackWidth = 56.dp
     val trackHeight = 32.dp
     val thumbSize = 26.dp
@@ -636,7 +662,11 @@ private fun RoundPillSwitch(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 role = Role.Switch,
-                onClick = { onCheckedChange(!checked) },
+                onClick = {
+                    val newVal = !checked
+                    NovaToggle(context, newVal)
+                    onCheckedChange(newVal)
+                },
             )
             .semantics {
                 contentDescription = if (checked) "已开启" else "已关闭"
@@ -679,6 +709,8 @@ private fun AdvancedModeCard(
     onRequestShizuku: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val view = androidx.compose.ui.platform.LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var confirmPending by remember { mutableStateOf(false) }
 
     NovaCard {
@@ -769,7 +801,10 @@ private fun AdvancedModeCard(
             // 真正的授权入口：上一版只有一句"不可用"，用户无从操作
             SecondaryAction(
                 text = "授权 Shizuku",
-                onClick = onRequestShizuku,
+                onClick = {
+                    NovaTap(view)
+                    onRequestShizuku()
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -800,6 +835,7 @@ private fun AdvancedModeCard(
                             text = "确认开启",
                             tone = colors.riskCaution,
                             onClick = {
+                                NovaSuccess(context)
                                 onChange(true)
                                 confirmPending = false
                             },
@@ -807,7 +843,10 @@ private fun AdvancedModeCard(
                         ConfirmButton(
                             text = "取消",
                             tone = MaterialTheme.colorScheme.onSurfaceVariant,
-                            onClick = { confirmPending = false },
+                            onClick = {
+                                NovaTap(view)
+                                confirmPending = false
+                            },
                         )
                     }
                 }
@@ -1296,6 +1335,7 @@ private fun TextDocumentSheet(
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
+        shadowElevation = 0.dp,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(

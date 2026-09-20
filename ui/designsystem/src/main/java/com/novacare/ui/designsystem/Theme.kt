@@ -80,6 +80,10 @@ data class NovaCareColors(
     val floatHighlight: Color,
     /** 柔和外阴影色（大 blurRadius、低 alpha，绝非黑色硬阴影） */
     val softShadow: Color,
+    /** 环境光阴影（ambient）：柔和大散射,One UI 卡片"漂浮感"的来源 */
+    val ambientShadow: Color,
+    /** 点光源阴影（spot）：清晰锐利的点光投影,One UI 卡片立体感的来源 */
+    val spotShadow: Color,
 )
 
 private val LightPalette = NovaCareColors(
@@ -99,6 +103,8 @@ private val LightPalette = NovaCareColors(
     floatSurfacePressed = Color(0xFFFFFFFF),
     floatHighlight = Color(0x99FFFFFF),
     softShadow = Color(0x1F0A2A33),
+    ambientShadow = Color(0x14000000), // 环境光散射：极淡,大模糊半径
+    spotShadow = Color(0x1F0A2A33),    // 点光源投影：稍浓,清晰锐利
 )
 
 private val DarkPalette = NovaCareColors(
@@ -118,6 +124,8 @@ private val DarkPalette = NovaCareColors(
     floatSurfacePressed = Color(0xF22A343C),
     floatHighlight = Color(0x1FFFFFFF),
     softShadow = Color(0x66000000),
+    ambientShadow = Color(0x55000000), // 深色下 ambient 仍需可见但不过重
+    spotShadow = Color(0x80000000),    // spot 在深色下更深,提供清晰的边缘投影
 )
 
 val LocalNovaCareColors = staticCompositionLocalOf { DarkPalette }

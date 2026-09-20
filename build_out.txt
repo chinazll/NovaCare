@@ -1,0 +1,419 @@
+Starting a Gradle Daemon, 1 incompatible and 11 stopped Daemons could not be reused, use --status for details
+> Task :feature:assistant:preBuild UP-TO-DATE
+> Task :feature:automation:preBuild UP-TO-DATE
+> Task :core:data:preBuild UP-TO-DATE
+> Task :ui:designsystem:preBuild UP-TO-DATE
+> Task :core:system:preBuild UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :feature:home:preBuild UP-TO-DATE
+> Task :core:automation:preBuild UP-TO-DATE
+> Task :feature:clean:preBuild UP-TO-DATE
+> Task :core:model:preBuild UP-TO-DATE
+> Task :core:domain:preBuild UP-TO-DATE
+> Task :core:common:preBuild UP-TO-DATE
+> Task :core:ai:preBuild UP-TO-DATE
+> Task :feature:freeze:preBuild UP-TO-DATE
+> Task :feature:automation:preDebugBuild UP-TO-DATE
+> Task :core:automation:preDebugBuild UP-TO-DATE
+> Task :feature:home:preDebugBuild UP-TO-DATE
+> Task :core:common:preDebugBuild UP-TO-DATE
+> Task :core:ai:preDebugBuild UP-TO-DATE
+> Task :feature:clean:preDebugBuild UP-TO-DATE
+> Task :feature:freeze:preDebugBuild UP-TO-DATE
+> Task :feature:assistant:preDebugBuild UP-TO-DATE
+> Task :core:system:preDebugBuild UP-TO-DATE
+> Task :core:data:preDebugBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :ui:designsystem:preDebugBuild UP-TO-DATE
+> Task :core:model:preDebugBuild UP-TO-DATE
+> Task :core:domain:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+
+> Task :core:engine:requireNativeLibs
+✓ Rust engine native libs present for: arm64-v8a, armeabi-v7a, x86_64
+
+> Task :core:engine:preBuild
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:engine:preDebugBuild
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :core:common:writeDebugAarMetadata UP-TO-DATE
+> Task :core:data:writeDebugAarMetadata UP-TO-DATE
+> Task :feature:assistant:writeDebugAarMetadata UP-TO-DATE
+> Task :core:model:writeDebugAarMetadata UP-TO-DATE
+> Task :core:engine:writeDebugAarMetadata UP-TO-DATE
+> Task :core:ai:writeDebugAarMetadata UP-TO-DATE
+> Task :feature:home:writeDebugAarMetadata UP-TO-DATE
+> Task :ui:designsystem:writeDebugAarMetadata UP-TO-DATE
+> Task :feature:clean:writeDebugAarMetadata UP-TO-DATE
+> Task :core:automation:writeDebugAarMetadata UP-TO-DATE
+> Task :core:system:writeDebugAarMetadata UP-TO-DATE
+> Task :feature:automation:writeDebugAarMetadata UP-TO-DATE
+> Task :feature:freeze:writeDebugAarMetadata UP-TO-DATE
+> Task :core:domain:writeDebugAarMetadata UP-TO-DATE
+> Task :feature:assistant:generateDebugResValues UP-TO-DATE
+> Task :core:system:generateDebugResValues UP-TO-DATE
+> Task :core:engine:generateDebugResValues UP-TO-DATE
+> Task :ui:designsystem:generateDebugResValues UP-TO-DATE
+> Task :feature:freeze:generateDebugResValues UP-TO-DATE
+> Task :core:data:generateDebugResValues UP-TO-DATE
+> Task :feature:clean:generateDebugResValues UP-TO-DATE
+> Task :feature:automation:generateDebugResValues UP-TO-DATE
+> Task :feature:home:generateDebugResValues UP-TO-DATE
+> Task :core:domain:generateDebugResValues UP-TO-DATE
+> Task :core:automation:generateDebugResValues UP-TO-DATE
+> Task :core:ai:generateDebugResValues UP-TO-DATE
+> Task :core:model:generateDebugResValues UP-TO-DATE
+> Task :core:common:generateDebugResValues UP-TO-DATE
+> Task :feature:freeze:generateDebugResources UP-TO-DATE
+> Task :core:engine:generateDebugResources UP-TO-DATE
+> Task :feature:assistant:generateDebugResources UP-TO-DATE
+> Task :core:model:generateDebugResources UP-TO-DATE
+> Task :core:system:generateDebugResources UP-TO-DATE
+> Task :ui:designsystem:generateDebugResources UP-TO-DATE
+> Task :core:ai:generateDebugResources UP-TO-DATE
+> Task :feature:automation:generateDebugResources UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :feature:clean:generateDebugResources UP-TO-DATE
+> Task :feature:home:generateDebugResources UP-TO-DATE
+> Task :core:domain:generateDebugResources UP-TO-DATE
+> Task :core:data:generateDebugResources UP-TO-DATE
+> Task :core:common:generateDebugResources UP-TO-DATE
+> Task :core:automation:generateDebugResources UP-TO-DATE
+> Task :feature:assistant:extractDeepLinksDebug UP-TO-DATE
+> Task :core:domain:extractDeepLinksDebug UP-TO-DATE
+> Task :core:system:extractDeepLinksDebug UP-TO-DATE
+> Task :ui:designsystem:extractDeepLinksDebug UP-TO-DATE
+> Task :core:common:extractDeepLinksDebug UP-TO-DATE
+> Task :core:data:extractDeepLinksDebug UP-TO-DATE
+> Task :core:domain:processDebugManifest UP-TO-DATE
+> Task :core:system:processDebugManifest UP-TO-DATE
+> Task :ui:designsystem:processDebugManifest UP-TO-DATE
+> Task :core:data:processDebugManifest UP-TO-DATE
+> Task :feature:assistant:processDebugManifest UP-TO-DATE
+> Task :core:common:processDebugManifest UP-TO-DATE
+> Task :core:system:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :ui:designsystem:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:common:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:data:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:assistant:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:common:javaPreCompileDebug UP-TO-DATE
+> Task :ui:designsystem:javaPreCompileDebug UP-TO-DATE
+> Task :ui:designsystem:mergeDebugShaders UP-TO-DATE
+> Task :core:common:mergeDebugShaders UP-TO-DATE
+> Task :core:engine:packageDebugResources UP-TO-DATE
+> Task :feature:home:packageDebugResources UP-TO-DATE
+> Task :feature:automation:packageDebugResources UP-TO-DATE
+> Task :feature:clean:packageDebugResources UP-TO-DATE
+> Task :core:model:packageDebugResources UP-TO-DATE
+> Task :core:automation:packageDebugResources UP-TO-DATE
+> Task :feature:freeze:packageDebugResources UP-TO-DATE
+> Task :core:ai:packageDebugResources UP-TO-DATE
+> Task :feature:home:extractDeepLinksDebug UP-TO-DATE
+> Task :core:model:extractDeepLinksDebug UP-TO-DATE
+> Task :core:engine:extractDeepLinksDebug UP-TO-DATE
+> Task :feature:freeze:extractDeepLinksDebug UP-TO-DATE
+> Task :feature:automation:extractDeepLinksDebug UP-TO-DATE
+> Task :feature:clean:extractDeepLinksDebug UP-TO-DATE
+> Task :core:automation:extractDeepLinksDebug UP-TO-DATE
+> Task :core:ai:extractDeepLinksDebug UP-TO-DATE
+> Task :core:engine:processDebugManifest UP-TO-DATE
+> Task :feature:freeze:processDebugManifest UP-TO-DATE
+> Task :feature:automation:processDebugManifest UP-TO-DATE
+> Task :core:model:processDebugManifest UP-TO-DATE
+> Task :core:automation:processDebugManifest UP-TO-DATE
+> Task :feature:home:processDebugManifest UP-TO-DATE
+> Task :core:ai:processDebugManifest UP-TO-DATE
+> Task :feature:clean:processDebugManifest UP-TO-DATE
+> Task :core:engine:compileDebugLibraryResources UP-TO-DATE
+> Task :feature:freeze:compileDebugLibraryResources UP-TO-DATE
+> Task :feature:automation:compileDebugLibraryResources UP-TO-DATE
+> Task :core:model:compileDebugLibraryResources UP-TO-DATE
+> Task :core:automation:compileDebugLibraryResources UP-TO-DATE
+> Task :feature:home:compileDebugLibraryResources UP-TO-DATE
+> Task :core:ai:compileDebugLibraryResources UP-TO-DATE
+> Task :feature:clean:compileDebugLibraryResources UP-TO-DATE
+> Task :core:common:compileDebugShaders NO-SOURCE
+> Task :ui:designsystem:compileDebugShaders NO-SOURCE
+> Task :ui:designsystem:packageDebugResources UP-TO-DATE
+> Task :core:common:packageDebugResources UP-TO-DATE
+> Task :ui:designsystem:compileDebugLibraryResources UP-TO-DATE
+> Task :core:common:compileDebugLibraryResources UP-TO-DATE
+> Task :core:data:javaPreCompileDebug UP-TO-DATE
+> Task :core:data:packageDebugResources UP-TO-DATE
+> Task :core:data:compileDebugLibraryResources UP-TO-DATE
+> Task :feature:assistant:javaPreCompileDebug UP-TO-DATE
+> Task :feature:assistant:packageDebugResources UP-TO-DATE
+> Task :feature:assistant:compileDebugLibraryResources UP-TO-DATE
+> Task :core:system:javaPreCompileDebug UP-TO-DATE
+> Task :core:system:packageDebugResources UP-TO-DATE
+> Task :core:system:compileDebugLibraryResources UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :core:domain:javaPreCompileDebug UP-TO-DATE
+> Task :core:domain:packageDebugResources UP-TO-DATE
+> Task :core:domain:compileDebugLibraryResources UP-TO-DATE
+> Task :core:common:parseDebugLocalResources UP-TO-DATE
+> Task :core:common:generateDebugRFile UP-TO-DATE
+> Task :core:automation:parseDebugLocalResources UP-TO-DATE
+> Task :core:automation:generateDebugRFile UP-TO-DATE
+> Task :core:automation:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:automation:parseDebugLocalResources UP-TO-DATE
+> Task :feature:automation:generateDebugRFile UP-TO-DATE
+> Task :feature:automation:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:freeze:parseDebugLocalResources UP-TO-DATE
+> Task :feature:freeze:generateDebugRFile UP-TO-DATE
+> Task :feature:freeze:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:model:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:generateDebugRFile UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:home:parseDebugLocalResources UP-TO-DATE
+> Task :feature:home:generateDebugRFile UP-TO-DATE
+> Task :feature:home:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:ai:parseDebugLocalResources UP-TO-DATE
+> Task :core:ai:generateDebugRFile UP-TO-DATE
+> Task :core:ai:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:clean:parseDebugLocalResources UP-TO-DATE
+> Task :core:system:parseDebugLocalResources UP-TO-DATE
+> Task :core:ai:javaPreCompileDebug UP-TO-DATE
+> Task :feature:assistant:parseDebugLocalResources UP-TO-DATE
+> Task :core:ai:mergeDebugShaders UP-TO-DATE
+> Task :feature:clean:generateDebugRFile UP-TO-DATE
+> Task :core:system:generateDebugRFile UP-TO-DATE
+> Task :core:ai:compileDebugShaders NO-SOURCE
+> Task :feature:clean:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:ai:generateDebugAssets UP-TO-DATE
+> Task :feature:assistant:generateDebugRFile UP-TO-DATE
+> Task :core:system:mergeDebugShaders UP-TO-DATE
+> Task :core:ai:mergeDebugAssets UP-TO-DATE
+> Task :feature:assistant:mergeDebugShaders UP-TO-DATE
+> Task :core:system:compileDebugShaders NO-SOURCE
+> Task :core:system:generateDebugAssets UP-TO-DATE
+> Task :core:ai:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:assistant:compileDebugShaders NO-SOURCE
+> Task :feature:assistant:generateDebugAssets UP-TO-DATE
+> Task :core:system:mergeDebugAssets UP-TO-DATE
+> Task :core:ai:mergeDebugNativeLibs NO-SOURCE
+> Task :core:system:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:ai:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:system:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:assistant:mergeDebugAssets UP-TO-DATE
+> Task :core:system:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :feature:assistant:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:assistant:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:assistant:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :feature:home:javaPreCompileDebug UP-TO-DATE
+> Task :feature:freeze:javaPreCompileDebug UP-TO-DATE
+> Task :feature:home:mergeDebugShaders UP-TO-DATE
+> Task :feature:freeze:mergeDebugShaders UP-TO-DATE
+> Task :feature:home:compileDebugShaders NO-SOURCE
+> Task :feature:freeze:compileDebugShaders NO-SOURCE
+> Task :feature:home:generateDebugAssets UP-TO-DATE
+> Task :feature:freeze:generateDebugAssets UP-TO-DATE
+> Task :feature:home:mergeDebugAssets UP-TO-DATE
+> Task :feature:freeze:mergeDebugAssets UP-TO-DATE
+> Task :feature:freeze:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:home:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:freeze:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:home:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:freeze:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :feature:home:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :ui:designsystem:parseDebugLocalResources UP-TO-DATE
+> Task :ui:designsystem:generateDebugRFile UP-TO-DATE
+> Task :ui:designsystem:generateDebugAssets UP-TO-DATE
+> Task :ui:designsystem:mergeDebugAssets UP-TO-DATE
+> Task :ui:designsystem:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:automation:javaPreCompileDebug UP-TO-DATE
+> Task :ui:designsystem:mergeDebugNativeLibs NO-SOURCE
+> Task :core:automation:mergeDebugShaders UP-TO-DATE
+> Task :ui:designsystem:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:automation:compileDebugShaders NO-SOURCE
+> Task :core:automation:generateDebugAssets UP-TO-DATE
+> Task :core:automation:mergeDebugAssets UP-TO-DATE
+> Task :core:automation:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:automation:mergeDebugNativeLibs NO-SOURCE
+> Task :core:automation:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :core:domain:parseDebugLocalResources UP-TO-DATE
+> Task :core:data:parseDebugLocalResources UP-TO-DATE
+> Task :feature:clean:javaPreCompileDebug UP-TO-DATE
+> Task :feature:clean:mergeDebugShaders UP-TO-DATE
+> Task :core:data:generateDebugRFile UP-TO-DATE
+> Task :core:domain:generateDebugRFile UP-TO-DATE
+> Task :feature:clean:compileDebugShaders NO-SOURCE
+> Task :feature:clean:generateDebugAssets UP-TO-DATE
+> Task :core:domain:mergeDebugShaders UP-TO-DATE
+> Task :core:data:mergeDebugShaders UP-TO-DATE
+> Task :core:data:compileDebugShaders NO-SOURCE
+> Task :core:domain:compileDebugShaders NO-SOURCE
+> Task :feature:clean:mergeDebugAssets UP-TO-DATE
+> Task :core:data:generateDebugAssets UP-TO-DATE
+> Task :core:domain:generateDebugAssets UP-TO-DATE
+> Task :feature:clean:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:data:mergeDebugAssets UP-TO-DATE
+> Task :core:domain:mergeDebugAssets UP-TO-DATE
+> Task :feature:clean:mergeDebugNativeLibs NO-SOURCE
+> Task :core:domain:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:data:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:clean:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:domain:mergeDebugNativeLibs NO-SOURCE
+> Task :core:data:mergeDebugNativeLibs NO-SOURCE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :core:data:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:domain:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :core:common:compileDebugKotlin UP-TO-DATE
+> Task :core:model:compileDebugKotlin UP-TO-DATE
+> Task :core:engine:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:javaPreCompileDebug UP-TO-DATE
+> Task :core:common:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:model:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:engine:generateDebugRFile UP-TO-DATE
+> Task :core:engine:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:common:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:common:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:model:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:common:generateDebugAssets UP-TO-DATE
+> Task :core:engine:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:mergeDebugShaders UP-TO-DATE
+> Task :core:common:mergeDebugAssets UP-TO-DATE
+> Task :core:model:compileDebugShaders NO-SOURCE
+> Task :core:model:generateDebugAssets UP-TO-DATE
+> Task :core:model:mergeDebugAssets UP-TO-DATE
+> Task :feature:automation:javaPreCompileDebug UP-TO-DATE
+> Task :feature:automation:mergeDebugShaders UP-TO-DATE
+> Task :feature:automation:compileDebugShaders NO-SOURCE
+> Task :feature:automation:generateDebugAssets UP-TO-DATE
+> Task :feature:automation:mergeDebugAssets UP-TO-DATE
+> Task :feature:automation:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:automation:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:automation:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:common:processDebugJavaRes UP-TO-DATE
+> Task :core:model:processDebugJavaRes UP-TO-DATE
+> Task :core:common:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:common:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:model:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:common:mergeDebugNativeLibs NO-SOURCE
+> Task :core:common:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:model:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:model:mergeDebugNativeLibs NO-SOURCE
+> Task :core:model:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :core:system:kspDebugKotlin UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :core:ai:kspDebugKotlin UP-TO-DATE
+> Task :core:engine:kspDebugKotlin UP-TO-DATE
+> Task :core:data:kspDebugKotlin UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :core:ai:compileDebugKotlin UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :core:engine:compileDebugKotlin UP-TO-DATE
+> Task :core:data:compileDebugKotlin UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :core:ai:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:ai:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:ai:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:ai:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:ai:processDebugJavaRes UP-TO-DATE
+> Task :core:ai:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:engine:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:system:compileDebugKotlin UP-TO-DATE
+> Task :core:engine:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:engine:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:engine:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:engine:mergeDebugShaders UP-TO-DATE
+> Task :core:engine:compileDebugShaders NO-SOURCE
+> Task :core:engine:generateDebugAssets UP-TO-DATE
+> Task :core:system:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:engine:mergeDebugAssets UP-TO-DATE
+> Task :core:engine:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :core:system:transformDebugClassesWithAsm UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :core:system:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:engine:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:system:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:engine:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:system:processDebugJavaRes UP-TO-DATE
+> Task :core:engine:mergeDebugNativeLibs UP-TO-DATE
+> Task :core:system:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:engine:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:data:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:data:copyRoomSchemas NO-SOURCE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :core:data:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:data:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:data:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:data:processDebugJavaRes UP-TO-DATE
+> Task :core:data:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:automation:kspDebugKotlin UP-TO-DATE
+> Task :core:automation:compileDebugKotlin UP-TO-DATE
+> Task :core:automation:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:automation:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:automation:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:automation:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:automation:processDebugJavaRes UP-TO-DATE
+> Task :core:automation:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :core:domain:kspDebugKotlin UP-TO-DATE
+> Task :core:domain:compileDebugKotlin UP-TO-DATE
+> Task :core:domain:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:domain:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:domain:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:domain:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:domain:processDebugJavaRes UP-TO-DATE
+> Task :core:domain:bundleLibRuntimeToDirDebug UP-TO-DATE
+
+> Task :ui:designsystem:compileDebugKotlin
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:304:9 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:305:9 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:307:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:367:9 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:368:9 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:370:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:497:9 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:498:9 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:500:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:572:9 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:573:9 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/Components.kt:575:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/GlassSurface.kt:84:9 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/GlassSurface.kt:85:9 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/GlassSurface.kt:88:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/NovaNowBar.kt:108:13 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/NovaNowBar.kt:109:13 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/NovaNowBar.kt:111:13 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/SpatialLayer.kt:93:9 No parameter with name 'ambientColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/SpatialLayer.kt:94:9 No parameter with name 'spotColor' found.
+e: file:///C:/Users/chinazll/WorkBuddy/2026-09-19-20-02-09/NovaCare/ui/designsystem/src/main/java/com/novacare/ui/designsystem/SpatialLayer.kt:98:9 @Composable invocations can only happen from the context of a @Composable function
+
+> Task :ui:designsystem:compileDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':ui:designsystem:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 28s
+283 actionable tasks: 2 executed, 281 up-to-date

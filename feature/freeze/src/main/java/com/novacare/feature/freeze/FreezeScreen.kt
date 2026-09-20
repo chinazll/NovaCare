@@ -59,6 +59,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -82,7 +84,11 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.KeyValueRow
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.NovaLongPress
 import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.NowBarChip
 import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.PrimaryAction
@@ -138,13 +144,19 @@ fun FreezeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val view = LocalView.current
+    val context = LocalContext.current
+
     AuroraBackground {
         // v0.7.2 视觉统一：移除 AnimatedVisibility 单组入场，
         // 改为每个子屏的 item 用 StaggerFlyIn 错峰飞入。
         when (val s = state) {
             FreezeViewModel.UiState.Idle -> FreezeIdle(
                 modifier = modifier,
-                onLoad = { viewModel.load(rootPath, force = true) },
+                onLoad = {
+                    NovaTap(view)
+                    viewModel.load(rootPath, force = true)
+                },
             )
 
             FreezeViewModel.UiState.Scanning -> FreezeLoading(modifier = modifier)
@@ -152,7 +164,10 @@ fun FreezeScreen(
             is FreezeViewModel.UiState.Failed -> FreezeFailed(
                 modifier = modifier,
                 message = s.message,
-                onRetry = { viewModel.load(rootPath, force = true) },
+                onRetry = {
+                    NovaTap(view)
+                    viewModel.load(rootPath, force = true)
+                },
             )
 
             is FreezeViewModel.UiState.Applying -> FreezeApplying(modifier = modifier, state = s)
@@ -160,7 +175,10 @@ fun FreezeScreen(
             is FreezeViewModel.UiState.Applied -> FreezeApplied(
                 modifier = modifier,
                 state = s,
-                onDismiss = viewModel::dismissResult,
+                onDismiss = {
+                    NovaTap(view)
+                    viewModel.dismissResult()
+                },
             )
 
             is FreezeViewModel.UiState.Ready -> FreezeReady(
@@ -416,6 +434,8 @@ private fun FreezeReady(
     onReload: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val view = LocalView.current
+    val context = LocalContext.current
     val recommended = state.candidates.filter { it.risk == FreezeRisk.SAFE && it.app.packageName !in frozen }
     val caution = state.candidates.filter { it.risk == FreezeRisk.CAUTION && it.app.packageName !in frozen }
     val risky = state.candidates.filter { it.risk == FreezeRisk.RISKY && it.app.packageName !in frozen }
@@ -423,6 +443,11 @@ private fun FreezeReady(
     val longUnused = state.allApps.count { (it.daysUnused ?: 0) >= 30 }
     // 长按触发的单应用操作抽屉（One UI 9.5 的「长按展开动作菜单」范式）
     var actionSheetCandidate by remember { mutableStateOf<FreezeCandidate?>(null) }
+
+    val longPress: (FreezeCandidate) -> Unit = { c ->
+        NovaLongPress(view)
+        actionSheetCandidate = c
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -443,7 +468,10 @@ private fun FreezeReady(
                     trailing = {
                         NowBarChip(
                             text = "重读",
-                            onClick = onReload,
+                            onClick = {
+                                NovaTap(view)
+                                onReload()
+                            },
                             accent = NovaCareTheme.colors.accent,
                         )
                     },
@@ -612,7 +640,7 @@ private fun FreezeReady(
             onToggleSelected = onToggleSelected,
             onRequestFreeze = onRequestFreeze,
             onRequestUnfreeze = onRequestUnfreeze,
-            onLongPress = { c -> actionSheetCandidate = c },
+            onLongPress = longPress,
             emptyHint = "目前没有符合「可安全冻结」条件的应用",
             startIndex = 5,
         )
@@ -628,7 +656,7 @@ private fun FreezeReady(
             onToggleSelected = onToggleSelected,
             onRequestFreeze = onRequestFreeze,
             onRequestUnfreeze = onRequestUnfreeze,
-            onLongPress = { c -> actionSheetCandidate = c },
+            onLongPress = longPress,
             emptyHint = "没有需要额外确认的应用",
             startIndex = 8,
         )
@@ -645,7 +673,7 @@ private fun FreezeReady(
                 onToggleSelected = onToggleSelected,
                 onRequestFreeze = onRequestFreeze,
                 onRequestUnfreeze = onRequestUnfreeze,
-                onLongPress = { c -> actionSheetCandidate = c },
+                onLongPress = longPress,
                 allowSelection = false,
                 emptyHint = null,
                 startIndex = 11,
@@ -674,7 +702,7 @@ private fun FreezeReady(
                             selectable = false,
                             onToggle = {},
                             onAction = { onRequestUnfreeze(frozenCandidates[index].app.packageName) },
-                            onLongPress = { actionSheetCandidate = frozenCandidates[index] },
+                            onLongPress = { longPress(frozenCandidates[index]) },
                         )
                     }
                 }
@@ -743,7 +771,10 @@ private fun FreezeReady(
                             } else {
                                 "将逐个打开系统设置页，需要你手动停用"
                             },
-                            onClick = onRequestBatch,
+                            onClick = {
+                                NovaTap(view)
+                                onRequestBatch()
+                            },
                         )
                     }
                 }
@@ -780,8 +811,14 @@ private fun FreezeReady(
         ConfirmOverlay(
             action = action,
             shizukuAvailable = state.shizukuAvailable && state.advancedMode,
-            onCancel = onCancelPending,
-            onConfirm = onConfirmPending,
+            onCancel = {
+                NovaTap(view)
+                onCancelPending()
+            },
+            onConfirm = {
+                NovaSuccess(context)
+                onConfirmPending()
+            },
         )
     }
 
@@ -793,10 +830,12 @@ private fun FreezeReady(
             shizukuAvailable = state.shizukuAvailable && state.advancedMode,
             onDismiss = { actionSheetCandidate = null },
             onFreeze = {
+                NovaTap(view)
                 onRequestFreeze(candidate.app.packageName)
                 actionSheetCandidate = null
             },
             onUnfreeze = {
+                NovaTap(view)
                 onRequestUnfreeze(candidate.app.packageName)
                 actionSheetCandidate = null
             },
@@ -1071,6 +1110,8 @@ private fun AppRow(
     onLongPress: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val view = LocalView.current
+    val context = LocalContext.current
     val riskColor = when (candidate.risk) {
         FreezeRisk.SAFE -> colors.riskSafe
         FreezeRisk.CAUTION -> colors.riskCaution
@@ -1078,7 +1119,12 @@ private fun AppRow(
     }
 
     NovaCard(
-        onClick = if (selectable) onToggle else null,
+        onClick = if (selectable) {
+            {
+                NovaToggle(context, !checked)
+                onToggle()
+            }
+        } else null,
         modifier = Modifier.pointerInput(candidate.app.packageName) {
             // 长按触发动作抽屉。detectTapGestures 的 onLongPress 默认 ~500ms，
             // 与 One UI 系统级长按时长一致；点击不会被长按吞掉（onTap 仍正常）。
@@ -1188,7 +1234,10 @@ private fun AppRow(
                     }
                     SecondaryAction(
                         text = if (isFrozen) "解冻" else "冻结",
-                        onClick = onAction,
+                        onClick = {
+                            NovaTap(view)
+                            onAction()
+                        },
                     )
                 }
             }
@@ -1219,6 +1268,7 @@ private fun AppSelectIndicator(
     onClick: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
+    val context = LocalContext.current
     val boxSize = 22.dp
     Box(
         modifier = Modifier
@@ -1229,7 +1279,10 @@ private fun AppSelectIndicator(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 role = Role.Checkbox,
-                onClick = onClick,
+                onClick = {
+                    NovaToggle(context, !checked)
+                    onClick()
+                },
             )
             .semantics { contentDescription = contentDesc; role = Role.Checkbox },
         contentAlignment = Alignment.Center,
@@ -1264,7 +1317,12 @@ private fun FreezeToggleRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val colors = NovaCareTheme.colors
-    NovaCard(onClick = { onCheckedChange(!checked) }) {
+    val context = LocalContext.current
+    NovaCard(onClick = {
+        val newVal = !checked
+        NovaToggle(context, newVal)
+        onCheckedChange(newVal)
+    }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1362,6 +1420,7 @@ private fun AppActionSheet(
             ),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, colors.hairline),
+            shadowElevation = 8.dp,
         ) {
             Column(
                 modifier = Modifier

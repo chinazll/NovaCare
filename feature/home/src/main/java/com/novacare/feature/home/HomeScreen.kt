@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +65,8 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaNowBar
+import com.novacare.ui.designsystem.NovaSuccess
+import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.NowBarChip
 import com.novacare.ui.designsystem.PrimaryAction
@@ -129,6 +133,17 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val view = LocalView.current
+    val context = LocalContext.current
+    val onScanTap: () -> Unit = {
+        NovaTap(view)
+        viewModel.onOptimizeClick()
+    }
+    val onConfirmTap: () -> Unit = {
+        NovaSuccess(context)
+        viewModel.onConfirm()
+    }
+
     AuroraBackground {
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
@@ -158,7 +173,10 @@ fun HomeScreen(
                     trailing = {
                         NowBarChip(
                             text = "设置",
-                            onClick = { onNavigate("settings") },
+                            onClick = {
+                                NovaTap(view)
+                                onNavigate("settings")
+                            },
                             accent = NovaCareTheme.colors.accent,
                         )
                     },
@@ -175,7 +193,10 @@ fun HomeScreen(
                                 "不含任何估算。",
                             tone = EmptyTone.Error,
                             actionText = "重试",
-                            onAction = { viewModel.refreshCapabilities() },
+                            onAction = {
+                                NovaTap(view)
+                                viewModel.refreshCapabilities()
+                            },
                         )
                     }
                 }
@@ -186,7 +207,10 @@ fun HomeScreen(
                     StaggerFlyIn(index = index + 1) {
                         PermissionRow(
                             capability = missing[index],
-                            onGrant = { viewModel.grant(missing[index]) },
+                            onGrant = {
+                                NovaTap(view)
+                                viewModel.grant(missing[index])
+                            },
                         )
                     }
                 }
@@ -199,7 +223,7 @@ fun HomeScreen(
                         overview = overview,
                         state = state,
                         engineAvailable = engineAvailable,
-                        onOptimize = viewModel::onOptimizeClick,
+                        onOptimize = onScanTap,
                     )
                 }
             }
@@ -216,7 +240,10 @@ fun HomeScreen(
                             } ?: "尚未扫描",
                             icon = Icons.Outlined.CleaningServices,
                             accent = NovaCareTheme.colors.accent,
-                            onClick = { onNavigate("clean") },
+                            onClick = {
+                                NovaTap(view)
+                                onNavigate("clean")
+                            },
                             disabled = !engineAvailable,
                             modifier = Modifier
                                 .weight(1f)
@@ -230,7 +257,10 @@ fun HomeScreen(
                             } ?: "尚未读取",
                             icon = Icons.Outlined.AcUnit,
                             accent = NovaCareTheme.colors.healthFair,
-                            onClick = { onNavigate("freeze") },
+                            onClick = {
+                                NovaTap(view)
+                                onNavigate("freeze")
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 20.dp),
@@ -257,10 +287,16 @@ fun HomeScreen(
                         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                             TaskBlock(
                                 state = state,
-                                onConfirm = viewModel::onConfirm,
-                                onNavigateToClean = { onNavigate("clean") },
-                                onReset = viewModel::reset,
-                                onRetry = viewModel::onOptimizeClick,
+                                onConfirm = onConfirmTap,
+                                onNavigateToClean = {
+                                    NovaTap(view)
+                                    onNavigate("clean")
+                                },
+                                onReset = {
+                                    NovaTap(view)
+                                    viewModel.reset()
+                                },
+                                onRetry = onScanTap,
                             )
                         }
                     }
@@ -272,8 +308,14 @@ fun HomeScreen(
                 StaggerFlyIn(index = 7) {
                     Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                         ToolRow(
-                            onAutomation = { onNavigate("automation") },
-                            onAssistant = { onNavigate("assistant") },
+                            onAutomation = {
+                                NovaTap(view)
+                                onNavigate("automation")
+                            },
+                            onAssistant = {
+                                NovaTap(view)
+                                onNavigate("assistant")
+                            },
                             assistantAvailable = engineAvailable,
                         )
                     }
@@ -300,7 +342,10 @@ fun HomeScreen(
             if (engineAvailable) {
                 DraggableAiOrb(
                     icon = Icons.Outlined.AutoAwesome,
-                    onClick = { onNavigate("assistant") },
+                    onClick = {
+                        NovaTap(view)
+                        onNavigate("assistant")
+                    },
                     contentDescription = "AI 助手",
                     modifier = Modifier,
                 )
@@ -602,6 +647,7 @@ private fun TaskBlock(
             shape = RoundedCornerShape(22.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, NovaCareTheme.colors.hairline),
+            shadowElevation = 2.dp,
         ) {
             Row(
                 modifier = Modifier.padding(18.dp),
@@ -632,6 +678,7 @@ private fun TaskBlock(
             shape = RoundedCornerShape(22.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, NovaCareTheme.colors.hairline),
+            shadowElevation = 2.dp,
         ) {
             Row(
                 modifier = Modifier.padding(18.dp),
