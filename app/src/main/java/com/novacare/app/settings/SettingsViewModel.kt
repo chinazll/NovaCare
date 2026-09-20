@@ -9,6 +9,7 @@ import com.novacare.core.data.SettingsRepository
 import com.novacare.core.engine.NovaEngine
 import com.novacare.core.model.CloudModel
 import com.novacare.core.system.MissingCapability
+import com.novacare.core.system.ShizukuShell
 import com.novacare.core.system.SystemPermissions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,7 @@ class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
     private val permissions: SystemPermissions,
     private val engine: NovaEngine,
+    private val shizuku: ShizukuShell,
 ) : ViewModel() {
 
     /** 权限卡片的图标分类（避免把 icon 直接塞进 ViewModel 层） */
@@ -66,7 +68,7 @@ class SettingsViewModel @Inject constructor(
     private val _engineVersion = MutableStateFlow(engine.version())
     val engineVersion: StateFlow<String> = _engineVersion.asStateFlow()
 
-    private val _shizukuAvailable = MutableStateFlow(permissions.isShizukuAvailable())
+    private val _shizukuAvailable = MutableStateFlow(shizuku.isAvailable())
     val shizukuAvailable: StateFlow<Boolean> = _shizukuAvailable.asStateFlow()
 
     /** 从系统设置页回来后必须重查，否则用户授了权回来看到状态还是"未授予" */
@@ -74,10 +76,22 @@ class SettingsViewModel @Inject constructor(
         _capabilities.value = readCapabilities()
         _engineAvailable.value = engine.isAvailable
         _engineVersion.value = engine.version()
-        _shizukuAvailable.value = permissions.isShizukuAvailable()
+        _shizukuAvailable.value = shizuku.isAvailable()
     }
 
     fun grant(capability: MissingCapability) = permissions.launchGrantFor(capability)
+
+    /** 请求 Shizuku 授权（弹出系统授权框），结果回来时刷新状态 */
+    fun requestShizuku() {
+        shizuku.requestPermission { granted ->
+            _shizukuAvailable.value = granted
+            if (granted) {
+                _notice.value = "Shizuku 已授权。缓存自动化与冻结功能现已可用。"
+            } else {
+                _notice.value = "Shizuku 未授权，高级功能仍不可用。"
+            }
+        }
+    }
 
     fun setAdvanced(enabled: Boolean) = viewModelScope.launch {
         repository.setAdvancedMode(enabled)

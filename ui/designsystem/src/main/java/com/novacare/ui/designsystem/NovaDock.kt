@@ -134,16 +134,13 @@ fun NovaDock(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
-        Surface(
+        GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-            shape = RoundedCornerShape(28.dp),
-            color = colors.floatSurface,
-            border = BorderStroke(1.dp, colors.hairline),
-            shadowElevation = 12.dp,
-            tonalElevation = 0.dp,
+            corner = 28.dp,
+            blurRadius = 20.dp,
         ) {
             Row(
                 modifier = Modifier

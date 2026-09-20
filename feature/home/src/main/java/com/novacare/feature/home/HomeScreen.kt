@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Info
@@ -55,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.common.formatBytes
 import com.novacare.core.system.MissingCapability
 import com.novacare.ui.designsystem.AuroraBackground
+import com.novacare.ui.designsystem.DraggableAiOrb
 import com.novacare.ui.designsystem.EmptyState
 import com.novacare.ui.designsystem.EmptyTone
 import com.novacare.ui.designsystem.InlineNotice
@@ -128,16 +130,17 @@ fun HomeScreen(
     }
 
     AuroraBackground {
-        LazyColumn(
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 0.dp, // NowBar 自己管水平 padding
-                end = 0.dp,
-                top = 10.dp,
-                bottom = 28.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 0.dp, // NowBar 自己管水平 padding
+                    end = 0.dp,
+                    top = 10.dp,
+                    bottom = 28.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
             // ---- 1. NowBar：顶部系统体征浮条 ----
             item(key = "now-bar") {
                 NovaNowBar(
@@ -288,6 +291,19 @@ fun HomeScreen(
                         )
                     }
                 }
+            }
+            }
+
+            // ---- AI orb 悬浮球：One UI 10 Fluid AI 的 agent 入口 ----
+            // 浮在所有内容之上，可拖拽、带呼吸光晕，点击进入 AI 助手。
+            // 注意：只有当引擎可用时才显示（AI 助手依赖内核读取设备状态）。
+            if (engineAvailable) {
+                DraggableAiOrb(
+                    icon = Icons.Outlined.AutoAwesome,
+                    onClick = { onNavigate("assistant") },
+                    contentDescription = "AI 助手",
+                    modifier = Modifier,
+                )
             }
         }
     }

@@ -74,6 +74,7 @@ import com.novacare.ui.designsystem.NovaNowBar
 import com.novacare.ui.designsystem.NowBarChip
 import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.SectionHeader
+import com.novacare.ui.designsystem.SecondaryAction
 import com.novacare.ui.designsystem.StaggerFlyIn
 
 /**
@@ -173,6 +174,7 @@ fun SettingsScreen(
                             enabled = settings.advancedMode,
                             shizukuAvailable = shizukuAvailable,
                             onChange = viewModel::setAdvanced,
+                            onRequestShizuku = viewModel::requestShizuku,
                         )
                     }
                 }
@@ -545,6 +547,7 @@ private fun AdvancedModeCard(
     enabled: Boolean,
     shizukuAvailable: Boolean,
     onChange: (Boolean) -> Unit,
+    onRequestShizuku: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
     var confirmPending by remember { mutableStateOf(false) }
@@ -605,7 +608,7 @@ private fun AdvancedModeCard(
         )
         Spacer(Modifier.height(6.dp))
         BulletLine("通过 Shizuku 冻结系统应用（可逆，随时可解冻）")
-        BulletLine("代你清除第三方应用的缓存（pm clear）")
+        BulletLine("一键清除所有第三方应用的缓存（pm trim-caches）")
         BulletLine("执行闪存整理 fstrim")
 
         Spacer(Modifier.height(14.dp))
@@ -628,9 +631,16 @@ private fun AdvancedModeCard(
         if (!shizukuAvailable) {
             Spacer(Modifier.height(12.dp))
             InlineNotice(
-                text = "当前未检测到 Shizuku。未安装并启动 Shizuku 时，" +
-                    "高级模式开启后上述三项能力仍然无法生效 —— 不会假装成功。",
+                text = "未检测到 Shizuku 授权。缓存自动化、冻结、闪存整理需要它。" +
+                    "点击下方按钮发起授权（首次需在 Shizuku App 里先完成 ADB 激活）。",
                 tone = EmptyTone.Warning,
+            )
+            Spacer(Modifier.height(10.dp))
+            // 真正的授权入口：上一版只有一句"不可用"，用户无从操作
+            SecondaryAction(
+                text = "授权 Shizuku",
+                onClick = onRequestShizuku,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
