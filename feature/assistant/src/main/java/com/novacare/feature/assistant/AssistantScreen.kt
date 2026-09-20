@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Shield
@@ -918,7 +919,14 @@ private fun SuggestionRow(
 // ------------------------------------------------------------
 
 /**
- * 底部输入区。
+ * 底部输入区 —— One UI 9/9.5 风格的 Bottom Action Bar。
+ *
+ * 上一版是一个薄薄一行的输入条 + 右侧圆形发送键。
+ * One UI 9 改成了更厚的底部操作位（高度 64-72dp）：
+ *   - 左侧语音图标占位（未来接语音入口，现在是「未来感」的形状语言）
+ *   - 中间一枚粗圆角胶囊包裹输入
+ *   - 右侧仍是圆形发送键，但 56dp 而不是 52dp
+ *   - 整体顶部带 28dp 圆角，模拟 One UI 底栏的「软着陆」
  *
  * 输入框用 BasicTextField 而非 OutlinedTextField —— 后者的下划线与浮动标签
  * 在这个尺寸下会显得笨重。这里要的是一枚圆角胶囊 + 一侧圆形发送键。
@@ -937,9 +945,10 @@ private fun AssistantComposer(
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
         border = BorderStroke(1.dp, colors.hairline),
+        // 不规则圆角：上边大圆角（28dp），下边直角（贴 nav bar）
         shape = RoundedCornerShape(
-            topStart = 0.dp,
-            topEnd = 0.dp,
+            topStart = 28.dp,
+            topEnd = 28.dp,
             bottomStart = 0.dp,
             bottomEnd = 0.dp,
         ),
@@ -948,9 +957,41 @@ private fun AssistantComposer(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                // 上下 padding 从 12 → 14，让整个操作位明显变厚
+                .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            // 语音图标占位 —— 48dp 圆形，比发送键略小但仍然可达
+            // 现在的功能只是「占位」：点下去给一个轻微反馈，未来接 STT
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .border(
+                        width = 1.dp,
+                        color = colors.hairline,
+                        shape = CircleShape,
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        onClick = { /* One UI 占位：未来接语音识别 */ },
+                    )
+                    .semantics { contentDescription = "语音输入（即将推出）" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Mic,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -961,7 +1002,8 @@ private fun AssistantComposer(
                         color = if (enabled) colors.hairline else colors.hairline.copy(alpha = 0.5f),
                         shape = MaterialTheme.shapes.extraLarge,
                     )
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    // vertical 14 → 16：跟外层 14dp 一起让胶囊更厚
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 if (value.isEmpty()) {
                     Text(
@@ -996,7 +1038,7 @@ private fun AssistantComposer(
             }
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(sendBg)
                     .then(
@@ -1024,7 +1066,7 @@ private fun AssistantComposer(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }

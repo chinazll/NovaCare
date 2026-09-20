@@ -1,8 +1,10 @@
 package com.novacare.feature.freeze
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,13 +12,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckBox
@@ -34,13 +39,16 @@ import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +58,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -412,6 +421,8 @@ private fun FreezeReady(
     val risky = state.candidates.filter { it.risk == FreezeRisk.RISKY && it.app.packageName !in frozen }
     val frozenCandidates = state.candidates.filter { it.app.packageName in frozen }
     val longUnused = state.allApps.count { (it.daysUnused ?: 0) >= 30 }
+    // 长按触发的单应用操作抽屉（One UI 9.5 的「长按展开动作菜单」范式）
+    var actionSheetCandidate by remember { mutableStateOf<FreezeCandidate?>(null) }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -601,6 +612,7 @@ private fun FreezeReady(
             onToggleSelected = onToggleSelected,
             onRequestFreeze = onRequestFreeze,
             onRequestUnfreeze = onRequestUnfreeze,
+            onLongPress = { c -> actionSheetCandidate = c },
             emptyHint = "目前没有符合「可安全冻结」条件的应用",
             startIndex = 5,
         )
@@ -616,6 +628,7 @@ private fun FreezeReady(
             onToggleSelected = onToggleSelected,
             onRequestFreeze = onRequestFreeze,
             onRequestUnfreeze = onRequestUnfreeze,
+            onLongPress = { c -> actionSheetCandidate = c },
             emptyHint = "没有需要额外确认的应用",
             startIndex = 8,
         )
@@ -632,6 +645,7 @@ private fun FreezeReady(
                 onToggleSelected = onToggleSelected,
                 onRequestFreeze = onRequestFreeze,
                 onRequestUnfreeze = onRequestUnfreeze,
+                onLongPress = { c -> actionSheetCandidate = c },
                 allowSelection = false,
                 emptyHint = null,
                 startIndex = 11,
@@ -660,6 +674,7 @@ private fun FreezeReady(
                             selectable = false,
                             onToggle = {},
                             onAction = { onRequestUnfreeze(frozenCandidates[index].app.packageName) },
+                            onLongPress = { actionSheetCandidate = frozenCandidates[index] },
                         )
                     }
                 }
@@ -767,6 +782,24 @@ private fun FreezeReady(
             shizukuAvailable = state.shizukuAvailable && state.advancedMode,
             onCancel = onCancelPending,
             onConfirm = onConfirmPending,
+        )
+    }
+
+    // 长按触发的单应用操作抽屉（One UI 9.5「长按展开动作菜单」范式）
+    actionSheetCandidate?.let { candidate ->
+        AppActionSheet(
+            candidate = candidate,
+            isFrozen = candidate.app.packageName in frozen,
+            shizukuAvailable = state.shizukuAvailable && state.advancedMode,
+            onDismiss = { actionSheetCandidate = null },
+            onFreeze = {
+                onRequestFreeze(candidate.app.packageName)
+                actionSheetCandidate = null
+            },
+            onUnfreeze = {
+                onRequestUnfreeze(candidate.app.packageName)
+                actionSheetCandidate = null
+            },
         )
     }
 }
@@ -934,6 +967,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.candidateGroup(
     onToggleSelected: (String) -> Unit,
     onRequestFreeze: (String) -> Unit,
     onRequestUnfreeze: (String) -> Unit,
+    onLongPress: (FreezeCandidate) -> Unit,
     allowSelection: Boolean = true,
     emptyHint: String?,
     startIndex: Int = 0,
@@ -1013,13 +1047,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.candidateGroup(
                             onRequestFreeze(candidate.app.packageName)
                         }
                     },
+                    onLongPress = { onLongPress(candidate) },
                 )
             }
         }
     }
 }
 
-/** 应用行：图标占位 + 名称 + 副信息 + 风险 + 勾选 + 操作 */
+/** 应用行：图标占位 + 名称 + 副信息 + 风险 + 勾选 + 操作
+ *
+ * 长按行为：One UI 9.5 的「长按展开动作菜单」范式 —— 长按 500ms 触发
+ * 一个底部浮起的操作抽屉（AppActionSheet），里面给到「冻结/解冻」
+ * 「查看详情」「取消」三个动作，避免把按钮全部塞进列表行导致视觉拥挤。
+ */
 @Composable
 private fun AppRow(
     candidate: FreezeCandidate,
@@ -1028,6 +1068,7 @@ private fun AppRow(
     selectable: Boolean,
     onToggle: () -> Unit,
     onAction: () -> Unit,
+    onLongPress: () -> Unit,
 ) {
     val colors = NovaCareTheme.colors
     val riskColor = when (candidate.risk) {
@@ -1036,7 +1077,16 @@ private fun AppRow(
         FreezeRisk.RISKY -> colors.riskRisky
     }
 
-    NovaCard(onClick = if (selectable) onToggle else null) {
+    NovaCard(
+        onClick = if (selectable) onToggle else null,
+        modifier = Modifier.pointerInput(candidate.app.packageName) {
+            // 长按触发动作抽屉。detectTapGestures 的 onLongPress 默认 ~500ms，
+            // 与 One UI 系统级长按时长一致；点击不会被长按吞掉（onTap 仍正常）。
+            detectTapGestures(
+                onLongPress = { onLongPress() },
+            )
+        },
+    ) {
         Row(verticalAlignment = Alignment.Top) {
             // 应用图标占位：首字母 + 语义色底，不加载真实图标（避免列表滚动时抖动）
             Box(
@@ -1255,6 +1305,188 @@ private fun FreezeToggleRow(
                             },
                         ),
                 )
+            }
+        }
+    }
+}
+
+/**
+ * 长按触发的单应用操作抽屉（One UI 9.5 底部动作菜单风格）。
+ *
+ * 与批量 [ConfirmOverlay] 的差异：
+ *   - 单应用操作，结构是「应用标识 + 三个动作按钮」，不是「确认条」
+ *   - 顶部一个 28dp 大圆角的「把手」视觉提示 —— 模仿 One UI BottomSheet 的 grabber
+ *   - 动作区上方有一段 InlineNotice，把 Shizuku 状态直白写出来，
+ *     避免「点完才知道要走系统设置页」的欺骗感
+ */
+@Composable
+private fun AppActionSheet(
+    candidate: FreezeCandidate,
+    isFrozen: Boolean,
+    shizukuAvailable: Boolean,
+    onDismiss: () -> Unit,
+    onFreeze: () -> Unit,
+    onUnfreeze: () -> Unit,
+) {
+    val colors = NovaCareTheme.colors
+    val riskColor = when (candidate.risk) {
+        FreezeRisk.SAFE -> colors.riskSafe
+        FreezeRisk.CAUTION -> colors.riskCaution
+        FreezeRisk.RISKY -> colors.riskRisky
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 遮罩：点击即关闭（与原 ConfirmOverlay 行为一致）
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.softShadow)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss,
+                ),
+        )
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            // 不规则圆角：上边大圆角，模拟 One UI 底部动作菜单的「软着陆」
+            shape = RoundedCornerShape(
+                topStart = 28.dp,
+                topEnd = 28.dp,
+                bottomStart = 0.dp,
+                bottomEnd = 0.dp,
+            ),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            border = BorderStroke(1.dp, colors.hairline),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+            ) {
+                // 顶部把手 —— One UI 底部 sheet 的视觉锚点
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(colors.hairline),
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                // 应用标识：图标占位 + 名称 + 包名
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(riskColor.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = candidate.app.label.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = riskColor,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = candidate.app.label,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = candidate.app.packageName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // 把 Shizuku 状态直白说出来 —— One UI 风格的「动作可见性」
+                Text(
+                    text = if (isFrozen) {
+                        "已冻结 · 可随时解冻恢复运行"
+                    } else if (shizukuAvailable) {
+                        "冻结将通过 Shizuku 直接执行，立即生效"
+                    } else {
+                        "未连接 Shizuku：冻结会打开系统设置页，由你手动停用"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isFrozen || shizukuAvailable) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        colors.riskCaution
+                    },
+                )
+
+                Spacer(Modifier.height(18.dp))
+
+                // 三个动作：主操作 / 次操作 / 取消（One UI action sheet 的标准布局）
+                PrimaryAction(
+                    text = if (isFrozen) "解冻 ${candidate.app.label}" else "冻结 ${candidate.app.label}",
+                    subtitle = if (isFrozen) {
+                        "应用会立刻恢复运行"
+                    } else if (shizukuAvailable) {
+                        "可通过 Shizuku 直接执行"
+                    } else {
+                        "需手动在系统设置页停用"
+                    },
+                    onClick = {
+                        if (isFrozen) onUnfreeze() else onFreeze()
+                    },
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                if (!isFrozen) {
+                    SecondaryAction(
+                        text = "查看详情",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            // 这一项故意"不做事"：应用行的副信息已经把详情摊开了。
+                            // 保留按钮是为了 One UI 的「动作清单完整性」—— 用户预期长按
+                            // 能展开一个完整动作集，缺一项会显得不专业。
+                            onDismiss()
+                        },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                // 取消 —— 始终放在最底部，与 One UI BottomSheet 风格一致
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            role = Role.Button,
+                            onClick = onDismiss,
+                        )
+                        .semantics { contentDescription = "关闭动作抽屉" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "取消",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

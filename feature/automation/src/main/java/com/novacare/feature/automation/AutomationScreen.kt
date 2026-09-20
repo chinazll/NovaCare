@@ -1,9 +1,13 @@
 package com.novacare.feature.automation
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -59,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -202,14 +208,12 @@ fun AutomationScreen(
                     }
                     items(rules, key = { it.id }) { rule ->
                         StaggerFlyIn(index = 4) {
-                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                                RuleCard(
-                                    rule = rule,
-                                    onToggle = { enabled -> viewModel.toggle(rule, enabled) },
-                                    onEdit = { viewModel.startEdit(rule) },
-                                    onDelete = { viewModel.askDelete(rule) },
-                                )
-                            }
+                            SwipeableRuleRow(
+                                rule = rule,
+                                onToggle = { enabled -> viewModel.toggle(rule, enabled) },
+                                onEdit = { viewModel.startEdit(rule) },
+                                onDelete = { viewModel.askDelete(rule) },
+                            )
                         }
                     }
                 }
@@ -276,6 +280,126 @@ fun AutomationScreen(
 // ------------------------------------------------------------
 // 规则卡片
 // ------------------------------------------------------------
+
+/**
+ * 可滑动的规则行 —— One UI 9/9.5 的 swipe-to-act 范式。
+ *
+ * 双向滑动：
+ *   - 右滑（drag > +阈值） → 切换启用状态
+ *   - 左滑（drag < -阈值） → 触发删除流程（弹出确认 sheet）
+ *
+ * 阈值用 96dp —— 比 One UI 列表默认的 56dp 更保守，
+ * 因为删除是不可逆动作，需要给用户多一点「反悔空间」。
+ *
+ * 视觉：
+ *   - 滑动时卡片本体按手指位移 1:1 偏移
+ *   - 卡片下方露出彩色背景 + 圆角图标（启用 = accent；删除 = riskRisky）
+ *   - 释放后用 spring 物理回到原点
+ */
+@Composable
+private fun SwipeableRuleRow(
+    rule: AutomationRule,
+    onToggle: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val colors = NovaCareTheme.colors
+    // 滑动阈值：超过 96dp 即视为「commit」
+    val swipeThresholdPx = with(androidx.compose.ui.platform.LocalDensity.current) { 96.dp.toPx() }
+    // 当前拖动偏移（px）。用 mutableFloatStateOf 减少重组
+    var dragOffset by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    // 释放后的 spring 回到 0 用 animateFloatAsState
+    val animatedOffset by animateFloatAsState(
+        targetValue = dragOffset,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "swipeOffset",
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(MaterialTheme.shapes.large),
+    ) {
+        // 滑动时露出的背景层（彩色 + 图标）
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    if (animatedOffset >= 0) {
+                        colors.accent.copy(alpha = 0.18f)
+                    } else {
+                        colors.riskRisky.copy(alpha = 0.18f)
+                    }
+                )
+                .padding(horizontal = 28.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (animatedOffset >= 0) Arrangement.Start else Arrangement.End,
+        ) {
+            Icon(
+                imageVector = if (animatedOffset >= 0) {
+                    Icons.Outlined.Bolt
+                } else {
+                    Icons.Outlined.Delete
+                },
+                contentDescription = null,
+                tint = if (animatedOffset >= 0) {
+                    colors.accent
+                } else {
+                    colors.riskRisky
+                },
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (animatedOffset >= 0) {
+                    if (rule.enabled) "停用" else "启用"
+                } else {
+                    "删除"
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = if (animatedOffset >= 0) colors.accent else colors.riskRisky,
+            )
+        }
+
+        // 前景卡片本体 —— 用 offset 跟随手指
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { androidx.compose.ui.unit.IntOffset(animatedOffset.toInt(), 0) }
+                .pointerInput(rule.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            // 释放：超过阈值才提交动作，然后回弹
+                            when {
+                                dragOffset > swipeThresholdPx -> onToggle(!rule.enabled)
+                                dragOffset < -swipeThresholdPx -> onDelete()
+                                // 否则已经在 spring 回弹，无事可做
+                            }
+                            dragOffset = 0f
+                        },
+                        onDragCancel = { dragOffset = 0f },
+                        onHorizontalDrag = { _, delta ->
+                            // 累计偏移，但不让自己「超过太远」
+                            // （左右各加一个软上限防止误滑出屏幕）
+                            val next = (dragOffset + delta).coerceIn(-swipeThresholdPx * 1.6f, swipeThresholdPx * 1.6f)
+                            dragOffset = next
+                        },
+                    )
+                },
+        ) {
+            RuleCard(
+                rule = rule,
+                onToggle = onToggle,
+                onEdit = onEdit,
+                onDelete = onDelete,
+            )
+        }
+    }
+}
 
 @Composable
 private fun RuleCard(

@@ -1,8 +1,12 @@
 package com.novacare.feature.clean
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,13 +14,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -28,12 +38,21 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,12 +62,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -496,309 +519,320 @@ private fun ResultsScreen(
     } else {
         0f
     }
+    val listState = rememberLazyListState()
+    val hasAnyAdvice = plan.advices.isNotEmpty()
 
-    LazyColumn(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 10.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item(key = "now-bar") {
-            StaggerFlyIn(index = 0) {
-                NovaNowBar(
-                    title = "清理",
-                    subtitle = "扫描耗时 ${plan.scanDurationMs} ms · 共命中 ${plan.advices.size} 项",
-                    status = when {
-                        !state.engineAvailable -> NowBarStatus.Error
-                        plan.totalReclaimableBytes > 0L -> NowBarStatus.Healthy
-                        else -> NowBarStatus.Idle
-                    },
-                    trailing = {
-                        com.novacare.ui.designsystem.NowBarChip(
-                            text = "重扫",
-                            onClick = onRescan,
-                            accent = NovaCareTheme.colors.accent,
-                        )
-                    },
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-        }
-
-        // ---------- 引擎降级 / 授权缺口 ----------
-        if (!state.engineAvailable) {
-            item(key = "engine-notice") {
-                StaggerFlyIn(index = 1) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        InlineNotice(
-                            text = "扫描内核不可用 —— 下方的清单仅来自系统文件接口，" +
-                                "应用的缓存与卸载残留无法被识别。不显示任何估算数字。",
-                            tone = EmptyTone.Error,
-                            actionText = "重试",
-                            onAction = onRescan,
-                        )
-                    }
-                }
-            }
-        }
-        if (!state.usagePermissionGranted) {
-            item(key = "usage-notice") {
-                StaggerFlyIn(index = if (!state.engineAvailable) 2 else 1) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        InlineNotice(
-                            text = "未授予「使用情况访问」：无法判断哪些缓存属于长期未打开的应用，" +
-                                "因此应用缓存这类项目不会出现在清单里。",
-                            tone = EmptyTone.Warning,
-                            actionText = "去开启",
-                            onAction = { onGrant(MissingCapability.USAGE_STATS) },
-                            icon = Icons.Outlined.Timer,
-                        )
-                    }
-                }
-            }
-        }
-
-        // ---------- 概览 ----------
-        if (plan.advices.isEmpty()) {
-            item(key = "empty") {
-                StaggerFlyIn(index = 1) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        EmptyState(
-                            title = "没有找到可以清理的内容",
-                            message = buildString {
-                                append("已扫描 ")
-                                append(state.storageUsedBytes.formatBytes())
-                                append(" 已用空间。")
-                                if (!state.engineAvailable) {
-                                    append("注意：内核不可用，本次扫描的覆盖面不完整。")
-                                } else if (!includeRisky) {
-                                    append("如需包含需确认项，打开下方的开关后可以再次扫描。")
-                                }
-                            },
-                            icon = Icons.Outlined.CheckCircleOutline,
-                            tone = if (state.engineAvailable) EmptyTone.Success else EmptyTone.Warning,
-                            actionText = "重新扫描",
-                            onAction = onRescan,
-                        )
-                    }
-                }
-            }
-            item(key = "include-risky-empty") {
-                StaggerFlyIn(index = 2) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        ToggleRow(
-                            title = "包含需确认项",
-                            description = "日志、卸载残留等项目默认不参与清理，打开后可一并查看",
-                            checked = includeRisky,
-                            onCheckedChange = onIncludeRiskyChange,
-                        )
-                    }
-                }
-            }
-            return@LazyColumn
-        }
-
-        item(key = "overview") {
-            StaggerFlyIn(index = 1) {
-                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    OverviewCard(
-                        reclaimableBytes = plan.totalReclaimableBytes,
-                        ratio = junkRatio,
-                        totalBytes = state.storageTotalBytes,
-                        usedBytes = state.storageUsedBytes,
-                    )
-                }
-            }
-        }
-
-        item(key = "stat-row") {
-            StaggerFlyIn(index = 2) {
-                Row(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    StatCard(
-                        title = "安全可清",
-                        value = safeAdvices.sumOf { it.recommendedBytes }.formatBytes(),
-                        eyebrow = "默认勾选",
-                        unit = null,
-                        subtitle = "${safeAdvices.size} 项 · 删除无感知",
-                        icon = Icons.Outlined.CheckCircleOutline,
-                        accent = colors.riskSafe,
-                        onClick = { onSelectAll(true) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    StatCard(
-                        title = "需确认",
-                        value = cautionAdvices.sumOf { it.recommendedBytes }.formatBytes(),
-                        eyebrow = "手动开启",
-                        subtitle = if (cautionAdvices.isEmpty()) {
-                            "本次未发现"
-                        } else {
-                            "${cautionAdvices.size} 项 · 可能影响后台功能"
+    // 结构：Box 套 LazyColumn + 固定底部操作栏。
+    // 底栏只在「有清单可处理」时显示 —— 没有命中的空态不该让拇指去找一个空按钮。
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            // bottom = 110dp 给底部操作栏留位置 + 一点呼吸空间
+            contentPadding = PaddingValues(
+                start = 0.dp,
+                end = 0.dp,
+                top = 10.dp,
+                bottom = if (hasAnyAdvice) 110.dp else 24.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item(key = "now-bar") {
+                StaggerFlyIn(index = 0) {
+                    NovaNowBar(
+                        title = "清理",
+                        subtitle = "扫描耗时 ${plan.scanDurationMs} ms · 共命中 ${plan.advices.size} 项",
+                        status = when {
+                            !state.engineAvailable -> NowBarStatus.Error
+                            plan.totalReclaimableBytes > 0L -> NowBarStatus.Healthy
+                            else -> NowBarStatus.Idle
                         },
-                        icon = Icons.Outlined.WarningAmber,
-                        accent = colors.riskCaution,
-                        onClick = { onIncludeRiskyChange(true) },
-                        disabledReason = if (cautionAdvices.isEmpty()) "本次扫描未命中此类项目" else null,
-                        modifier = Modifier.weight(1f),
+                        trailing = {
+                            com.novacare.ui.designsystem.NowBarChip(
+                                text = "重扫",
+                                onClick = onRescan,
+                                accent = NovaCareTheme.colors.accent,
+                            )
+                        },
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
-        }
 
-        // ---------- 存储构成 ----------
-        if (state.storageCategories.isNotEmpty()) {
-            item(key = "storage-header") {
-                StaggerFlyIn(index = 3) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        SectionHeader(
-                            title = "存储构成",
-                            trailing = "内核分类${state.storageCategories.size} 类",
-                        )
+            // ---------- 引擎降级 / 授权缺口 ----------
+            if (!state.engineAvailable) {
+                item(key = "engine-notice") {
+                    StaggerFlyIn(index = 1) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            InlineNotice(
+                                text = "扫描内核不可用 —— 下方的清单仅来自系统文件接口，" +
+                                    "应用的缓存与卸载残留无法被识别。不显示任何估算数字。",
+                                tone = EmptyTone.Error,
+                                actionText = "重试",
+                                onAction = onRescan,
+                            )
+                        }
                     }
                 }
             }
-            item(key = "storage-card") {
-                StaggerFlyIn(index = 4) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        NovaCard {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                state.storageCategories.take(8).forEach { category ->
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        NovaProgressBar(
-                                            progress = category.ratio.toFloat().coerceIn(0f, 1f),
-                                            color = colors.accent.copy(alpha = 0.85f),
-                                        )
-                                        Spacer(Modifier.height(6.dp))
+            if (!state.usagePermissionGranted) {
+                item(key = "usage-notice") {
+                    StaggerFlyIn(index = if (!state.engineAvailable) 2 else 1) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            InlineNotice(
+                                text = "未授予「使用情况访问」：无法判断哪些缓存属于长期未打开的应用，" +
+                                    "因此应用缓存这类项目不会出现在清单里。",
+                                tone = EmptyTone.Warning,
+                                actionText = "去开启",
+                                onAction = { onGrant(MissingCapability.USAGE_STATS) },
+                                icon = Icons.Outlined.Timer,
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ---------- 概览 ----------
+            if (plan.advices.isEmpty()) {
+                item(key = "empty") {
+                    StaggerFlyIn(index = 1) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            EmptyState(
+                                title = "没有找到可以清理的内容",
+                                message = buildString {
+                                    append("已扫描 ")
+                                    append(state.storageUsedBytes.formatBytes())
+                                    append(" 已用空间。")
+                                    if (!state.engineAvailable) {
+                                        append("注意：内核不可用，本次扫描的覆盖面不完整。")
+                                    } else if (!includeRisky) {
+                                        append("如需包含需确认项，打开下方的开关后可以再次扫描。")
+                                    }
+                                },
+                                icon = Icons.Outlined.CheckCircleOutline,
+                                tone = if (state.engineAvailable) EmptyTone.Success else EmptyTone.Warning,
+                                actionText = "重新扫描",
+                                onAction = onRescan,
+                            )
+                        }
+                    }
+                }
+                item(key = "include-risky-empty") {
+                    StaggerFlyIn(index = 2) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            ToggleRow(
+                                title = "包含需确认项",
+                                description = "日志、卸载残留等项目默认不参与清理，打开后可一并查看",
+                                checked = includeRisky,
+                                onCheckedChange = onIncludeRiskyChange,
+                            )
+                        }
+                    }
+                }
+                // 注意：这里不再 return@LazyColumn —— Box 容器会自然处理空态无底栏的情况。
+            } else {
+                item(key = "overview") {
+                    StaggerFlyIn(index = 1) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            OverviewCard(
+                                reclaimableBytes = plan.totalReclaimableBytes,
+                                ratio = junkRatio,
+                                totalBytes = state.storageTotalBytes,
+                                usedBytes = state.storageUsedBytes,
+                            )
+                        }
+                    }
+                }
+
+                item(key = "stat-row") {
+                    StaggerFlyIn(index = 2) {
+                        Row(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            StatCard(
+                                title = "安全可清",
+                                value = safeAdvices.sumOf { it.recommendedBytes }.formatBytes(),
+                                eyebrow = "默认勾选",
+                                unit = null,
+                                subtitle = "${safeAdvices.size} 项 · 删除无感知",
+                                icon = Icons.Outlined.CheckCircleOutline,
+                                accent = colors.riskSafe,
+                                onClick = { onSelectAll(true) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            StatCard(
+                                title = "需确认",
+                                value = cautionAdvices.sumOf { it.recommendedBytes }.formatBytes(),
+                                eyebrow = "手动开启",
+                                subtitle = if (cautionAdvices.isEmpty()) {
+                                    "本次未发现"
+                                } else {
+                                    "${cautionAdvices.size} 项 · 可能影响后台功能"
+                                },
+                                icon = Icons.Outlined.WarningAmber,
+                                accent = colors.riskCaution,
+                                onClick = { onIncludeRiskyChange(true) },
+                                disabledReason = if (cautionAdvices.isEmpty()) "本次扫描未命中此类项目" else null,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+
+                // ---------- 存储构成 ----------
+                if (state.storageCategories.isNotEmpty()) {
+                    item(key = "storage-header") {
+                        StaggerFlyIn(index = 3) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                SectionHeader(
+                                    title = "存储构成",
+                                    trailing = "内核分类${state.storageCategories.size} 类",
+                                )
+                            }
+                        }
+                    }
+                    item(key = "storage-card") {
+                        StaggerFlyIn(index = 4) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                NovaCard {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        state.storageCategories.take(8).forEach { category ->
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                NovaProgressBar(
+                                                    progress = category.ratio.toFloat().coerceIn(0f, 1f),
+                                                    color = colors.accent.copy(alpha = 0.85f),
+                                                )
+                                                Spacer(Modifier.height(6.dp))
+                                                KeyValueRow(
+                                                    key = category.name,
+                                                    value = "${category.bytes.formatBytes()} · " +
+                                                        "${"%.1f".format(category.ratio * 100)}%",
+                                                )
+                                            }
+                                            Spacer(Modifier.height(8.dp))
+                                        }
+                                        Spacer(Modifier.height(2.dp))
                                         KeyValueRow(
-                                            key = category.name,
-                                            value = "${category.bytes.formatBytes()} · " +
-                                                "${"%.1f".format(category.ratio * 100)}%",
+                                            key = "已用 / 总量",
+                                            value = "${state.storageUsedBytes.formatBytes()} / " +
+                                                state.storageTotalBytes.formatBytes(),
                                         )
                                     }
-                                    Spacer(Modifier.height(8.dp))
                                 }
-                                Spacer(Modifier.height(2.dp))
-                                KeyValueRow(
-                                    key = "已用 / 总量",
-                                    value = "${state.storageUsedBytes.formatBytes()} / " +
-                                        state.storageTotalBytes.formatBytes(),
+                            }
+                        }
+                    }
+                } else if (state.engineAvailable) {
+                    item(key = "storage-empty") {
+                        StaggerFlyIn(index = 3) {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                InlineNotice(
+                                    text = "内核没有返回存储分类明细。这不代表磁盘是空的 —— " +
+                                        "只是本次扫描没能拿到分类数据。",
+                                    tone = EmptyTone.Neutral,
+                                    icon = Icons.Outlined.PieChart,
                                 )
                             }
                         }
                     }
                 }
-            }
-        } else if (state.engineAvailable) {
-            item(key = "storage-empty") {
-                StaggerFlyIn(index = 3) {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        InlineNotice(
-                            text = "内核没有返回存储分类明细。这不代表磁盘是空的 —— " +
-                                "只是本次扫描没能拿到分类数据。",
-                            tone = EmptyTone.Neutral,
-                            icon = Icons.Outlined.PieChart,
-                        )
+
+                // ---------- 清单：按风险等级分组 ----------
+                item(key = "tools-header") {
+                    StaggerFlyIn(index = 5) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            SectionHeader(title = "清理范围")
+                        }
+                    }
+                }
+
+                item(key = "tools") {
+                    StaggerFlyIn(index = 6) {
+                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            ToggleRow(
+                                title = "包含需确认 / 有风险项",
+                                description = "默认只列确定安全的内容。打开后可以自行判断并勾选。",
+                                checked = includeRisky,
+                                onCheckedChange = onIncludeRiskyChange,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            ToggleRow(
+                                title = "移入回收站而不是直接删除",
+                                description = if (moveToRecycleBin) {
+                                    "文件会被移入回收站，7 天内可撤销"
+                                } else {
+                                    "当前由清理引擎决定删除方式；可在此确认撤销窗口"
+                                },
+                                checked = moveToRecycleBin,
+                                onCheckedChange = onMoveToRecycleBinChange,
+                            )
+                        }
+                    }
+                }
+
+                adviceGroup(
+                    keyPrefix = "safe",
+                    title = "可安全清理",
+                    hint = "命中 ${safeAdvices.size} 项 · ${safeAdvices.sumOf { it.recommendedBytes }.formatBytes()}",
+                    advices = safeAdvices,
+                    selected = selected,
+                    onToggle = onToggle,
+                    onSelectAll = onSelectAll,
+                )
+
+                adviceGroup(
+                    keyPrefix = "caution",
+                    title = "需要确认",
+                    hint = "命中 ${cautionAdvices.size} 项 · ${cautionAdvices.sumOf { it.recommendedBytes }.formatBytes()}",
+                    advices = cautionAdvices,
+                    selected = selected,
+                    onToggle = onToggle,
+                    onSelectAll = onSelectAll,
+                    emptyHint = if (includeRisky) {
+                        "这一类本次没有命中项目"
+                    } else {
+                        "当前未展开：打开上方的「包含需确认项」后会重新计算"
+                    },
+                )
+
+                adviceGroup(
+                    keyPrefix = "risky",
+                    title = "有风险",
+                    hint = "命中 ${riskyAdvices.size} 项 · ${riskyAdvices.sumOf { it.recommendedBytes }.formatBytes()}",
+                    advices = riskyAdvices,
+                    selected = selected,
+                    onToggle = onToggle,
+                    onSelectAll = onSelectAll,
+                    emptyHint = "这一类本次没有命中项目",
+                )
+
+                item(key = "footer") {
+                    StaggerFlyIn(index = 100) {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Text(
+                                text = "所有判断都在本机完成。清单中的每一项都能回溯它的来源与代价。",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // ---------- 清单：按风险等级分组 ----------
-        item(key = "tools-header") {
-            StaggerFlyIn(index = 5) {
-                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    SectionHeader(title = "清理范围")
-                }
-            }
-        }
-
-        item(key = "tools") {
-            StaggerFlyIn(index = 6) {
-                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    ToggleRow(
-                        title = "包含需确认 / 有风险项",
-                        description = "默认只列确定安全的内容。打开后可以自行判断并勾选。",
-                        checked = includeRisky,
-                        onCheckedChange = onIncludeRiskyChange,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    ToggleRow(
-                        title = "移入回收站而不是直接删除",
-                        description = if (moveToRecycleBin) {
-                            "文件会被移入回收站，7 天内可撤销"
-                        } else {
-                            "当前由清理引擎决定删除方式；可在此确认撤销窗口"
-                        },
-                        checked = moveToRecycleBin,
-                        onCheckedChange = onMoveToRecycleBinChange,
-                    )
-                }
-            }
-        }
-
-        adviceGroup(
-            keyPrefix = "safe",
-            title = "可安全清理",
-            hint = "命中 ${safeAdvices.size} 项 · ${safeAdvices.sumOf { it.recommendedBytes }.formatBytes()}",
-            advices = safeAdvices,
-            selected = selected,
-            onToggle = onToggle,
-            onSelectAll = onSelectAll,
-        )
-
-        adviceGroup(
-            keyPrefix = "caution",
-            title = "需要确认",
-            hint = "命中 ${cautionAdvices.size} 项 · ${cautionAdvices.sumOf { it.recommendedBytes }.formatBytes()}",
-            advices = cautionAdvices,
-            selected = selected,
-            onToggle = onToggle,
-            onSelectAll = onSelectAll,
-            emptyHint = if (includeRisky) {
-                "这一类本次没有命中项目"
-            } else {
-                "当前未展开：打开上方的「包含需确认项」后会重新计算"
-            },
-        )
-
-        adviceGroup(
-            keyPrefix = "risky",
-            title = "有风险",
-            hint = "命中 ${riskyAdvices.size} 项 · ${riskyAdvices.sumOf { it.recommendedBytes }.formatBytes()}",
-            advices = riskyAdvices,
-            selected = selected,
-            onToggle = onToggle,
-            onSelectAll = onSelectAll,
-            emptyHint = "这一类本次没有命中项目",
-        )
-
-        // ---------- 执行 ----------
-        item(key = "execute") {
-            StaggerFlyIn(index = 99) {
-                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    PrimaryAction(
-                        text = if (selected.isEmpty()) "请至少选择一项" else "执行清理",
-                        subtitle = if (selected.isEmpty()) {
-                            "共 ${plan.advices.size} 项可处理，当前一项都没选"
-                        } else {
-                            "已选 ${selected.size} 项 · 预计释放 ${selectedBytes.formatBytes()}"
-                        },
-                        enabled = selected.isNotEmpty(),
-                        onClick = onExecute,
-                    )
-                }
-            }
-        }
-
-        item(key = "footer") {
-            StaggerFlyIn(index = 100) {
-                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    Text(
-                        text = "所有判断都在本机完成。清单中的每一项都能回溯它的来源与代价。",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+        // ---------- 底部固定操作栏（One UI 9.5 Bottom Action Bar） ----------
+        // 替换原本散在 LazyColumn 末尾的 PrimaryAction。
+        // 滚动方向感知：向下滚动超过阈值时收起（让出阅读空间），
+        // 向上滚动或回到顶部时展开（释放动作），弹性弹簧贯穿整个生命周期。
+        if (hasAnyAdvice) {
+            CleanBottomActionBar(
+                selectedCount = selected.size,
+                selectedBytes = selectedBytes,
+                totalCount = plan.advices.size,
+                totalReclaimableBytes = plan.totalReclaimableBytes,
+                onExecute = onExecute,
+                listState = listState,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
@@ -846,11 +880,271 @@ private fun androidx.compose.foundation.lazy.LazyListScope.adviceGroup(
         key = { index -> "$keyPrefix-${advices[index].key()}" },
     ) { index ->
         val advice = advices[index]
-        AdviceRow(
+        SwipeableAdviceRow(
             advice = advice,
             checked = advice.key() in selected,
             onToggle = { onToggle(advice.key()) },
         )
+    }
+}
+
+/**
+ * 可滑动的清理建议行 —— One UI 9/9.5 的 swipe-to-select 范式。
+ *
+ * 与 Material 默认长按弹出菜单相反，One UI 的列表项手势是：
+ *   - **右滑过阈值** → 切换勾选状态（弹回原点）
+ *   - 滑动时实时露出底色 + 勾选图标，给用户「我正在做什么」的视觉反馈
+ *
+ * 阈值 96dp —— 比 One UI 系统级略保守，因为清理是不可撤销动作。
+ */
+@Composable
+private fun SwipeableAdviceRow(
+    advice: CleanAdvice,
+    checked: Boolean,
+    onToggle: () -> Unit,
+) {
+    val colors = NovaCareTheme.colors
+    val density = LocalDensity.current
+    val swipeThresholdPx = with(density) { 96.dp.toPx() }
+    var dragOffset by remember(advice.key()) { mutableFloatStateOf(0f) }
+    val animatedOffset by animateFloatAsState(
+        targetValue = dragOffset,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "adviceSwipe",
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(MaterialTheme.shapes.large),
+    ) {
+        // 右滑时露出的背景：accent 浅底 + 左侧勾选图标
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .background(colors.accent.copy(alpha = 0.14f))
+                .padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.CheckBox,
+                contentDescription = null,
+                tint = colors.accent,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (checked) "取消选择" else "选择",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.accent,
+            )
+        }
+
+        // 前景卡片：跟随手指偏移，松手 spring 回弹
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .pointerInput(advice.key()) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragOffset > swipeThresholdPx) onToggle()
+                            // 没到阈值：已经在 spring 回弹
+                            dragOffset = 0f
+                        },
+                        onDragCancel = { dragOffset = 0f },
+                        onHorizontalDrag = { _, delta ->
+                            // 仅支持右滑（One UI 单向列表选择手势）；
+                            // 反向拖拽加阻力（×0.2）让用户感到「这不是要删除」
+                            val resisted = if (delta < 0) delta * 0.2f else delta
+                            dragOffset = (dragOffset + resisted)
+                                .coerceIn(0f, swipeThresholdPx * 1.6f)
+                        },
+                    )
+                },
+        ) {
+            AdviceRow(
+                advice = advice,
+                checked = checked,
+                onToggle = onToggle,
+            )
+        }
+    }
+}
+
+/**
+ * 底部固定操作栏（One UI 9.5 Bottom Action Bar）。
+ *
+ * 关键差异：
+ *   1. **永远在拇指可及的位置** —— 不在内容里、不随滚动出画
+ *   2. **滚动感知收起/展开** —— 向下滚动让位给阅读，向上滚动时用 spring 弹出
+ *   3. **不规则圆角顶部** —— 28dp 大圆角，从内容里「软着陆」到底栏
+ *   4. **大号执行按钮（56dp）** —— 唯一强调色填充，全屏只有这一处
+ */
+@Composable
+private fun CleanBottomActionBar(
+    selectedCount: Int,
+    selectedBytes: Long,
+    totalCount: Int,
+    totalReclaimableBytes: Long,
+    onExecute: () -> Unit,
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = NovaCareTheme.colors
+    val canExecute = selectedCount > 0
+    val density = LocalDensity.current
+
+    // 滚动方向感知：
+    //   - 向下滚动（delta > +阈值） → 收起（让位给阅读）
+    //   - 向上滚动（delta < -阈值） → 展开
+    //   - 回到顶部 → 强制展开
+    // 用 derivedStateOf 让方向只在真正变化时重组
+    var isCollapsed by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val isAtTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
+    }
+    var lastOffset by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemScrollOffset to listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collectLatest { (offset, _) ->
+                if (isAtTop) {
+                    isCollapsed = false
+                } else {
+                    val delta = offset - lastOffset
+                    // 阈值 24dp：微小滑动不算意图
+                    val thresholdPx = with(density) { 24.dp.toPx() }.toInt()
+                    when {
+                        delta > thresholdPx -> isCollapsed = true
+                        delta < -thresholdPx -> isCollapsed = false
+                    }
+                }
+                lastOffset = offset
+            }
+    }
+
+    // 展开态偏移 = 0dp；收起态 = 88dp 向下移出（贴底隐藏，只露顶部边缘的把手视觉）
+    val targetOffsetDp = if (isCollapsed) 88.dp else 0.dp
+    val collapseAnim by animateFloatAsState(
+        targetValue = with(density) { targetOffsetDp.toPx() },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "barCollapse",
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .offset { IntOffset(0, collapseAnim.roundToInt()) },
+        // 不规则圆角：上边大圆角（28dp），下边直角（贴 nav bar）
+        shape = RoundedCornerShape(
+            topStart = 28.dp,
+            topEnd = 28.dp,
+            bottomStart = 0.dp,
+            bottomEnd = 0.dp,
+        ),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.hairline),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+        ) {
+            // 顶部摘要行：已选 N / 共 X 项；右侧显示预计释放量
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (selectedCount == 0) {
+                            "未选中任何项"
+                        } else {
+                            "已选 $selectedCount 项"
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = if (canExecute) {
+                            "预计释放 ${selectedBytes.formatBytes()} · 共 $totalCount 项"
+                        } else {
+                            "滑动清单右滑勾选 · 共可处理 $totalCount 项，" +
+                                "全部预计释放 ${totalReclaimableBytes.formatBytes()}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (canExecute) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                        .then(
+                            if (canExecute) {
+                                Modifier.clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    role = Role.Button,
+                                    onClick = onExecute,
+                                )
+                            } else Modifier
+                        )
+                        .semantics {
+                            contentDescription = if (canExecute) {
+                                "执行清理，预计释放 ${selectedBytes.formatBytes()}"
+                            } else {
+                                "请先勾选要清理的项目"
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.FolderDelete,
+                        contentDescription = null,
+                        tint = if (canExecute) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // 主 CTA（One UI 风格：圆角胶囊 + 副标题）
+            PrimaryAction(
+                text = if (selectedCount == 0) "请至少选择一项" else "执行清理",
+                subtitle = if (canExecute) {
+                    "释放 ${selectedBytes.formatBytes()} · 7 天内可在回收站撤销"
+                } else {
+                    "共 $totalCount 项可处理 · 右滑列表项可快速勾选"
+                },
+                enabled = canExecute,
+                onClick = onExecute,
+            )
+        }
     }
 }
 

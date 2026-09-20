@@ -1,5 +1,8 @@
 package com.novacare.app.settings
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.BugReport
@@ -41,7 +45,6 @@ import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -57,6 +60,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,9 +74,7 @@ import com.novacare.ui.designsystem.InlineNotice
 import com.novacare.ui.designsystem.KeyValueRow
 import com.novacare.ui.designsystem.NovaCard
 import com.novacare.ui.designsystem.NovaCareTheme
-import com.novacare.ui.designsystem.NovaNowBar
 import com.novacare.ui.designsystem.NowBarChip
-import com.novacare.ui.designsystem.NowBarStatus
 import com.novacare.ui.designsystem.SectionHeader
 import com.novacare.ui.designsystem.SecondaryAction
 import com.novacare.ui.designsystem.StaggerFlyIn
@@ -129,32 +131,26 @@ fun SettingsScreen(
             contentPadding = PaddingValues(
                 start = 0.dp,
                 end = 0.dp,
-                top = 10.dp,
+                top = 0.dp,
                 bottom = 24.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // ---------- 顶栏（NowBar 形态） ----------
+            // ---------- 顶栏 —— One UI 9/9.5 不规则圆角 TopAppBar ----------
             item(key = "topbar") {
                 StaggerFlyIn(index = 0) {
-                    // v0.7.2 视觉统一：用 NowBar 替代 BackAffordance + 角落大标题
-                    NovaNowBar(
-                        title = "设置",
+                    SettingsTopBar(
+                        onBack = onBack,
                         subtitle = if (capabilities.none { !it.granted }) {
                             "所有必需权限均已授予"
                         } else {
                             "${capabilities.count { !it.granted }} 项权限尚未授予"
                         },
-                        status = if (capabilities.none { !it.granted }) {
-                            NowBarStatus.Healthy
+                        accent = if (capabilities.none { !it.granted }) {
+                            NovaCareTheme.colors.healthGood
                         } else {
-                            NowBarStatus.Warning
+                            NovaCareTheme.colors.riskCaution
                         },
-                        leading = {
-                            // 24dp 小圆形返回按钮 —— 与呼吸点同高，视觉一致
-                            NowBarBackChip(onBack = onBack)
-                        },
-                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
@@ -474,32 +470,83 @@ fun SettingsScreen(
 // ------------------------------------------------------------
 
 /**
- * 设置页顶栏用的小返回按钮（24dp 圆）。
- * 比 BackAffordance 更紧凑，能塞进 NowBar 的 leading 槽位，与呼吸点共存。
+ * One UI 9/9.5 风格的不规则圆角 TopAppBar。
+ *
+ * 上一版用的是 NovaNowBar —— 那是一个 44dp 高的体征浮条（呼吸点 + 状态色），
+ * 适合放在屏幕中段表达"系统在做什么"，但放在页面顶部会显得太低调，
+ * 用户看不出"我已经进入了设置页"。
+ *
+ * 这一版的关键差异：
+ *   1. **真正的 AppBar 高度**（72dp + 状态栏） —— 跟内容建立明显的层级关系
+ *   2. **不规则圆角的下边缘** —— 两侧 28dp 大圆角，中央无圆角
+ *      （而不是四周同半径），模拟 One UI 的「软着陆」视觉语言
+ *   3. **底部一条 1dp 强调色描边** —— 替代 NowBar 的彩色边缘高光
+ *      仍然是状态色，但用横线而非发光
  */
 @Composable
-private fun NowBarBackChip(onBack: () -> Unit) {
+private fun SettingsTopBar(
+    onBack: () -> Unit,
+    subtitle: String,
+    accent: androidx.compose.ui.graphics.Color,
+) {
     val colors = NovaCareTheme.colors
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .clip(CircleShape)
-            .background(colors.accent.copy(alpha = 0.14f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                role = Role.Button,
-                onClick = onBack,
-            )
-            .semantics { contentDescription = "返回" },
-        contentAlignment = Alignment.Center,
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        // 不规则圆角：上边直角，下边两侧大圆角
+        shape = RoundedCornerShape(
+            topStart = 0.dp,
+            topEnd = 0.dp,
+            bottomStart = 28.dp,
+            bottomEnd = 28.dp,
+        ),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        border = BorderStroke(1.dp, colors.hairline),
     ) {
-        Icon(
-            imageVector = Icons.Outlined.ArrowBack,
-            contentDescription = null,
-            tint = colors.accent,
-            modifier = Modifier.size(15.dp),
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding(),
+        ) {
+            // 主行：返回按钮 + 大标题
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BackAffordance(onBack = onBack)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "设置",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // 副标题行：状态色短点 + 当前权限状态描述
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 24.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(accent),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -527,6 +574,88 @@ private fun BackAffordance(onBack: () -> Unit) {
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+// ------------------------------------------------------------
+// 圆形滑块开关（One UI 9/9.5 风格）
+// ------------------------------------------------------------
+
+/**
+ * One UI 9/9.5 风格的圆形滑块开关。
+ *
+ * 与 Material3 Switch 的关键差异：
+ *   1. **圆形 thumb**：thumb 是正圆（26dp），而不是 M3 的胶囊
+ *      —— 跟整套设计系统的圆形语言统一
+ *   2. **颜色滑过阈值才渐变**：thumb 颜色从灰到 accent 的过渡不是瞬时，
+ *      而是跟 thumb 的位移同步，让"我推过中点了"有视觉反馈
+ *   3. **spring 物理**：toggle 后 thumb 用 spring 回到对应端点
+ *
+ * 这是一个全屏组件，影响整个设置页风险最高的两个开关（高级模式 / 云端 AI），
+ * 因此需要确认感的「动作 + 状态变化」必须明显。
+ */
+@Composable
+private fun RoundPillSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    activeColor: androidx.compose.ui.graphics.Color = NovaCareTheme.colors.accent,
+) {
+    val colors = NovaCareTheme.colors
+    val trackWidth = 56.dp
+    val trackHeight = 32.dp
+    val thumbSize = 26.dp
+
+    // 用 0f..1f 表达「thumb 的归一化位置」—— 0 = 关，1 = 开
+    // 滑动时跟着手指走，松手时按目标状态 spring 回位
+    val target by animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "pillSwitch",
+    )
+    // 0..1 映射成 thumb 在轨道内的水平偏移（dp）
+    val paddingInside = (trackHeight - thumbSize) / 2f
+    val maxOffset = trackWidth - thumbSize - paddingInside * 2f
+
+    Box(
+        modifier = modifier
+            .size(width = trackWidth, height = trackHeight)
+            .clip(CircleShape)
+            .background(
+                androidx.compose.ui.graphics.lerp(
+                    colors.ringTrack,
+                    activeColor.copy(alpha = 0.85f),
+                    target,
+                )
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Switch,
+                onClick = { onCheckedChange(!checked) },
+            )
+            .semantics {
+                contentDescription = if (checked) "已开启" else "已关闭"
+                role = Role.Switch
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(start = paddingInside + maxOffset * target)
+                .padding(vertical = paddingInside)
+                .size(thumbSize)
+                .clip(CircleShape)
+                .background(
+                    androidx.compose.ui.graphics.lerp(
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                        MaterialTheme.colorScheme.onPrimary,
+                        target,
+                    )
+                ),
         )
     }
 }
@@ -587,7 +716,7 @@ private fun AdvancedModeCard(
                     color = if (enabled) colors.riskCaution else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Switch(
+            RoundPillSwitch(
                 checked = enabled,
                 onCheckedChange = { next ->
                     // 开启方向需要一次确认：这是权限边界的变化，不该一点就生效
@@ -596,6 +725,7 @@ private fun AdvancedModeCard(
                 modifier = Modifier.semantics {
                     contentDescription = if (enabled) "关闭高级模式" else "开启高级模式"
                 },
+                activeColor = colors.riskCaution,
             )
         }
 
@@ -786,12 +916,13 @@ private fun CloudAiCard(
                     color = if (enabled) colors.riskCaution else colors.healthGood,
                 )
             }
-            Switch(
+            RoundPillSwitch(
                 checked = enabled,
                 onCheckedChange = onToggle,
                 modifier = Modifier.semantics {
                     contentDescription = if (enabled) "关闭云端 AI" else "开启云端 AI"
                 },
+                activeColor = colors.riskCaution,
             )
         }
 
