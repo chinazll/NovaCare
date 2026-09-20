@@ -14,7 +14,7 @@ android {
         applicationId = "com.novacare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 10
+        versionCode = 7
         versionName = "0.9.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

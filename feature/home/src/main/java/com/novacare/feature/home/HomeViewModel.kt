@@ -174,8 +174,16 @@ class HomeViewModel @Inject constructor(
         val plan = currentPlan ?: return
         viewModelScope.launch {
             _state.value = UiState.Executing
-            val advanced = settings.settings.first().advancedMode
-            val result = executePlan(plan, _selected.value, advanced)
+            val advanced = runCatching { settings.settings.first().advancedMode }.getOrDefault(false)
+            // 执行计划必须 runCatching —— executePlan 内部会碰 RecycleBin / Shizuku shell，
+            // 任一 IO / SecurityException / UnsatisfiedLinkError 都不能让 App 闪退，
+            // 而应落到 Error 状态如实展示。
+            val result = runCatching {
+                executePlan(plan, _selected.value, advanced)
+            }.getOrElse { e ->
+                _state.value = UiState.Error(e.message ?: "执行清理失败，请重试")
+                return@launch
+            }
             // 记一条清理历史：SuggestionEngine 的「距上次清理多久」依赖它，
             // 不写库就永远是 null → 建议引擎恒定走"从未清理"分支。
             runCatching {

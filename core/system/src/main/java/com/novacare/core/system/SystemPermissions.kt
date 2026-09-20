@@ -99,10 +99,21 @@ class SystemPermissions @Inject constructor(
         }
     }
 
-    /** Shizuku 是否已通过 ADB 启动并授权（冻结功能的最强通道） */
+    /**
+     * Shizuku 是否可用（冻结 / 高级清理的最强通道）。
+     *
+     * 必须同时满足两个条件，缺一不可：
+     *   1. Shizuku 进程已启动（binder 可达）；
+     *   2. 已授权本应用（checkSelfPermission == PERMISSION_GRANTED）。
+     * 上一版只查 binder：用户装了 Shizuku 但没点「允许」时会被误判为可用，
+     * UI 据此展示「可一键冻结」，真正执行时 shell.run 却静默返回 false ——
+     * 这是「功能看起来有、点了没反应」的直接根因。
+     */
     fun isShizukuAvailable(): Boolean = runCatching {
         val cls = Class.forName("rikka.shizuku.Shizuku")
-        cls.getMethod("getBinder").invoke(null) != null
+        val binder = cls.getMethod("getBinder").invoke(null) ?: return@runCatching false
+        val granted = cls.getMethod("checkSelfPermission").invoke(null) as? Int
+        granted == PackageManager.PERMISSION_GRANTED
     }.getOrDefault(false)
 
     // ============================================================

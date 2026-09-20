@@ -125,6 +125,10 @@ fun CleanScreen(
                         NovaTap(view)
                         viewModel.setMoveToRecycleBin(e)
                     },
+                    onExecute = {
+                        NovaSuccess(view.context)
+                        viewModel.execute()
+                    },
                 )
 
                 CleanViewModel.UiState.Executing -> ExecutingHero()
@@ -335,6 +339,7 @@ private fun ResultsView(
     onSelectAll: (Boolean) -> Unit,
     onIncludeRiskyChange: (Boolean) -> Unit,
     onMoveToRecycleBinChange: (Boolean) -> Unit,
+    onExecute: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val view = LocalView.current
@@ -469,8 +474,7 @@ private fun ResultsView(
                     contentColor = if (selected.isNotEmpty()) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
                     onClick = {
                         if (selected.isNotEmpty()) {
-                            NovaSuccess(view.context)
-                            // 释放入口
+                            onExecute()
                         }
                     },
                 ) {
