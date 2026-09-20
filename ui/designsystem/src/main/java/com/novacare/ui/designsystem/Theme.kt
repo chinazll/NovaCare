@@ -215,123 +215,138 @@ private val DarkScheme = darkColorScheme(
 // 比硬塞 Web 字体更可靠，且不破坏系统中文渲染。
 // ============================================================
 
+// ============================================================
+// OneUI 严格 7 档字号 (实测：11/13/15/17/22/28/35 sp)
+//
+// 关键差异（vs Material3 默认 14 档）：
+//   - 中间档全部被删。OneUI 不存在 19sp / 21sp / 25sp 这种"我以为差不多"的档位。
+//   - Display = 35sp W200 lineHeight 38 letterSpacing -0.02：仅 hero 数字 / super-hero 标题
+//   - Headline = 22sp W600 lineHeight 28 -0.01：屏标题 / 章节标题
+//   - Title = 17sp W600 lineHeight 26：卡片标题 / 主按钮文字
+//   - BodyLarge = 15sp Normal lineHeight 24 +0.01：正文（中文 1.6 行高）
+//   - Body = 13sp Normal lineHeight 22 +0.015：列表副文 / 说明
+//   - Caption = 11sp Normal lineHeight 16 +0.04：微文 / 元信息
+//   - Label = 11sp W600 +0.08 字距：分区眉标 / 状态 chip
+// ============================================================
 private val NovaTypography = Typography(
-    // 健康分数：超大、极细、超紧字距 —— 全应用视觉主角
     displayLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W200,
-        fontSize = 64.sp,
-        lineHeight = 66.sp,
-        letterSpacing = (-0.04).sp,
+        fontSize = 35.sp,
+        lineHeight = 38.sp,
+        letterSpacing = (-0.02).sp,
     ),
     displayMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.W200,
-        fontSize = 48.sp,
-        lineHeight = 52.sp,
-        letterSpacing = (-0.03).sp,
+        fontWeight = FontWeight.W300,
+        fontSize = 28.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.015).sp,
     ),
     displaySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W300,
-        fontSize = 36.sp,
-        lineHeight = 42.sp,
-        letterSpacing = (-0.02).sp,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.01).sp,
     ),
     headlineLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 30.sp,
-        lineHeight = 38.sp,
-        letterSpacing = (-0.02).sp,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.01).sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 25.sp,
-        lineHeight = 32.sp,
-        letterSpacing = (-0.015).sp,
+        fontSize = 17.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 0.sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 21.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.01).sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.005.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 19.sp,
-        lineHeight = 26.sp,
+        fontSize = 17.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 16.sp,
+        fontSize = 15.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.01.sp,
+        letterSpacing = 0.005.sp,
     ),
     titleSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W500,
-        fontSize = 14.sp,
+        fontSize = 13.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.01.sp,
     ),
-    // 中文正文：行高 ≥ 1.6，字距 0.01em —— 中文比拉丁文需要更多呼吸
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 26.sp,
+        fontSize = 15.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.01.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 23.sp,
-        letterSpacing = 0.01.sp,
+        fontSize = 13.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.015.sp,
     ),
     bodySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.5.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.015.sp,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.04.sp,
     ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
-        fontSize = 14.sp,
+        fontSize = 15.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.02.sp,
+        letterSpacing = 0.005.sp,
     ),
     labelMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W500,
-        fontSize = 12.sp,
+        fontSize = 13.sp,
         lineHeight = 16.sp,
         letterSpacing = 0.04.sp,
     ),
-    // 分区眉标 / 状态 chip：全大写 + 大字距
     labelSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.W600,
         fontSize = 11.sp,
-        lineHeight = 15.sp,
+        lineHeight = 14.sp,
         letterSpacing = 0.08.sp,
     ),
 )
 
-// 圆角体系：现代 Android 用大圆角承载卡片，用超大圆角承载主操作
+// 圆角体系：OneUI 4 档 + 胶囊
+//   xs=8  小元素（缩略图、勾选框）
+//   sm=14 按钮 / 输入框 / 列表项底色
+//   md=20 标准卡片
+//   lg=26 大卡片 / 浮层
+//   胶囊 9999 仅 dock / 强调按钮
 private val NovaShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(18.dp),
-    large = RoundedCornerShape(24.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(26.dp),
     extraLarge = RoundedCornerShape(32.dp),
 )
 
