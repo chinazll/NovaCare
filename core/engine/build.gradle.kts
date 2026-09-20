@@ -82,11 +82,18 @@ val requireNativeLibs = tasks.register("requireNativeLibs") {
     }
 }
 
-// 让所有打包/编译路径都先过这道守卫
+// .so 守卫策略：
+//   - assembleDebug  → 跳过守卫，打一个不带 .so 的 APK（引擎降级，但 UI 可验证）
+//   - assembleRelease → 必须有真实 .so，才允许打包
+// 这样 debug 开发流程不被阻断，release 产出前必有 CI 编译 Rust
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }
-    .configureEach { dependsOn(requireNativeLibs) }
+    .configureEach {
+        if (name.contains("Release")) dependsOn(requireNativeLibs)
+    }
 tasks.matching { it.name == "preBuild" }
-    .configureEach { dependsOn(requireNativeLibs) }
+    .configureEach {
+        if (name.contains("Release")) dependsOn(requireNativeLibs)
+    }
 
 dependencies {
     implementation(project(":core:model"))
