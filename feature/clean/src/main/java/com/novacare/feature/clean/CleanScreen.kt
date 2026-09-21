@@ -69,6 +69,8 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
+import com.novacare.ui.designsystem.OneUiRadius
+import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
  * 清理页 —— OneUI 9.5 真实设计语言。
@@ -204,13 +206,13 @@ fun CleanScreen(
 @Composable
 private fun IdleHero(onScan: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "清理",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "扫一下，看看你能释放多少空间",
             style = MaterialTheme.typography.bodyLarge,
@@ -221,7 +223,7 @@ private fun IdleHero(onScan: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = onScan,
@@ -239,13 +241,13 @@ private fun IdleHero(onScan: () -> Unit) {
 @Composable
 private fun ScanningHero() {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "正在扫描",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "分析存储、缓存与残留文件",
             style = MaterialTheme.typography.bodyLarge,
@@ -263,24 +265,24 @@ private fun ScanningHero() {
 @Composable
 private fun FailedHero(message: String, onRetry: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "扫描失败",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = onRetry,
@@ -298,13 +300,13 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
 @Composable
 private fun ExecutingHero() {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "正在释放",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "请保持 NovaCare 在前台",
             style = MaterialTheme.typography.bodyLarge,
@@ -333,7 +335,7 @@ private fun DoneHero(
     // 一项都没真正释放、只是把用户引导去了系统设置页时，
     // 不能用「已释放 0 B」冒充清理过 —— 那是「点了释放像没生效」的观感来源。
     val manualOnly = freedBytes == 0L && succeededCount == 0 && needsManualCount > 0
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = if (manualOnly) {
                 "已引导 $needsManualCount 项去系统设置页"
@@ -343,7 +345,7 @@ private fun DoneHero(
             style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
             color = if (manualOnly) cs.onSurface else colors.healthGood,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = buildString {
                 if (manualOnly) {
@@ -370,7 +372,7 @@ private fun DoneHero(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = onDone,
@@ -386,7 +388,7 @@ private fun DoneHero(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(OneUiRadius.Medium))
                 .clickable { onRescan() }
                 .padding(vertical = 14.dp),
             horizontalArrangement = Arrangement.Center,
@@ -431,7 +433,7 @@ private fun ResultsView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = OneUiSpacing.BlockGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -459,7 +461,7 @@ private fun ResultsView(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
             RingSummary(
                 selected = selectedKeys.size,
@@ -468,15 +470,15 @@ private fun ResultsView(
                 totalBytes = plan.totalReclaimableBytes,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = OneUiSpacing.BlockGap),
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardInner))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = OneUiSpacing.BlockGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 key("chip-all") {
@@ -491,7 +493,7 @@ private fun ResultsView(
                         )
                     }
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(OneUiSpacing.CardGap))
                 key("chip-risky") {
                     AnimatedVisibility(
                         visible = true,
@@ -559,7 +561,7 @@ private fun ResultsView(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(OneUiRadius.Medium))
                             .clickable { onMoveToRecycleBinChange(!moveToRecycleBin) }
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -582,7 +584,7 @@ private fun ResultsView(
                                 )
                             }
                         }
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
                         Text(
                             text = "先移入回收站（7 天内可撤销）",
                             style = MaterialTheme.typography.bodyMedium,
@@ -599,7 +601,7 @@ private fun ResultsView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .clip(RoundedCornerShape(20.dp)),
+                        .clip(RoundedCornerShape(OneUiRadius.Large)),
                     color = if (actionable) cs.primary else cs.onSurface.copy(alpha = 0.12f),
                     contentColor = if (actionable) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
                     onClick = {
@@ -734,7 +736,7 @@ private fun AdviceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable { onToggle() }
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -742,7 +744,7 @@ private fun AdviceRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(OneUiRadius.Medium))
                 .background(advice.risk.tintColor().copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center,
         ) {
@@ -820,7 +822,7 @@ private fun ReleaseBlockCard(availability: ReleaseAvailability) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(colors.riskCaution.copy(alpha = 0.08f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
@@ -847,7 +849,7 @@ private fun NoticeRow(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(cs.onSurface.copy(alpha = 0.04f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

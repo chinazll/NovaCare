@@ -52,6 +52,8 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
+import com.novacare.ui.designsystem.OneUiRadius
+import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
  * 冻结页 —— OneUI 9.5 真实设计语言。
@@ -129,13 +131,13 @@ fun FreezeScreen(
 @Composable
 private fun IdleHero(onScan: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "冻结",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "看看哪些应用长期没被打开",
             style = MaterialTheme.typography.bodyLarge,
@@ -146,7 +148,7 @@ private fun IdleHero(onScan: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = onScan,
@@ -164,13 +166,13 @@ private fun IdleHero(onScan: () -> Unit) {
 @Composable
 private fun ScanningHero() {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "正在读取",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "读取你设备上的应用与最近使用情况",
             style = MaterialTheme.typography.bodyLarge,
@@ -188,24 +190,24 @@ private fun ScanningHero() {
 @Composable
 private fun FailedHero(message: String, onRetry: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "读取失败",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = onRetry,
@@ -220,13 +222,13 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
 @Composable
 private fun ApplyingHero(label: String, freezing: Boolean) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = if (freezing) "正在冻结" else "正在解冻",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
@@ -252,7 +254,7 @@ private fun ResultBanner(
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
     val view = LocalView.current
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = when {
                 !success -> if (freezing) "冻结失败" else "解冻失败"
@@ -261,7 +263,7 @@ private fun ResultBanner(
             style = MaterialTheme.typography.displaySmall,
             color = if (success) colors.healthGood else colors.riskRisky,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = if (method == "SHIZUKU_SUSPEND")
                 "Shizuku 已写入系统状态"
@@ -270,12 +272,12 @@ private fun ResultBanner(
             style = MaterialTheme.typography.bodyLarge,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = { NovaSuccess(view.context); onDismiss() },
@@ -313,7 +315,7 @@ private fun ReadyView(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = OneUiSpacing.BlockGap),
             ) {
                 Text(
                     text = "冻结",
@@ -329,7 +331,7 @@ private fun ReadyView(
             }
 
             if (!usagePermissionGranted || !shizukuAvailable || !engineAvailable) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardInner))
                 NoticeBanner(
                     usagePermissionGranted = usagePermissionGranted,
                     shizukuAvailable = shizukuAvailable,
@@ -339,12 +341,12 @@ private fun ReadyView(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardInner))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = OneUiSpacing.BlockGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Chip(
@@ -353,7 +355,7 @@ private fun ReadyView(
                         onSelectAll(!(selected.size == candidatesSafeCount && candidatesSafeCount > 0))
                     },
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(OneUiSpacing.CardGap))
                 Chip(
                     text = if (includeSystem) "✓ 含系统" else "含系统应用",
                     selected = includeSystem,
@@ -361,7 +363,7 @@ private fun ReadyView(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
 
             if (candidates.isEmpty()) {
                 EmptyList(
@@ -418,7 +420,7 @@ private fun ReadyView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
-                            .clip(RoundedCornerShape(20.dp)),
+                            .clip(RoundedCornerShape(OneUiRadius.Large)),
                         color = cs.primary,
                         contentColor = cs.onPrimary,
                         onClick = onBatchFreeze,
@@ -455,7 +457,7 @@ private fun NoticeBanner(
                 tone = colors.riskCaution,
                 onClick = { NovaTap(view); onRetry() },
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (!shizukuAvailable) {
             NoticeRow(
@@ -464,7 +466,7 @@ private fun NoticeBanner(
                 tone = colors.riskCaution,
                 onClick = { NovaTap(view); onGrantShizuku() },
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (!engineAvailable) {
             NoticeRow(
@@ -487,8 +489,8 @@ private fun NoticeRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(horizontal = OneUiSpacing.BlockGap)
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(tone.copy(alpha = 0.08f))
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -500,7 +502,7 @@ private fun NoticeRow(
             tint = tone,
             modifier = Modifier.size(18.dp),
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
@@ -557,7 +559,7 @@ private fun CandidateRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable { if (frozen) onUnfreeze() else onToggle() }
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -565,7 +567,7 @@ private fun CandidateRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(OneUiRadius.Medium))
                 .background(cs.primary.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center,
         ) {

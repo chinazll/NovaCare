@@ -50,7 +50,7 @@ object OneUITypography {
 /**
  * 间距令牌（OneUI 9 实测：4 的倍数）。
  */
-object OneUISpacing {
+object OneUiSpacingLegacy {
     val None: Dp = 0.dp
     val Xxs: Dp = 2.dp
     val Xs: Dp = 4.dp
@@ -65,7 +65,7 @@ object OneUISpacing {
 /**
  * 圆角令牌（OneUI 9 实测）。
  */
-object OneUIRadius {
+object OneUiRadiusLegacy {
     /** 极小：图标 / 标签 */
     val Sm: Dp = 8.dp
 
@@ -82,7 +82,7 @@ object OneUIRadius {
 /**
  * 高度令牌（OneUI 9 实测）。
  */
-object OneUIHeight {
+object OneUiHeightLegacy {
     /** dock / 浮层 */
     val Dock = 60.dp
 
@@ -135,7 +135,7 @@ object OneUIElevation {
 /**
  * 动画曲线（OneUI 8/9 实测：转向 ease-out tween，不是 spring）。
  */
-object OneUIMotion {
+object OneUiMotionLegacy {
     /** 通用过渡：280ms ease-out（One UI 标准） */
     const val DURATION_DEFAULT = 280
 
@@ -156,7 +156,7 @@ object OneUIMotion {
 /**
  * 文本令牌（OneUI 9 实测：严格 5 个字重级别）。
  */
-object OneUIFontWeight {
+object OneUiFontWeightLegacy {
     /** 极轻 - 仅 hero 数字 / 大展示 */
     const val Display = 200
 
@@ -179,7 +179,7 @@ object OneUIFontWeight {
 /**
  * 透明度令牌（OneUI 9 实测）。
  */
-object OneUIAlpha {
+object OneUiAlphaLegacy {
     /** 主文字 */
     const val High = 1.0f
 

@@ -52,6 +52,8 @@ import com.novacare.ui.designsystem.GlassPanel
 import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
+import com.novacare.ui.designsystem.OneUiRadius
+import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
  * 自动化页 —— OneUI 9.5 真实设计语言。
@@ -76,7 +78,7 @@ fun AutomationScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = OneUiSpacing.BlockGap),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -94,14 +96,14 @@ fun AutomationScreen(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardInner))
 
                 if (notice != null) {
                     NoticeCard(
                         text = notice!!,
                         onDismiss = { viewModel.dismissNotice() },
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(OneUiSpacing.CardGap))
                 }
 
                 if (rules.isEmpty()) {
@@ -169,8 +171,8 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(horizontal = OneUiSpacing.BlockGap)
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
             .clickable { onDismiss() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -210,7 +212,7 @@ private fun EmptyHero(onCreate: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .clip(RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(OneUiRadius.Large)),
             color = cs.primary,
             contentColor = cs.onPrimary,
             onClick = onCreate,
@@ -237,9 +239,9 @@ private fun RuleRow(
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Large))
             .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(OneUiRadius.Large),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -301,7 +303,7 @@ private fun RuleRow(
                                     modifier = Modifier.size(10.dp),
                                 )
                             }
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(OneUiSpacing.CardGap))
                             Text(
                                 text = AutomationViewModel.actionLabel(action.type),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -309,17 +311,17 @@ private fun RuleRow(
                             )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(OneUiSpacing.CardGap))
                     Text(
                         text = rule.lastRunEpochMs?.let { "上次执行：${formatRelativeTime(it)}" } ?: "尚未执行",
                         style = MaterialTheme.typography.bodySmall,
                         color = cs.onSurfaceVariant,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(OneUiSpacing.CardGap))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(OneUiRadius.Medium))
                             .clickable { onEdit() }
                             .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.Center,

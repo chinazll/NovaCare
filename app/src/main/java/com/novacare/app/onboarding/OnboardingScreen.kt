@@ -48,6 +48,7 @@ import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.PrimaryAction
+import com.novacare.ui.designsystem.OneUiSpacing
 import kotlinx.coroutines.launch
 
 private const val ONBOARDING_PAGE_COUNT = 4
@@ -122,7 +123,7 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = OneUiSpacing.BlockGap),
             ) {
                 // ---- 顶部：跳过（最后一页不显示，那里就是终点）----
                 Box(
@@ -174,7 +175,7 @@ fun OnboardingScreen(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
                 GlassPanel(
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
@@ -204,7 +205,7 @@ fun OnboardingScreen(
                         )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
             }
         }
     }

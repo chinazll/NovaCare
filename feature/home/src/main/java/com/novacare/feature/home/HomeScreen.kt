@@ -51,6 +51,8 @@ import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareColors
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.OneUiRadius
+import com.novacare.ui.designsystem.OneUiSpacing
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -124,7 +126,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = OneUiSpacing.BlockGap),
         ) {
             Spacer(Modifier.height(56.dp))
 
@@ -134,7 +136,7 @@ fun HomeScreen(
                 engineVersion = engineVersion,
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
             // ---- 2 ~ 4. 主体（按装载状态分支，失败也要说清楚） ----
             when (loadState) {
@@ -159,11 +161,11 @@ fun HomeScreen(
                         },
                     )
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
                     DeviceStatusCard(overview = overview)
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
                     AssistantEntry {
                         NovaTap(view)
@@ -214,7 +216,7 @@ private fun TopStatusBar(
                     else colors.riskCaution,
                 ),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(OneUiSpacing.CardGap))
         Text(
             text = when {
                 !engineAvailable -> "内核不可用"
@@ -252,14 +254,14 @@ private fun HealthHero(
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AiOrb(size = 18.dp)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(OneUiSpacing.CardGap))
             Text(
                 text = "设备健康",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = scored?.total?.toString() ?: "—",
@@ -267,7 +269,7 @@ private fun HealthHero(
                 color = scored?.let { scoreColor(it.total, colors) } ?: cs.onSurface,
                 maxLines = 1,
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
             Text(
                 text = score?.verdict ?: "正在评估",
                 style = MaterialTheme.typography.titleMedium,
@@ -286,7 +288,7 @@ private fun HealthHero(
         }
 
         if (scored != null) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardInner))
             scored.dimensions.forEachIndexed { index, dim ->
                 key(dim.dimension) {
                     AnimatedVisibility(
@@ -326,10 +328,10 @@ private fun DimensionRow(
 
     val rowModifier = Modifier
         .fillMaxWidth()
-        .padding(vertical = 6.dp)
+        .padding(vertical = OneUiSpacing.SectionTitleGap)
         .let { base ->
             if (actionable) {
-                base.clip(RoundedCornerShape(10.dp)).clickable { onNavigate(destination!!) }
+                base.clip(RoundedCornerShape(OneUiRadius.Small)).clickable { onNavigate(destination!!) }
             } else {
                 base
             }
@@ -361,7 +363,7 @@ private fun DimensionRow(
                         .background(scoreColor(dim.score, colors)),
                 )
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
             Text(
                 text = "${dim.score}",
                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.W600),
@@ -415,7 +417,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
 
     GlassPanel(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(OneUiRadius.ExtraLarge),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
@@ -425,7 +427,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
             )
 
             if (overview == null) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardInner))
                 Text(
                     text = "尚无读数",
                     style = MaterialTheme.typography.bodyMedium,
@@ -434,7 +436,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 return@Column
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
             // 存储 —— OneUI 8.5 风格：百分比大字 + 标签 + 宽状态条 + 进入详情
             val storageMeasurable = overview.totalBytes > 0L
@@ -456,7 +458,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 },
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
             // 内存
             val memMeasurable = overview.memoryTotalBytes > 0L
@@ -479,7 +481,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 },
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
             // 电池
             val batMeasurable = overview.batteryPercent > 0
@@ -531,9 +533,9 @@ private fun MetricBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = OneUiSpacing.SectionTitleGap),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -603,7 +605,7 @@ private fun AssistantEntry(onClick: () -> Unit) {
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp)),
+            .clip(RoundedCornerShape(OneUiRadius.Large)),
         tint = cs.primary,
     ) {
         Row(
@@ -613,7 +615,7 @@ private fun AssistantEntry(onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AiOrb(size = 30.dp)
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(OneUiSpacing.CardInner))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "问问 AI 助手",
@@ -645,7 +647,7 @@ private fun ReadingHero() {
         style = MaterialTheme.typography.bodySmall,
         color = cs.onSurfaceVariant,
     )
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(OneUiSpacing.CardGap))
     Text(
         text = "正在读取设备状态",
         style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
@@ -669,7 +671,7 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
         style = MaterialTheme.typography.bodySmall,
         color = cs.onSurfaceVariant,
     )
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(OneUiSpacing.CardGap))
     Text(
         text = "读不到",
         style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
@@ -687,10 +689,10 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
         style = MaterialTheme.typography.bodySmall,
         color = cs.onSurfaceVariant,
     )
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(OneUiSpacing.CardInner))
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Small))
             .background(cs.onSurface.copy(alpha = 0.06f))
             .clickable { onRetry() }
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -721,7 +723,7 @@ private fun DegradedSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(OneUiRadius.Medium))
                 .background(colors.riskCaution.copy(alpha = 0.08f))
                 .clickable { onRetry() }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -739,7 +741,7 @@ private fun DegradedSection(
                     color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
             Text(
                 text = "重试",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
@@ -749,7 +751,7 @@ private fun DegradedSection(
     }
 
     missing.forEach { capability ->
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
         PermissionRow(capability = capability, onGrant = { onGrant(capability) })
     }
 }
@@ -773,7 +775,7 @@ private fun PermissionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(colors.riskCaution.copy(alpha = 0.06f))
             .clickable { onGrant() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -791,7 +793,7 @@ private fun PermissionRow(
                 color = cs.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
         Text(
             text = "去开启",
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
