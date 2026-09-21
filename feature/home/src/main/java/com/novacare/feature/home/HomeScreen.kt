@@ -1,8 +1,5 @@
 package com.novacare.feature.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,17 +18,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.BatteryStd
+import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,14 +45,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.novacare.core.common.formatBytes
-import com.novacare.core.model.DimensionScore
-import com.novacare.core.model.HealthDimension
-import com.novacare.core.model.HealthScore
-import com.novacare.core.system.MissingCapability
-import com.novacare.ui.designsystem.AiOrb
-import com.novacare.ui.designsystem.MotionTokens
-import com.novacare.ui.designsystem.NovaCareColors
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.OneUiAppBar
@@ -55,20 +52,80 @@ import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
 // =========================================================================
-// OneUI 9 Device Care 风格的首页
+// 首页 = 功能导航中枢（不再做"健康仪表盘"，那是 OneUI Health 的活）。
 //
-// 整个屏按 Samsung Device Care 重做：
-//   1. AppBar（NovaCare 标题 + 内核状态圆点）
-//   2. 健康 Hero（OneUI 8.5 大字分数 + 评级语 + 评分依据，4 维度 OneUI 卡片列表）
-//   3. AI 助手入口（squircle 玻璃浮片，含有呼吸 orb）
+// 这一版是**真正**的重新设计：
+//   - 不再假装显示 Health Score（那个我算得不算准）
+//   - 每个 tile 一句话能做什么 + 当前状态摘要（不是装饰）
+//   - 每个 tile 都可点跳到真屏幕
+//   - 不再有假按钮、没"按了没反应"的情况
 //
-// 只有"真有依据才显示"的导航箭头：
-//   - 哪个维度分低 + 有话可说 → 该行才出现跳转
-//   - 全绿时什么箭头都不显示
+// 【UI/UX 原则 / OneUI 9 单主张】
+//   - 一屏一屏单一主张：6 个功能入口 + 当前设备状态摘要 + 内核就绪
+//   - 大圆角 16dp squircle（OneUI 9 实测）
+//   - 不重复底栏（底栏 5 tab 这里不再列）
+//   - 副文不超过 OneUI 31 字原则（中文按 31 字符约束）
 // =========================================================================
 
-/** 首页可跳转的目的地 —— 故意只两个（避免和底栏复读） */
-enum class HomeDestination { CLEAN, FREEZE }
+/** 功能 tile 定义 —— 单一职责，可点跳转 */
+private data class ModuleTile(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,        // OneUI：≤31 字
+    val route: ModuleRoute,
+)
+
+private enum class ModuleRoute { CLEAN, FREEZE, AUTOMATION, STORAGE, MEMORY, BATTERY, ASSISTANT }
+
+private val ModuleTiles = listOf(
+    ModuleTile(
+        icon = Icons.Outlined.CleaningServices,
+        title = "清理",
+        subtitle = "扫描缓存 / 大文件 / 残留",
+        route = ModuleRoute.CLEAN,
+    ),
+    ModuleTile(
+        icon = Icons.Outlined.AcUnit,
+        title = "冻结",
+        subtitle = "停用长期未用的应用",
+        route = ModuleRoute.FREEZE,
+    ),
+    ModuleTile(
+        icon = Icons.Outlined.Speed,
+        title = "自动化",
+        subtitle = "规则触发动作",
+        route = ModuleRoute.AUTOMATION,
+    ),
+    ModuleTile(
+        icon = Icons.Outlined.Storage,
+        title = "存储守护",
+        subtitle = "按类别分析存储占用",
+        route = ModuleRoute.STORAGE,
+    ),
+    ModuleTile(
+        icon = Icons.Outlined.Memory,
+        title = "内存守护",
+        subtitle = "应用内存占用排行",
+        route = ModuleRoute.MEMORY,
+    ),
+    ModuleTile(
+        icon = Icons.Outlined.BatteryStd,
+        title = "电池守护",
+        subtitle = "应用耗电排行",
+        route = ModuleRoute.BATTERY,
+    ),
+)
+
+/** AI 助手是 placement 内单独的**提醒入口** —— 不是聊天（AI 没真接通） */
+private val AssistantTile = ModuleTile(
+    icon = Icons.Outlined.AutoAwesome,
+    title = "本地建议",
+    subtitle = "基于规则的清理建议（无云端）",
+    route = ModuleRoute.ASSISTANT,
+)
+
+/** 首页可跳转的目的地 —— 与底栏 tab 路由一致 */
+enum class HomeDestination { CLEAN, FREEZE, AUTOMATION }
 
 /** 守护中心三模块 —— HomeScreen 也可达（点 metric bar 直接进） */
 enum class GuardianHub { STORAGE, MEMORY, BATTERY }
@@ -81,13 +138,9 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val loadState by viewModel.loadState.collectAsStateWithLifecycle()
-    val score by viewModel.score.collectAsStateWithLifecycle()
-    val basis by viewModel.basis.collectAsStateWithLifecycle()
-    val hints by viewModel.hints.collectAsStateWithLifecycle()
+    val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
     val overview by viewModel.overview.collectAsStateWithLifecycle()
     val missing by viewModel.missing.collectAsStateWithLifecycle()
-    val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -129,66 +182,66 @@ fun HomeScreen(
             ) {
                 Spacer(Modifier.height(OneUiSpacing.CardGap))
 
-                when (loadState) {
-                    HomeLoadState.Loading -> ReadingHero()
+                // 1. 设备状态摘要（只读，不假装可点）
+                DeviceStatusSummary(overview = overview)
 
-                    is HomeLoadState.Failed -> FailedHero(
-                        message = (loadState as HomeLoadState.Failed).message,
-                        onRetry = {
+                Spacer(Modifier.height(OneUiSpacing.BlockGap))
+
+                // 2. 功能模块网格（OneUI 8.5 Settings 用法：分组列表 + chevron）
+                SectionLabel("功能")
+
+                ModuleTiles.forEachIndexed { index, tile ->
+                    ModuleListItem(
+                        tile = tile,
+                        onClick = {
                             NovaTap(view)
-                            viewModel.refresh()
+                            when (tile.route) {
+                                ModuleRoute.CLEAN -> onNavigate(HomeDestination.CLEAN)
+                                ModuleRoute.FREEZE -> onNavigate(HomeDestination.FREEZE)
+                                ModuleRoute.AUTOMATION -> onNavigate(HomeDestination.AUTOMATION)
+                                ModuleRoute.STORAGE -> onOpenGuardian(GuardianHub.STORAGE)
+                                ModuleRoute.MEMORY -> onOpenGuardian(GuardianHub.MEMORY)
+                                ModuleRoute.BATTERY -> onOpenGuardian(GuardianHub.BATTERY)
+                                ModuleRoute.ASSISTANT -> onOpenAssistant()
+                            }
                         },
                     )
-
-                    HomeLoadState.Ready -> {
-                        HealthHero(
-                            score = score,
-                            basis = basis,
-                            hints = hints,
-                            onNavigate = { destination ->
-                                NovaTap(view)
-                                onNavigate(destination)
-                            },
-                        )
-
-                        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-
-                        // OneUI 8.5 Device Care：宽状态条 + 大百分比
-                        // 每条 metric 都可点：跳到对应守护中心深页
-                        DeviceStatusCard(
-                            overview = overview,
-                            onClickStorage = {
-                                NovaTap(view)
-                                onOpenGuardian(GuardianHub.STORAGE)
-                            },
-                            onClickMemory = {
-                                NovaTap(view)
-                                onOpenGuardian(GuardianHub.MEMORY)
-                            },
-                            onClickBattery = {
-                                NovaTap(view)
-                                onOpenGuardian(GuardianHub.BATTERY)
-                            },
-                        )
-
-                        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-
-                        AssistantEntry {
-                            NovaTap(view)
-                            onOpenAssistant()
-                        }
-
-                        // 降级说明紧跟其后（不并排）
-                        DegradedSection(
-                            engineAvailable = engineAvailable,
-                            missing = missing,
-                            onRetry = { viewModel.refresh() },
-                            onGrant = { capability ->
-                                NovaTap(view)
-                                viewModel.grant(capability)
-                            },
+                    if (index < ModuleTiles.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                                .padding(start = 56.dp),
                         )
                     }
+                }
+
+                Spacer(Modifier.height(OneUiSpacing.BlockGap))
+
+                // 3. 本地建议（不是云端 AI —— 老实说）
+                SectionLabel("建议")
+                ModuleListItem(
+                    tile = AssistantTile,
+                    onClick = {
+                        NovaTap(view)
+                        onOpenAssistant()
+                    },
+                )
+
+                // 4. 降级说明 —— 引擎 / 权限缺失，每项带下一步动作
+                if (!engineAvailable || missing.isNotEmpty()) {
+                    Spacer(Modifier.height(OneUiSpacing.BlockGap))
+                    SectionLabel("设置")
+                    DegradedList(
+                        engineAvailable = engineAvailable,
+                        missing = missing,
+                        onRetry = { viewModel.refresh() },
+                        onGrant = { capability ->
+                            NovaTap(view)
+                            viewModel.grant(capability)
+                        },
+                    )
                 }
 
                 Spacer(Modifier.height(160.dp))
@@ -197,509 +250,196 @@ fun HomeScreen(
     }
 }
 
-// =========================================================================
-// 2. 健康 Hero —— OneUI 9 "single proposition" 模式
-// =========================================================================
 @Composable
-private fun HealthHero(
-    score: HealthScore?,
-    basis: String,
-    hints: Map<HealthDimension, String>,
-    onNavigate: (HomeDestination) -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    val scored = score?.takeIf { it.dimensions.isNotEmpty() }
-
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AiOrb(size = 18.dp)
-            Spacer(Modifier.width(OneUiSpacing.CardGap))
-            Text(
-                text = "设备健康",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
-            )
-        }
-
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = scored?.total?.toString() ?: "—",
-                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.W200),
-                color = scored?.let { scoreColor(it.total, colors) } ?: cs.onSurface,
-                maxLines = 1,
-            )
-            Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
-            Text(
-                text = score?.verdict ?: "正在评估",
-                style = MaterialTheme.typography.titleMedium,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        if (basis.isNotBlank()) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = basis,
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-            )
-        }
-
-        if (scored != null) {
-            Spacer(Modifier.height(OneUiSpacing.CardInner))
-            scored.dimensions.forEachIndexed { index, dim ->
-                key(dim.dimension) {
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn(MotionTokens.standard) +
-                            slideInVertically(
-                                animationSpec = MotionTokens.standardOffset,
-                                initialOffsetY = { (index + 1) * 14 },
-                            ),
-                    ) {
-                        DimensionRow(
-                            dim = dim,
-                            hint = hints[dim.dimension],
-                            onNavigate = onNavigate,
-                        )
-                    }
-                }
-            }
-        }
-    }
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = OneUiSpacing.SectionTitleGap),
+    )
 }
 
+/** OneUI 9 Settings 列表行：图标 + 主标题 + 副标题 + chevron */
 @Composable
-private fun DimensionRow(
-    dim: DimensionScore,
-    hint: String?,
-    onNavigate: (HomeDestination) -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    val fraction = (dim.score.coerceIn(0, 100)) / 100f
-
-    val destination = destinationFor(dim.dimension)
-    val actionable = hint != null && destination != null && dim.score < GOOD_THRESHOLD
-
-    val rowModifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(OneUiRadius.Small))
-        .let { base ->
-            if (actionable) base.clickable { onNavigate(destination!!) } else base
-        }
-        .padding(vertical = OneUiSpacing.CardGap)
-
-    Column(modifier = rowModifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = dim.dimension.displayName,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
-                color = cs.onSurface,
-                modifier = Modifier.width(64.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(cs.onSurface.copy(alpha = 0.06f)),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(fraction)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(7.dp))
-                        .background(scoreColor(dim.score, colors)),
-                )
-            }
-            Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
-            Text(
-                text = "${dim.score}",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
-                color = cs.onSurface,
-                modifier = Modifier.width(36.dp),
-            )
-            if (actionable) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                    contentDescription = "去处理",
-                    tint = cs.primary,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-        val caption = if (actionable) hint!! else dim.summary
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = caption,
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant,
-            modifier = Modifier.padding(start = 64.dp),
-        )
-    }
-}
-
-private fun destinationFor(dimension: HealthDimension): HomeDestination? = when (dimension) {
-    HealthDimension.STORAGE -> HomeDestination.CLEAN
-    HealthDimension.APP -> HomeDestination.FREEZE
-    HealthDimension.MEMORY, HealthDimension.BATTERY -> null
-}
-
-private const val GOOD_THRESHOLD = 85
-
-private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.graphics.Color = when {
-    total >= GOOD_THRESHOLD -> colors.healthGood
-    total >= 60 -> colors.riskCaution
-    else -> colors.riskRisky
-}
-
-// =========================================================================
-// 3. 设备状态 —— OneUI 8.5 Device Care 风格：宽状态条 + 大百分比
-// =========================================================================
-@Composable
-private fun DeviceStatusCard(
-    overview: HomeViewModel.Overview?,
-    onClickStorage: () -> Unit,
-    onClickMemory: () -> Unit,
-    onClickBattery: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(OneUiRadius.Medium),
-        color = cs.surfaceContainer,
-    ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
-            Text(
-                text = "设备状态",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
-                color = cs.onSurface,
-            )
-
-            if (overview == null) {
-                Spacer(Modifier.height(OneUiSpacing.CardGap))
-                Text(
-                    text = "尚无读数",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
-                return@Surface
-            }
-
-            Spacer(Modifier.height(OneUiSpacing.BlockGap))
-
-            MetricBar(
-                percentText = if (overview.totalBytes > 0L) {
-                    "${(overview.usedBytes.toFloat() / overview.totalBytes * 100).toInt()}%"
-                } else "—",
-                label = "存储",
-                detail = if (overview.totalBytes > 0L) {
-                    "已用 ${overview.usedBytes.formatBytes()} · 共 ${overview.totalBytes.formatBytes()}"
-                } else "未获取存储总量",
-                fraction = if (overview.totalBytes > 0L) {
-                    (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
-                } else 0f,
-                measurable = overview.totalBytes > 0L,
-                onClick = onClickStorage,
-            )
-
-            Spacer(Modifier.height(OneUiSpacing.BlockGap))
-
-            val memMeasurable = overview.memoryTotalBytes > 0L
-            val memFraction = if (memMeasurable) {
-                (overview.memoryAvailableBytes.toFloat() / overview.memoryTotalBytes).coerceIn(0f, 1f)
-            } else 0f
-            MetricBar(
-                percentText = if (memMeasurable) "可用 ${(memFraction * 100).toInt()}%" else "—",
-                label = "内存",
-                detail = if (memMeasurable) {
-                    "空闲 ${overview.memoryAvailableBytes.formatBytes()} · 共 ${overview.memoryTotalBytes.formatBytes()}"
-                } else "未获取内存读数",
-                fraction = memFraction,
-                measurable = memMeasurable,
-                onClick = onClickMemory,
-            )
-
-            Spacer(Modifier.height(OneUiSpacing.BlockGap))
-
-            MetricBar(
-                percentText = if (overview.batteryPercent > 0) "${overview.batteryPercent}%" else "—",
-                label = "电池",
-                detail = buildString {
-                    if (overview.batteryPercent > 0) {
-                        if (overview.batteryTemperatureTenths > 0) {
-                            append("${overview.batteryTemperatureTenths / 10f}°C · ")
-                        }
-                        append(batteryHealthLabel(overview.batteryHealth))
-                    } else {
-                        append("未获取电量")
-                    }
-                },
-                fraction = (overview.batteryPercent / 100f).coerceIn(0f, 1f),
-                measurable = overview.batteryPercent > 0,
-                onClick = onClickBattery,
-            )
-        }
-    }
-}
-
-/** OneUI 8.5 指标条：百分比 + 标签 + 详情 + 14dp squircle 状态条 */
-@Composable
-private fun MetricBar(
-    percentText: String,
-    label: String,
-    detail: String,
-    fraction: Float,
-    measurable: Boolean,
+private fun ModuleListItem(
+    tile: ModuleTile,
     onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Small))
             .clickable(onClick = onClick)
             .padding(vertical = OneUiSpacing.CardGap),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Text(
-                text = percentText,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.W200),
-                color = if (measurable) cs.onSurface else cs.onSurfaceVariant,
-            )
-            Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
-                    color = cs.onSurface,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                )
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(14.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .background(colors.ringTrack),
+                .size(40.dp)
+                .clip(RoundedCornerShape(OneUiRadius.Small))
+                .background(cs.primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
         ) {
-            if (measurable && fraction > 0f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(fraction)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(7.dp))
-                        .background(cs.primary),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun batteryHealthLabel(raw: String): String = when (raw) {
-    "good" -> "状态正常"
-    "overheat" -> "过热"
-    "dead" -> "已损坏"
-    "over_voltage" -> "电压过高"
-    "cold" -> "温度过低"
-    else -> "系统未给出健康结论"
-}
-
-// =========================================================================
-// 4. AI 助手 —— OneUI squircle 浮片
-// =========================================================================
-@Composable
-private fun AssistantEntry(onClick: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Medium)),
-        color = cs.primaryContainer,
-        onClick = onClick,
-    ) {
-        Row(
-            modifier = Modifier.padding(OneUiSpacing.CardInner),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AiOrb(size = 28.dp)
-            Spacer(Modifier.width(OneUiSpacing.CardInner))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "问问 AI 助手",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
-                    color = cs.onPrimaryContainer,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "读设备状态 · 给建议 · 帮你动手",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onPrimaryContainer.copy(alpha = 0.74f),
-                )
-            }
             Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                imageVector = tile.icon,
                 contentDescription = null,
-                tint = cs.onPrimaryContainer,
+                tint = cs.primary,
                 modifier = Modifier.size(20.dp),
             )
         }
-    }
-}
-
-// =========================================================================
-// 装载态
-// =========================================================================
-@Composable
-private fun ReadingHero() {
-    val cs = MaterialTheme.colorScheme
-    Text(
-        text = "正在读取设备状态",
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
-        color = cs.onSurface,
-    )
-    Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
-    Text(
-        text = "存储、内存、电池三项读数来自系统，不预估、不填充。",
-        style = MaterialTheme.typography.bodySmall,
-        color = cs.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun FailedHero(message: String, onRetry: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-
-    Text(
-        text = "读不到",
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
-        color = colors.riskCaution,
-    )
-    Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
-    Text(
-        text = "本次扫描没有拿到任何一项读数，所以这里不给分数，也不用上一次的结果凑数。",
-        style = MaterialTheme.typography.bodySmall,
-        color = cs.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(6.dp))
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = cs.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(OneUiSpacing.CardInner))
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(OneUiRadius.Small))
-            .background(cs.onSurface.copy(alpha = 0.06f))
-            .clickable { onRetry() }
-            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
-    ) {
-        Text(
-            text = "重试",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
-            color = cs.primary,
+        Spacer(Modifier.width(OneUiSpacing.CardInner))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = tile.title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                color = cs.onSurface,
+            )
+            Text(
+                text = tile.subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
         )
     }
 }
 
-// =========================================================================
-// 5. 降级说明 —— 引擎 / 权限，每项带修复动作
-// =========================================================================
+/** 设备状态摘要 —— 只读（不假装可点） */
 @Composable
-private fun DegradedSection(
+private fun DeviceStatusSummary(overview: HomeViewModel.Overview?) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
+            .background(cs.surfaceContainer)
+            .padding(OneUiSpacing.CardInner),
+    ) {
+        Text(
+            text = "当前状态",
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+            color = cs.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
+
+        if (overview == null) {
+            Text(
+                text = "尚未读取设备读数",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurface,
+            )
+            return
+        }
+
+        StatusLine(
+            label = "存储",
+            value = if (overview.totalBytes > 0L) {
+                "已用 ${overview.usedBytes.toReadableMB()} / ${overview.totalBytes.toReadableMB()}"
+            } else "未获取",
+        )
+        StatusLine(
+            label = "内存",
+            value = if (overview.memoryTotalBytes > 0L) {
+                "可用 ${overview.memoryAvailableBytes.toReadableMB()} / ${overview.memoryTotalBytes.toReadableMB()}"
+            } else "未获取",
+        )
+        StatusLine(
+            label = "电池",
+            value = if (overview.batteryPercent > 0) {
+                "${overview.batteryPercent}%" + if (overview.batteryTemperatureTenths > 0) {
+                    " · ${overview.batteryTemperatureTenths / 10f}°C"
+                } else ""
+            } else "未获取",
+        )
+    }
+}
+
+@Composable
+private fun StatusLine(label: String, value: String) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.width(64.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurface,
+        )
+    }
+}
+
+/** 降级说明 —— 引擎 / 权限，按 OneUI 列表行 + chevron 模式 */
+@Composable
+private fun DegradedList(
     engineAvailable: Boolean,
-    missing: List<MissingCapability>,
+    missing: List<com.novacare.core.system.MissingCapability>,
     onRetry: () -> Unit,
-    onGrant: (MissingCapability) -> Unit,
+    onGrant: (com.novacare.core.system.MissingCapability) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
 
     if (!engineAvailable) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(OneUiRadius.Small))
-                .background(colors.riskCaution.copy(alpha = 0.08f))
-                .clickable { onRetry() }
-                .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "内核不可用",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.riskCaution,
-                )
-                Text(
-                    text = "存储与内存的读数仍取自系统；垃圾识别、回收量估算不可用。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = "重试",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
-                color = colors.riskCaution,
-            )
-        }
+        DegradedItem(
+            title = "内核不可用",
+            subtitle = "清理 / 守护的深度分析会受影响",
+            accent = colors.riskCaution,
+            actionLabel = "重试",
+            onClick = onRetry,
+        )
     }
 
     missing.forEach { capability ->
         Spacer(Modifier.height(OneUiSpacing.CardGap))
-        PermissionRow(capability = capability, onGrant = { onGrant(capability) })
+        val (title, why) = when (capability) {
+            com.novacare.core.system.MissingCapability.USAGE_STATS ->
+                "使用情况访问" to "停用清单依赖此权限"
+            com.novacare.core.system.MissingCapability.ALL_FILES ->
+                "所有文件访问" to "扫描深度受限"
+            com.novacare.core.system.MissingCapability.NOTIFICATIONS ->
+                "通知权限" to "后台任务结果无提醒"
+        }
+        DegradedItem(
+            title = title,
+            subtitle = why,
+            accent = cs.primary,
+            actionLabel = "去开启",
+            onClick = { onGrant(capability) },
+        )
     }
 }
 
 @Composable
-private fun PermissionRow(
-    capability: MissingCapability,
-    onGrant: () -> Unit,
+private fun DegradedItem(
+    title: String,
+    subtitle: String,
+    accent: androidx.compose.ui.graphics.Color,
+    actionLabel: String,
+    onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    val (title, why) = when (capability) {
-        MissingCapability.USAGE_STATS ->
-            "使用情况访问" to "缺少它就无法判断哪些应用长期没被打开"
-        MissingCapability.ALL_FILES ->
-            "所有文件访问" to "缺少它只能扫到部分目录，清理页的结果会偏少"
-        MissingCapability.NOTIFICATIONS ->
-            "通知权限" to "长任务的执行结果无法在通知里提醒"
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Small))
-            .background(colors.riskCaution.copy(alpha = 0.06f))
-            .clickable { onGrant() }
+            .background(accent.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
             .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -710,15 +450,26 @@ private fun PermissionRow(
                 color = cs.onSurface,
             )
             Text(
-                text = why,
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
         }
         Text(
-            text = "去开启",
+            text = actionLabel,
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
-            color = cs.primary,
+            color = accent,
         )
+    }
+}
+
+// 紧凑字节显示 —— OneUI 8.5 用 MB / GB，不写大数
+private fun Long.toReadableMB(): String {
+    if (this <= 0L) return "0 B"
+    val mb = this / 1024L / 1024L
+    return when {
+        mb < 1L -> "$this B"
+        mb < 1024L -> "$mb MB"
+        else -> "${"%.1f".format(mb / 1024f)} GB"
     }
 }

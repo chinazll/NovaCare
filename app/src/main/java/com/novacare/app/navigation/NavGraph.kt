@@ -286,6 +286,7 @@ private fun NavHostController.navigateTo(route: String) {
 private fun routeOf(destination: HomeDestination): String = when (destination) {
     HomeDestination.CLEAN -> Routes.CLEAN
     HomeDestination.FREEZE -> Routes.FREEZE
+    HomeDestination.AUTOMATION -> Routes.AUTOMATION
 }
 
 /** HomeScreen metric bar → 守护中心深页路由（带栈下钻，按返回键回首页） */
