@@ -469,7 +469,7 @@ private fun Composer(onSend: (String) -> Unit) {
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
         shape = RoundedCornerShape(28.dp),
     ) {
         Row(

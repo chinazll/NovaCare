@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,16 +20,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,49 +46,30 @@ import com.novacare.core.model.HealthDimension
 import com.novacare.core.model.HealthScore
 import com.novacare.core.system.MissingCapability
 import com.novacare.ui.designsystem.AiOrb
-import com.novacare.ui.designsystem.GlassPanel
 import com.novacare.ui.designsystem.MotionTokens
-import com.novacare.ui.designsystem.OneUiAppBar
 import com.novacare.ui.designsystem.NovaCareColors
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.OneUiAppBar
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
-/**
- * 首页可跳转的目的地 —— 只列**首页有权引导去**的页。
- *
- * 刻意不包含 SETTINGS / AUTOMATION：它们各自已有稳定的底栏入口，
- * 而在首页再抄一遍会让人分不清"这两处是不是同一件事"。
- */
+// =========================================================================
+// OneUI 9 Device Care 风格的首页
+//
+// 整个屏按 Samsung Device Care 重做：
+//   1. AppBar（NovaCare 标题 + 内核状态圆点）
+//   2. 健康 Hero（OneUI 8.5 大字分数 + 评级语 + 评分依据，4 维度 OneUI 卡片列表）
+//   3. AI 助手入口（squircle 玻璃浮片，含有呼吸 orb）
+//
+// 只有"真有依据才显示"的导航箭头：
+//   - 哪个维度分低 + 有话可说 → 该行才出现跳转
+//   - 全绿时什么箭头都不显示
+// =========================================================================
+
+/** 首页可跳转的目的地 —— 故意只两个（避免和底栏复读） */
 enum class HomeDestination { CLEAN, FREEZE }
 
-/**
- * 首页 —— 只读的「设备健康总览 + 导航枢纽」。
- *
- * ============================================================
- * 【这一版改的是什么】
- * 上一版把"可清理 X GB + 一键释放"挪走了，但**没有建立信息架构**：
- *   - 「清理 / 冻结 / 自动化」三张入口卡跟底栏一字不差，
- *     同一屏出现两组一模一样的导航，用户得自己猜它们是不是同一回事；
- *   - 健康分拆了四个维度，其中「存储」归清理页、「应用」归冻结页，
- *     却没告诉用户"这一项低 → 该去哪处理"；
- *   - 扫描失败时永远停在"正在读取…"。
- *
- * 【现在的铁律】**底栏 tab 不在首页出现第二次。**
- * 例外只有两种值得破例的情况：
- *   1. 助手不在底栏，首页是它唯一的合法入口 → 保留一张卡；
- *   2. 健康维度低于阈值且真有依据（hints 里有话可说）→ 该行才出现跳转。
- * 一切没触发条件的导航入口都不存在。这样"首页是不是又在复读底栏"的问题消失。
- * ============================================================
- *
- * 结构（自上而下）：
- *   1. 顶条          内核就绪状态 + 时间
- *   2. 健康 Hero     总分 + 结论 + 评分依据 + 各维度（低分项可跳转）
- *   3. 设备状态      存储 / 内存 / 电池 三行只读读数
- *   4. AI 助手       唯一常驻入口
- *   5. 降级说明      扫描失败 / 内核不可用 / 权限缺失，全部带最短修复动作
- */
 @Composable
 fun HomeScreen(
     onOpenAssistant: () -> Unit,
@@ -103,7 +84,6 @@ fun HomeScreen(
     val overview by viewModel.overview.collectAsStateWithLifecycle()
     val missing by viewModel.missing.collectAsStateWithLifecycle()
     val engineAvailable by viewModel.engineAvailable.collectAsStateWithLifecycle()
-    val engineVersion by viewModel.engineVersion.collectAsStateWithLifecycle()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -145,7 +125,6 @@ fun HomeScreen(
             ) {
                 Spacer(Modifier.height(OneUiSpacing.CardGap))
 
-                // ---- 2 ~ 4. 主体（按装载状态分支，失败也要说清楚） ----
                 when (loadState) {
                     HomeLoadState.Loading -> ReadingHero()
 
@@ -170,6 +149,7 @@ fun HomeScreen(
 
                         Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
+                        // OneUI 8.5 Device Care：宽状态条 + 大百分比
                         DeviceStatusCard(overview = overview)
 
                         Spacer(Modifier.height(OneUiSpacing.BlockGap))
@@ -178,19 +158,19 @@ fun HomeScreen(
                             NovaTap(view)
                             onOpenAssistant()
                         }
+
+                        // 降级说明紧跟其后（不并排）
+                        DegradedSection(
+                            engineAvailable = engineAvailable,
+                            missing = missing,
+                            onRetry = { viewModel.refresh() },
+                            onGrant = { capability ->
+                                NovaTap(view)
+                                viewModel.grant(capability)
+                            },
+                        )
                     }
                 }
-
-                // ---- 5. 降级说明（引擎 / 权限） ----
-                DegradedSection(
-                    engineAvailable = engineAvailable,
-                    missing = missing,
-                    onRetry = { viewModel.refresh() },
-                    onGrant = { capability ->
-                        NovaTap(view)
-                        viewModel.grant(capability)
-                    },
-                )
 
                 Spacer(Modifier.height(160.dp))
             }
@@ -198,15 +178,9 @@ fun HomeScreen(
     }
 }
 
-// ============================================================
-// 1. 顶条（已并入 OneUiAppBar —— 删除）
-// ============================================================
-// 原 TopStatusBar 显示内核状态 + 时间。新 OneUiAppBar 把内核状态作为右侧
-// 8dp 圆点 action 显示，时间由系统状态栏承担（OneUI 标准）。
-
-// ============================================================
-// 2. 健康 Hero —— 单一主张：设备现在有多健康，以及哪一项该去处理
-// ============================================================
+// =========================================================================
+// 2. 健康 Hero —— OneUI 9 "single proposition" 模式
+// =========================================================================
 @Composable
 private fun HealthHero(
     score: HealthScore?,
@@ -216,8 +190,6 @@ private fun HealthHero(
 ) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
-
-    // 维度为空 = 一个都评不出来，此时不给分数，只给结论
     val scored = score?.takeIf { it.dimensions.isNotEmpty() }
 
     Column {
@@ -226,11 +198,13 @@ private fun HealthHero(
             Spacer(Modifier.width(OneUiSpacing.CardGap))
             Text(
                 text = "设备健康",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurfaceVariant,
             )
         }
+
         Spacer(Modifier.height(OneUiSpacing.CardGap))
+
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = scored?.total?.toString() ?: "—",
@@ -290,21 +264,16 @@ private fun DimensionRow(
     val colors = NovaCareTheme.colors
     val fraction = (dim.score.coerceIn(0, 100)) / 100f
 
-    // 只有「确实偏低」且「真有依据」才变成可跳转的行。
-    // 全绿时不出现任何箭头 —— 免得首页变成底栏的复读机。
     val destination = destinationFor(dim.dimension)
     val actionable = hint != null && destination != null && dim.score < GOOD_THRESHOLD
 
     val rowModifier = Modifier
         .fillMaxWidth()
-        .padding(vertical = OneUiSpacing.SectionTitleGap)
+        .clip(RoundedCornerShape(OneUiRadius.Small))
         .let { base ->
-            if (actionable) {
-                base.clip(RoundedCornerShape(OneUiRadius.Small)).clickable { onNavigate(destination!!) }
-            } else {
-                base
-            }
+            if (actionable) base.clickable { onNavigate(destination!!) } else base
         }
+        .padding(vertical = OneUiSpacing.CardGap)
 
     Column(modifier = rowModifier) {
         Row(
@@ -313,43 +282,41 @@ private fun DimensionRow(
         ) {
             Text(
                 text = dim.dimension.displayName,
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                color = cs.onSurface,
                 modifier = Modifier.width(64.dp),
             )
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(cs.onSurface.copy(alpha = 0.08f)),
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(cs.onSurface.copy(alpha = 0.06f)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(fraction)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(7.dp))
                         .background(scoreColor(dim.score, colors)),
                 )
             }
             Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
             Text(
                 text = "${dim.score}",
-                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
                 color = cs.onSurface,
-                modifier = Modifier.width(24.dp),
+                modifier = Modifier.width(36.dp),
             )
             if (actionable) {
-                Text(
-                    text = "处理 →",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
-                    color = cs.primary,
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                    contentDescription = "去处理",
+                    tint = cs.primary,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
-
-        // 可处理的行显示「为什么去」，其余沿用评分器给的一句话结论。
-        // 别在有理由却不可点时显示理由 —— 看起来像能按却按不动。
         val caption = if (actionable) hint!! else dim.summary
         Spacer(Modifier.height(2.dp))
         Text(
@@ -361,7 +328,6 @@ private fun DimensionRow(
     }
 }
 
-/** 哪个维度低了该去哪一页；没有对应落地页的维度只展示读数 */
 private fun destinationFor(dimension: HealthDimension): HomeDestination? = when (dimension) {
     HealthDimension.STORAGE -> HomeDestination.CLEAN
     HealthDimension.APP -> HomeDestination.FREEZE
@@ -376,82 +342,74 @@ private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.
     else -> colors.riskRisky
 }
 
-// ============================================================
-// 3. 设备状态 —— 三行只读读数，不挂任何操作
-// ============================================================
+// =========================================================================
+// 3. 设备状态 —— OneUI 8.5 Device Care 风格：宽状态条 + 大百分比
+// =========================================================================
 @Composable
 private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
     val cs = MaterialTheme.colorScheme
 
-    GlassPanel(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(OneUiRadius.ExtraLarge),
+        shape = RoundedCornerShape(OneUiRadius.Medium),
+        color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
             Text(
                 text = "设备状态",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
                 color = cs.onSurface,
             )
 
             if (overview == null) {
-                Spacer(Modifier.height(OneUiSpacing.CardInner))
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
                 Text(
                     text = "尚无读数",
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                 )
-                return@Column
+                return@Surface
             }
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
-            // 存储 —— OneUI 8.5 风格：百分比大字 + 标签 + 宽状态条 + 进入详情
-            val storageMeasurable = overview.totalBytes > 0L
-            val storageFraction = if (storageMeasurable) {
-                (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
-            } else 0f
             MetricBar(
-                percentText = if (storageMeasurable) {
-                    "${(storageFraction * 100).toInt()}%"
+                percentText = if (overview.totalBytes > 0L) {
+                    "${(overview.usedBytes.toFloat() / overview.totalBytes * 100).toInt()}%"
                 } else "—",
                 label = "存储",
-                detail = if (storageMeasurable) {
-                    "已用 ${overview.usedBytes.formatBytes()} / 共 ${overview.totalBytes.formatBytes()}"
+                detail = if (overview.totalBytes > 0L) {
+                    "已用 ${overview.usedBytes.formatBytes()} · 共 ${overview.totalBytes.formatBytes()}"
                 } else "未获取存储总量",
-                fraction = storageFraction,
-                measurable = storageMeasurable,
-                )
+                fraction = if (overview.totalBytes > 0L) {
+                    (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
+                } else 0f,
+                measurable = overview.totalBytes > 0L,
+            )
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
-            // 内存
             val memMeasurable = overview.memoryTotalBytes > 0L
             val memFraction = if (memMeasurable) {
-                (overview.memoryAvailableBytes.toFloat() / overview.memoryTotalBytes)
-                    .coerceIn(0f, 1f)
+                (overview.memoryAvailableBytes.toFloat() / overview.memoryTotalBytes).coerceIn(0f, 1f)
             } else 0f
             MetricBar(
-                percentText = if (memMeasurable) {
-                    "可用 ${(memFraction * 100).toInt()}%"
-                } else "—",
+                percentText = if (memMeasurable) "可用 ${(memFraction * 100).toInt()}%" else "—",
                 label = "内存",
                 detail = if (memMeasurable) {
-                    "空闲 ${overview.memoryAvailableBytes.formatBytes()} / 共 ${overview.memoryTotalBytes.formatBytes()}"
+                    "空闲 ${overview.memoryAvailableBytes.formatBytes()} · 共 ${overview.memoryTotalBytes.formatBytes()}"
                 } else "未获取内存读数",
                 fraction = memFraction,
                 measurable = memMeasurable,
-                )
+            )
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
-            // 电池
-            val batMeasurable = overview.batteryPercent > 0
             MetricBar(
-                percentText = if (batMeasurable) "${overview.batteryPercent}%" else "—",
+                percentText = if (overview.batteryPercent > 0) "${overview.batteryPercent}%" else "—",
                 label = "电池",
                 detail = buildString {
-                    if (batMeasurable) {
+                    if (overview.batteryPercent > 0) {
                         if (overview.batteryTemperatureTenths > 0) {
                             append("${overview.batteryTemperatureTenths / 10f}°C · ")
                         }
@@ -461,21 +419,13 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                     }
                 },
                 fraction = (overview.batteryPercent / 100f).coerceIn(0f, 1f),
-                measurable = batMeasurable,
-                )
+                measurable = overview.batteryPercent > 0,
+            )
         }
     }
 }
 
-/**
- * OneUI 8.5 Device Care 风格的指标条：
- *   - 左侧大号百分比（28sp W200 轻数字）
- *   - 右上：标签 + 详情（不超过 31 字符的 OneUI 命名原则）
- *   - 底部：14dp 高、full-width、squircle 圆角、状态条
- *
- * 不模仿 M3 默认的 8dp 细线进度条（看起来像临时状态），也不引入装饰色，
- * 让 bar 自己说话 —— 进度填到哪里就填到哪里。
- */
+/** OneUI 8.5 指标条：百分比 + 标签 + 详情 + 14dp squircle 状态条 */
 @Composable
 private fun MetricBar(
     percentText: String,
@@ -487,22 +437,14 @@ private fun MetricBar(
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Medium))
-            // 不做 clickable —— 没有可跳转的详情页。
-            // 之前传 onClick = { NovaTap(view) } 让用户以为"可点",是假交互。
-            // 现在这一行就是状态显示，没有跳转箭头更诚实。
-            .padding(vertical = OneUiSpacing.SectionTitleGap),
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
         ) {
             Text(
                 text = percentText,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W200),
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.W200),
                 color = if (measurable) cs.onSurface else cs.onSurfaceVariant,
             )
             Spacer(Modifier.weight(1f))
@@ -517,7 +459,6 @@ private fun MetricBar(
                     text = detail,
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
-                    maxLines = 1,
                 )
             }
         }
@@ -554,65 +495,60 @@ private fun batteryHealthLabel(raw: String): String = when (raw) {
     else -> "系统未给出健康结论"
 }
 
-// ============================================================
-// 4. AI 助手 —— 首页唯一常驻入口（助手不在底栏）
-// ============================================================
+// =========================================================================
+// 4. AI 助手 —— OneUI squircle 浮片
+// =========================================================================
 @Composable
 private fun AssistantEntry(onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-
-    GlassPanel(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Large)),
-        tint = cs.primary,
+            .clip(RoundedCornerShape(OneUiRadius.Medium)),
+        color = cs.primaryContainer,
+        onClick = onClick,
     ) {
         Row(
-            modifier = Modifier
-                .clickable(onClick = onClick)
-                .padding(horizontal = 18.dp, vertical = 18.dp),
+            modifier = Modifier.padding(OneUiSpacing.CardInner),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AiOrb(size = 30.dp)
+            AiOrb(size = 28.dp)
             Spacer(Modifier.width(OneUiSpacing.CardInner))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "问问 AI 助手",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                    color = cs.onPrimaryContainer,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "读设备状态 · 给建议 · 帮你动手",
                     style = MaterialTheme.typography.bodySmall,
-                    color = cs.onPrimary.copy(alpha = 0.85f),
+                    color = cs.onPrimaryContainer.copy(alpha = 0.74f),
                 )
             }
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.titleMedium,
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = null,
+                tint = cs.onPrimaryContainer,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
 }
 
-// ============================================================
-// 装载状态的分支视图
-// ============================================================
+// =========================================================================
+// 装载态
+// =========================================================================
 @Composable
 private fun ReadingHero() {
     val cs = MaterialTheme.colorScheme
-    Text(
-        text = "设备健康",
-        style = MaterialTheme.typography.bodySmall,
-        color = cs.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(OneUiSpacing.CardGap))
     Text(
         text = "正在读取设备状态",
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
         color = cs.onSurface,
     )
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
     Text(
         text = "存储、内存、电池三项读数来自系统，不预估、不填充。",
         style = MaterialTheme.typography.bodySmall,
@@ -626,17 +562,11 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
     val colors = NovaCareTheme.colors
 
     Text(
-        text = "设备健康",
-        style = MaterialTheme.typography.bodySmall,
-        color = cs.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(OneUiSpacing.CardGap))
-    Text(
         text = "读不到",
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
         color = colors.riskCaution,
     )
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
     Text(
         text = "本次扫描没有拿到任何一项读数，所以这里不给分数，也不用上一次的结果凑数。",
         style = MaterialTheme.typography.bodySmall,
@@ -654,7 +584,7 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
             .clip(RoundedCornerShape(OneUiRadius.Small))
             .background(cs.onSurface.copy(alpha = 0.06f))
             .clickable { onRetry() }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
     ) {
         Text(
             text = "重试",
@@ -664,9 +594,9 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
     }
 }
 
-// ============================================================
-// 5. 降级说明 —— 引擎 / 权限，每项都给最短修复动作
-// ============================================================
+// =========================================================================
+// 5. 降级说明 —— 引擎 / 权限，每项带修复动作
+// =========================================================================
 @Composable
 private fun DegradedSection(
     engineAvailable: Boolean,
@@ -678,14 +608,14 @@ private fun DegradedSection(
     val colors = NovaCareTheme.colors
 
     if (!engineAvailable) {
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(OneUiRadius.Medium))
+                .clip(RoundedCornerShape(OneUiRadius.Small))
                 .background(colors.riskCaution.copy(alpha = 0.08f))
                 .clickable { onRetry() }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -695,12 +625,11 @@ private fun DegradedSection(
                     color = colors.riskCaution,
                 )
                 Text(
-                    text = "存储与内存的读数仍取自系统；垃圾识别、回收量估算不可用，不会显示这部分数字。",
+                    text = "存储与内存的读数仍取自系统；垃圾识别、回收量估算不可用。",
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
             Text(
                 text = "重试",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
@@ -724,7 +653,7 @@ private fun PermissionRow(
     val colors = NovaCareTheme.colors
     val (title, why) = when (capability) {
         MissingCapability.USAGE_STATS ->
-            "使用情况访问" to "缺少它就无法判断哪些应用长期没被打开，应用维度不计入健康分"
+            "使用情况访问" to "缺少它就无法判断哪些应用长期没被打开"
         MissingCapability.ALL_FILES ->
             "所有文件访问" to "缺少它只能扫到部分目录，清理页的结果会偏少"
         MissingCapability.NOTIFICATIONS ->
@@ -734,10 +663,10 @@ private fun PermissionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Medium))
+            .clip(RoundedCornerShape(OneUiRadius.Small))
             .background(colors.riskCaution.copy(alpha = 0.06f))
             .clickable { onGrant() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -752,7 +681,6 @@ private fun PermissionRow(
                 color = cs.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
         Text(
             text = "去开启",
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
@@ -760,5 +688,3 @@ private fun PermissionRow(
         )
     }
 }
-
-// (end of file)

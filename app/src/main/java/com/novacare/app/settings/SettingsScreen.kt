@@ -64,6 +64,7 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
  * 设置页 —— OneUI 9.5 真实设计语言。
@@ -584,7 +585,7 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
             .clip(RoundedCornerShape(14.dp))
             .background(cs.primary.copy(alpha = 0.08f))
             .clickable { onDismiss() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

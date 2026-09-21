@@ -386,7 +386,7 @@ private fun DoneHero(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(OneUiRadius.Medium))
                 .clickable { onRescan() }
-                .padding(vertical = 14.dp),
+                .padding(vertical = OneUiSpacing.SectionTitleGap),
             horizontalArrangement = Arrangement.Center,
         ) {
             Text(
@@ -541,7 +541,7 @@ private fun ResultsView(
                 .align(Alignment.BottomCenter),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         ) {
-            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+            Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
                 // 可释放时不占版面；不可释放时必须把「为什么 + 怎么办」写在按钮上方
                 if (availability.explain != null && hasAdvices) {
                     ReleaseBlockCard(availability = availability)
@@ -553,7 +553,7 @@ private fun ResultsView(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(OneUiRadius.Medium))
                             .clickable { onMoveToRecycleBinChange(!moveToRecycleBin) }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = OneUiSpacing.SectionTitleGap),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(
@@ -728,7 +728,7 @@ private fun AdviceRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable { onToggle() }
-            .padding(vertical = 14.dp),
+            .padding(vertical = OneUiSpacing.SectionTitleGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -814,7 +814,7 @@ private fun ReleaseBlockCard(availability: ReleaseAvailability) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(colors.riskCaution.copy(alpha = 0.08f))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
     ) {
         Text(
             text = availability.title,
@@ -841,7 +841,7 @@ private fun NoticeRow(text: String) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(cs.onSurface.copy(alpha = 0.04f))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -869,7 +869,7 @@ private fun Chip(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) cs.primary else cs.onSurface,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.SectionTitleGap),
         )
     }
 }

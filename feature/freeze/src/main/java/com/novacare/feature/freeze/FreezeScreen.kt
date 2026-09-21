@@ -404,7 +404,7 @@ private fun ReadyView(
                     .align(Alignment.BottomCenter),
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             ) {
-                Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+                Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -512,7 +512,7 @@ private fun EmptyList(usagePermissionGranted: Boolean, shizukuAvailable: Boolean
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(horizontal = OneUiSpacing.BlockGap, vertical = OneUiSpacing.BlockGap),
     ) {
         Text(
             text = when {
@@ -550,7 +550,7 @@ private fun CandidateRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable { if (frozen) onUnfreeze() else onToggle() }
-            .padding(vertical = 14.dp),
+            .padding(vertical = OneUiSpacing.SectionTitleGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -599,7 +599,7 @@ private fun CandidateRow(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = OneUiSpacing.SectionTitleGap, vertical = OneUiSpacing.CardGap),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.AcUnit,
@@ -652,7 +652,7 @@ private fun RiskChip(risk: FreezeRisk) {
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = color,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = OneUiSpacing.SectionTitleGap, vertical = 4.dp),
         )
     }
 }
@@ -684,7 +684,7 @@ private fun Chip(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) cs.primary else cs.onSurface,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
         )
     }
 }
