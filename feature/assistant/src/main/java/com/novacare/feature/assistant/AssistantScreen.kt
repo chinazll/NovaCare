@@ -58,6 +58,7 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
  * AI 助手 —— OneUI 9.5 真实设计语言。
@@ -207,7 +208,7 @@ private fun QuickPrompts(onSelect: (String) -> Unit) {
                     text = prompt,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(OneUiSpacing.CardGap),
                 )
             }
         }

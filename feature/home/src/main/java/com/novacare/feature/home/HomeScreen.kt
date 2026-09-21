@@ -121,15 +121,6 @@ fun HomeScreen(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            OneUiAppBar(title = "NovaCare")
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = OneUiSpacing.BlockGap),
-            ) {
-
-            // ---- 1. 顶条 ----
             OneUiAppBar(
                 title = "NovaCare",
                 actions = {
@@ -146,54 +137,60 @@ fun HomeScreen(
                 },
             )
 
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = OneUiSpacing.BlockGap),
+            ) {
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
 
-            // ---- 2 ~ 4. 主体（按装载状态分支，失败也要说清楚） ----
-            when (loadState) {
-                HomeLoadState.Loading -> ReadingHero()
+                // ---- 2 ~ 4. 主体（按装载状态分支，失败也要说清楚） ----
+                when (loadState) {
+                    HomeLoadState.Loading -> ReadingHero()
 
-                is HomeLoadState.Failed -> FailedHero(
-                    message = (loadState as HomeLoadState.Failed).message,
-                    onRetry = {
-                        NovaTap(view)
-                        viewModel.refresh()
-                    },
-                )
-
-                HomeLoadState.Ready -> {
-                    HealthHero(
-                        score = score,
-                        basis = basis,
-                        hints = hints,
-                        onNavigate = { destination ->
+                    is HomeLoadState.Failed -> FailedHero(
+                        message = (loadState as HomeLoadState.Failed).message,
+                        onRetry = {
                             NovaTap(view)
-                            onNavigate(destination)
+                            viewModel.refresh()
                         },
                     )
 
-                    Spacer(Modifier.height(OneUiSpacing.BlockGap))
+                    HomeLoadState.Ready -> {
+                        HealthHero(
+                            score = score,
+                            basis = basis,
+                            hints = hints,
+                            onNavigate = { destination ->
+                                NovaTap(view)
+                                onNavigate(destination)
+                            },
+                        )
 
-                    DeviceStatusCard(overview = overview)
+                        Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
-                    Spacer(Modifier.height(OneUiSpacing.BlockGap))
+                        DeviceStatusCard(overview = overview)
 
-                    AssistantEntry {
-                        NovaTap(view)
-                        onOpenAssistant()
+                        Spacer(Modifier.height(OneUiSpacing.BlockGap))
+
+                        AssistantEntry {
+                            NovaTap(view)
+                            onOpenAssistant()
+                        }
                     }
                 }
-            }
 
-            // ---- 5. 降级说明（引擎 / 权限） ----
-            DegradedSection(
-                engineAvailable = engineAvailable,
-                missing = missing,
-                onRetry = { viewModel.refresh() },
-                onGrant = { capability ->
-                    NovaTap(view)
-                    viewModel.grant(capability)
-                },
-            )
+                // ---- 5. 降级说明（引擎 / 权限） ----
+                DegradedSection(
+                    engineAvailable = engineAvailable,
+                    missing = missing,
+                    onRetry = { viewModel.refresh() },
+                    onGrant = { capability ->
+                        NovaTap(view)
+                        viewModel.grant(capability)
+                    },
+                )
 
                 Spacer(Modifier.height(160.dp))
             }

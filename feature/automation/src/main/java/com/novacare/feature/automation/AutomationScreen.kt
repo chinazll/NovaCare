@@ -170,7 +170,7 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
             .clickable { onDismiss() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(OneUiSpacing.CardGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

@@ -249,7 +249,7 @@ private fun ScanningHero() {
             style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         androidx.compose.material3.CircularProgressIndicator(
             modifier = Modifier.size(32.dp),
             strokeWidth = 3.dp,
@@ -308,7 +308,7 @@ private fun ExecutingHero() {
             style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         androidx.compose.material3.CircularProgressIndicator(
             modifier = Modifier.size(32.dp),
             strokeWidth = 3.dp,
@@ -363,7 +363,7 @@ private fun DoneHero(
                 color = cs.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.height(48.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()

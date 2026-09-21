@@ -173,7 +173,7 @@ private fun ScanningHero() {
             style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         androidx.compose.material3.CircularProgressIndicator(
             modifier = Modifier.size(32.dp),
             strokeWidth = 3.dp,
@@ -229,7 +229,7 @@ private fun ApplyingHero(label: String, freezing: Boolean) {
             style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         androidx.compose.material3.CircularProgressIndicator(
             modifier = Modifier.size(32.dp),
             strokeWidth = 3.dp,
@@ -482,7 +482,7 @@ private fun NoticeRow(
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(tone.copy(alpha = 0.08f))
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(OneUiSpacing.CardGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
