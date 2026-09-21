@@ -97,7 +97,7 @@ fun AssistantScreen(
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = "AI 助手",
-                        style = MaterialTheme.typography.displaySmall,
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -178,7 +178,7 @@ private fun GreetingHero(cloudEnabled: Boolean) {
     ) {
         Text(
             text = "我能帮你做什么？",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.W600),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
             color = cs.onSurface,
         )
         Spacer(Modifier.height(6.dp))
@@ -349,7 +349,7 @@ private fun ActionCard(
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.W600,
                 color = cs.onSurface,
             )
@@ -389,7 +389,7 @@ private fun ActionCard(
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = "确认执行",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.W600,
                                 )
                             }
@@ -409,7 +409,7 @@ private fun ActionCard(
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = "取消",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = MaterialTheme.typography.labelMedium,
                                 )
                             }
                         }

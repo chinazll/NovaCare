@@ -134,13 +134,13 @@ private fun IdleHero(onScan: () -> Unit) {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "冻结",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "看看哪些应用长期没被打开",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(48.dp))
@@ -169,13 +169,13 @@ private fun ScanningHero() {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "正在读取",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "读取你设备上的应用与最近使用情况",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(40.dp))
@@ -193,13 +193,13 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "读取失败",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
@@ -225,13 +225,13 @@ private fun ApplyingHero(label: String, freezing: Boolean) {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = if (freezing) "正在冻结" else "正在解冻",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(40.dp))
@@ -260,7 +260,7 @@ private fun ResultBanner(
                 !success -> if (freezing) "冻结失败" else "解冻失败"
                 else -> if (freezing) "已冻结 $label" else "已解冻 $label"
             },
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = if (success) colors.healthGood else colors.riskRisky,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
@@ -269,7 +269,7 @@ private fun ResultBanner(
                 "Shizuku 已写入系统状态"
             else
                 "已引导至系统设置页，请按指示完成最后一步",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
@@ -319,7 +319,7 @@ private fun ReadyView(
             ) {
                 Text(
                     text = "冻结",
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = cs.onSurface,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -581,7 +581,7 @@ private fun CandidateRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = candidate.app.label,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

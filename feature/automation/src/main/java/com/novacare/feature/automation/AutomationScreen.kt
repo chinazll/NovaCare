@@ -84,7 +84,7 @@ fun AutomationScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "自动化",
-                            style = MaterialTheme.typography.displaySmall,
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(Modifier.height(4.dp))
@@ -248,7 +248,7 @@ private fun RuleRow(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = rule.name,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = cs.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

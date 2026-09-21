@@ -65,6 +65,7 @@ import com.novacare.core.model.CleanRisk
 import com.novacare.core.system.MissingCapability
 import com.novacare.ui.designsystem.GlassPanel
 import com.novacare.ui.designsystem.MotionTokens
+import com.novacare.ui.designsystem.OneUiAppBar
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
@@ -90,10 +91,11 @@ fun CleanScreen(
     val availability by viewModel.releaseAvailability.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
 
+    // 不自动扫描 —— 让用户主动按"开始扫描"按钮。
+    // 事故复盘（v0.13 之前）：之前 LaunchedEffect 一进屏就 auto-scan，IdleHero
+    // 按钮是死代码（用户根本看不到）。现在 IdleHero 才是真正的入口。
     LaunchedEffect(Unit) {
-        if (state is CleanViewModel.UiState.Idle) {
-            viewModel.scanNow(rootPath)
-        }
+        viewModel.refreshEngineState()
     }
 
     val view = LocalView.current
@@ -121,7 +123,7 @@ fun CleanScreen(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(Modifier.height(56.dp))
+            OneUiAppBar(title = "清理")
 
             when (val s = state) {
                 CleanViewModel.UiState.Idle -> IdleHero(
@@ -208,17 +210,11 @@ private fun IdleHero(onScan: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
-            text = "清理",
-            style = MaterialTheme.typography.displaySmall,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
             text = "扫一下，看看你能释放多少空间",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(48.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -231,7 +227,7 @@ private fun IdleHero(onScan: () -> Unit) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = "开始扫描",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
         }
@@ -244,13 +240,13 @@ private fun ScanningHero() {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "正在扫描",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "分析存储、缓存与残留文件",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(40.dp))
@@ -268,13 +264,13 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "扫描失败",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
@@ -303,13 +299,13 @@ private fun ExecutingHero() {
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
             text = "正在释放",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
         Text(
             text = "请保持 NovaCare 在前台",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(40.dp))
@@ -342,7 +338,7 @@ private fun DoneHero(
             } else {
                 "已释放 ${freedBytes.formatBytes()}"
             },
-            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
             color = if (manualOnly) cs.onSurface else colors.healthGood,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
@@ -355,7 +351,7 @@ private fun DoneHero(
                     if (failedCount > 0) append(" · 失败 $failedCount 项")
                 }
             },
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         if (needsManualCount > 0) {
@@ -438,7 +434,7 @@ private fun ResultsView(
             ) {
                 Text(
                     text = "清理",
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = cs.onSurface,
                     modifier = Modifier.weight(1f),
                 )
@@ -700,7 +696,7 @@ private fun RingSummary(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "$selected",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
                     color = cs.onSurface,
                 )
                 Text(
@@ -714,7 +710,7 @@ private fun RingSummary(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "已选 ${selectedBytes.formatBytes()}",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurface,
             )
             Text(
@@ -759,7 +755,7 @@ private fun AdviceRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = advice.targetLabel,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -828,7 +824,7 @@ private fun ReleaseBlockCard(availability: ReleaseAvailability) {
     ) {
         Text(
             text = availability.title,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = colors.riskCaution,
         )
         availability.explain?.let { explain ->

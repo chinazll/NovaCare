@@ -48,6 +48,7 @@ import com.novacare.core.system.MissingCapability
 import com.novacare.ui.designsystem.AiOrb
 import com.novacare.ui.designsystem.GlassPanel
 import com.novacare.ui.designsystem.MotionTokens
+import com.novacare.ui.designsystem.OneUiAppBar
 import com.novacare.ui.designsystem.NovaCareColors
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
@@ -122,13 +123,14 @@ fun HomeScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = OneUiSpacing.BlockGap),
-        ) {
-            Spacer(Modifier.height(56.dp))
+        Column(modifier = Modifier.fillMaxSize()) {
+            OneUiAppBar(title = "NovaCare")
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = OneUiSpacing.BlockGap),
+            ) {
 
             // ---- 1. 顶条 ----
             TopStatusBar(
@@ -185,7 +187,8 @@ fun HomeScreen(
                 },
             )
 
-            Spacer(Modifier.height(160.dp))
+                Spacer(Modifier.height(160.dp))
+            }
         }
     }
 }
@@ -265,7 +268,7 @@ private fun HealthHero(
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = scored?.total?.toString() ?: "—",
-                style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.W200),
+                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.W200),
                 color = scored?.let { scoreColor(it.total, colors) } ?: cs.onSurface,
                 maxLines = 1,
             )
@@ -413,7 +416,6 @@ private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.
 @Composable
 private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
     val cs = MaterialTheme.colorScheme
-    val view = LocalView.current
 
     GlassPanel(
         modifier = Modifier.fillMaxWidth(),
@@ -422,7 +424,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "设备状态",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
                 color = cs.onSurface,
             )
 
@@ -453,10 +455,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 } else "未获取存储总量",
                 fraction = storageFraction,
                 measurable = storageMeasurable,
-                onClick = {
-                    NovaTap(view)
-                },
-            )
+                )
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
@@ -476,10 +475,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 } else "未获取内存读数",
                 fraction = memFraction,
                 measurable = memMeasurable,
-                onClick = {
-                    NovaTap(view)
-                },
-            )
+                )
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
@@ -500,10 +496,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 },
                 fraction = (overview.batteryPercent / 100f).coerceIn(0f, 1f),
                 measurable = batMeasurable,
-                onClick = {
-                    NovaTap(view)
-                },
-            )
+                )
         }
     }
 }
@@ -513,7 +506,6 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
  *   - 左侧大号百分比（28sp W200 轻数字）
  *   - 右上：标签 + 详情（不超过 31 字符的 OneUI 命名原则）
  *   - 底部：14dp 高、full-width、squircle 圆角、状态条
- *   - 整行可点进入详情（点击触发振动 + 跳转）
  *
  * 不模仿 M3 默认的 8dp 细线进度条（看起来像临时状态），也不引入装饰色，
  * 让 bar 自己说话 —— 进度填到哪里就填到哪里。
@@ -525,7 +517,6 @@ private fun MetricBar(
     detail: String,
     fraction: Float,
     measurable: Boolean,
-    onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
@@ -534,7 +525,9 @@ private fun MetricBar(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .clickable(onClick = onClick)
+            // 不做 clickable —— 没有可跳转的详情页。
+            // 之前传 onClick = { NovaTap(view) } 让用户以为"可点",是假交互。
+            // 现在这一行就是状态显示，没有跳转箭头更诚实。
             .padding(vertical = OneUiSpacing.SectionTitleGap),
     ) {
         Row(
@@ -543,14 +536,14 @@ private fun MetricBar(
         ) {
             Text(
                 text = percentText,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.W200),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W200),
                 color = if (measurable) cs.onSurface else cs.onSurfaceVariant,
             )
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
                     color = cs.onSurface,
                 )
                 Spacer(Modifier.height(2.dp))
@@ -650,7 +643,7 @@ private fun ReadingHero() {
     Spacer(Modifier.height(OneUiSpacing.CardGap))
     Text(
         text = "正在读取设备状态",
-        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
         color = cs.onSurface,
     )
     Spacer(Modifier.height(10.dp))
@@ -674,7 +667,7 @@ private fun FailedHero(message: String, onRetry: () -> Unit) {
     Spacer(Modifier.height(OneUiSpacing.CardGap))
     Text(
         text = "读不到",
-        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.W300),
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W300),
         color = colors.riskCaution,
     )
     Spacer(Modifier.height(10.dp))
@@ -732,7 +725,7 @@ private fun DegradedSection(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "内核不可用",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = colors.riskCaution,
                 )
                 Text(
@@ -784,7 +777,7 @@ private fun PermissionRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurface,
             )
             Text(
