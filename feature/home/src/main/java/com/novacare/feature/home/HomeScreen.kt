@@ -411,22 +411,21 @@ private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.
 @Composable
 private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
     val cs = MaterialTheme.colorScheme
+    val view = LocalView.current
 
     GlassPanel(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "设备状态",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W600),
                 color = cs.onSurface,
             )
 
             if (overview == null) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(16.dp))
                 Text(
                     text = "尚无读数",
                     style = MaterialTheme.typography.bodyMedium,
@@ -435,147 +434,156 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 return@Column
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // 存储：有总量才有百分比，否则如实说读不到
-            StorageRow(overview = overview)
-
-            Spacer(Modifier.height(14.dp))
-
-            MeterRow(
-                label = "内存",
-                value = if (overview.memoryTotalBytes > 0L) {
-                    "可用 ${overview.memoryAvailableBytes.formatBytes()} / ${overview.memoryTotalBytes.formatBytes()}"
-                } else {
-                    "未获取"
+            // 存储 —— OneUI 8.5 风格：百分比大字 + 标签 + 宽状态条 + 进入详情
+            val storageMeasurable = overview.totalBytes > 0L
+            val storageFraction = if (storageMeasurable) {
+                (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
+            } else 0f
+            MetricBar(
+                percentText = if (storageMeasurable) {
+                    "${(storageFraction * 100).toInt()}%"
+                } else "—",
+                label = "存储",
+                detail = if (storageMeasurable) {
+                    "已用 ${overview.usedBytes.formatBytes()} / 共 ${overview.totalBytes.formatBytes()}"
+                } else "未获取存储总量",
+                fraction = storageFraction,
+                measurable = storageMeasurable,
+                onClick = {
+                    NovaTap(view)
                 },
-                fraction = if (overview.memoryTotalBytes > 0L) {
-                    (overview.memoryAvailableBytes.toFloat() / overview.memoryTotalBytes)
-                        .coerceIn(0f, 1f)
-                } else {
-                    0f
-                },
-                measurable = overview.memoryTotalBytes > 0L,
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(28.dp))
 
-            MeterRow(
+            // 内存
+            val memMeasurable = overview.memoryTotalBytes > 0L
+            val memFraction = if (memMeasurable) {
+                (overview.memoryAvailableBytes.toFloat() / overview.memoryTotalBytes)
+                    .coerceIn(0f, 1f)
+            } else 0f
+            MetricBar(
+                percentText = if (memMeasurable) {
+                    "可用 ${(memFraction * 100).toInt()}%"
+                } else "—",
+                label = "内存",
+                detail = if (memMeasurable) {
+                    "空闲 ${overview.memoryAvailableBytes.formatBytes()} / 共 ${overview.memoryTotalBytes.formatBytes()}"
+                } else "未获取内存读数",
+                fraction = memFraction,
+                measurable = memMeasurable,
+                onClick = {
+                    NovaTap(view)
+                },
+            )
+
+            Spacer(Modifier.height(28.dp))
+
+            // 电池
+            val batMeasurable = overview.batteryPercent > 0
+            MetricBar(
+                percentText = if (batMeasurable) "${overview.batteryPercent}%" else "—",
                 label = "电池",
-                value = buildString {
-                    append("${overview.batteryPercent}%")
-                    if (overview.batteryTemperatureTenths > 0) {
-                        append(" · ${overview.batteryTemperatureTenths / 10f}°C")
+                detail = buildString {
+                    if (batMeasurable) {
+                        if (overview.batteryTemperatureTenths > 0) {
+                            append("${overview.batteryTemperatureTenths / 10f}°C · ")
+                        }
+                        append(batteryHealthLabel(overview.batteryHealth))
+                    } else {
+                        append("未获取电量")
                     }
-                    append(" · ${batteryHealthLabel(overview.batteryHealth)}")
                 },
                 fraction = (overview.batteryPercent / 100f).coerceIn(0f, 1f),
-                measurable = overview.batteryPercent > 0,
+                measurable = batMeasurable,
+                onClick = {
+                    NovaTap(view)
+                },
             )
         }
     }
 }
 
+/**
+ * OneUI 8.5 Device Care 风格的指标条：
+ *   - 左侧大号百分比（28sp W200 轻数字）
+ *   - 右上：标签 + 详情（不超过 31 字符的 OneUI 命名原则）
+ *   - 底部：14dp 高、full-width、squircle 圆角、状态条
+ *   - 整行可点进入详情（点击触发振动 + 跳转）
+ *
+ * 不模仿 M3 默认的 8dp 细线进度条（看起来像临时状态），也不引入装饰色，
+ * 让 bar 自己说话 —— 进度填到哪里就填到哪里。
+ */
 @Composable
-private fun StorageRow(overview: HomeViewModel.Overview) {
-    val cs = MaterialTheme.colorScheme
-    val measurable = overview.totalBytes > 0L
-    val fraction = if (measurable) {
-        (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "存储",
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant,
-            modifier = Modifier.width(64.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (measurable) {
-                        "已用 ${overview.usedBytes.formatBytes()} / ${overview.totalBytes.formatBytes()}"
-                    } else {
-                        "未获取"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurface,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (measurable) "剩余 ${overview.freeBytes.formatBytes()}" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(cs.onSurface.copy(alpha = 0.08f)),
-            ) {
-                if (measurable) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(fraction)
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(cs.primary),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MeterRow(
+private fun MetricBar(
+    percentText: String,
     label: String,
-    value: String,
+    detail: String,
     fraction: Float,
     measurable: Boolean,
+    onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant,
-            modifier = Modifier.width(64.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
+    val colors = NovaCareTheme.colors
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+        ) {
             Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
+                text = percentText,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.W200),
+                color = if (measurable) cs.onSurface else cs.onSurfaceVariant,
             )
-            Spacer(Modifier.height(8.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(cs.onSurface.copy(alpha = 0.08f)),
-            ) {
-                if (measurable) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(fraction)
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(cs.primary),
-                    )
-                }
+            Spacer(Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W600),
+                    color = cs.onSurface,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(colors.ringTrack),
+        ) {
+            if (measurable && fraction > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(cs.primary),
+                )
             }
         }
     }
 }
 
+@Composable
 private fun batteryHealthLabel(raw: String): String = when (raw) {
     "good" -> "状态正常"
     "overheat" -> "过热"
