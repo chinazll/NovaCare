@@ -1139,7 +1139,6 @@ private fun String.middleTruncate(max: Int = 42): String {
 // 衍生尺寸 —— 由现有 token 组合得到
 // ============================================================
 
-private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 
 /** 饼图外径 = EmptyHeight - BlockGap (=88dp) */
 private val PieChartSize: Dp = OneUiSpacing.EmptyHeight - OneUiSpacing.BlockGap

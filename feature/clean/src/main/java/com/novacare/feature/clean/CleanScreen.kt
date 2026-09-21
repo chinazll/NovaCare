@@ -848,5 +848,3 @@ private fun CleanRisk.icon(): ImageVector = Icons.Outlined.WarningAmber
 // ============================================================
 
 /** Int.dp —— 让数字 + token 组合产出 Dp */
-private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
-private fun Double.dp = androidx.compose.ui.unit.Dp(this.toFloat())

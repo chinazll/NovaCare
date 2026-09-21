@@ -489,7 +489,5 @@ private fun formatDuration(ms: Long): String {
     }
 }
 
-private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
-private fun Double.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 
 private val BoltIconSize: Dp = OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap

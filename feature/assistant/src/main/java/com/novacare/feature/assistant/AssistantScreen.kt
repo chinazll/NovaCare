@@ -610,8 +610,6 @@ private fun Composer(onSend: (String) -> Unit) {
 // 衍生尺寸 —— 不引入裸字面值
 // ============================================================
 
-private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
-private fun Double.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 
 /** 用户气泡右上角小圆角 = Medium (14dp) */
 private val BubbleRadiusUser: Dp = OneUiRadius.Medium

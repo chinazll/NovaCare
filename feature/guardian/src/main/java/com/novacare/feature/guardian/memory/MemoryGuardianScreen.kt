@@ -669,5 +669,4 @@ private fun ReleaseBar(
     }
 }
 
-private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 private val ProgressBarHeight: Dp = OneUiSpacing.CardGap
