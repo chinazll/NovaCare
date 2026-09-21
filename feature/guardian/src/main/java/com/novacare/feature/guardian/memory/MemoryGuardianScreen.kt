@@ -222,10 +222,10 @@ private fun MemoryGauge(overview: MemoryProcessSource.MemoryOverview) {
                     text = "可用 / 共 ${overview.totalBytes.formatBytes()}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 2.dp()),
+                    modifier = Modifier.padding(bottom = 2.dp),
                 )
             }
-            Spacer(Modifier.height(OneUiSpacing.CardInner - 4.dp()))
+            Spacer(Modifier.height(OneUiSpacing.CardInner - 4.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -435,7 +435,7 @@ private fun BoundaryCard(
             Spacer(Modifier.height(OneUiSpacing.CardGap))
             TextButton(
                 onClick = onOpenApplicationSettings,
-                contentPadding = PaddingValues(0.dp()),
+                contentPadding = PaddingValues(0.dp),
             ) {
                 Text("去系统「应用管理」自行处理")
             }
@@ -503,7 +503,7 @@ private fun ProcessRow(
                 Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
                 TextButton(
                     onClick = { onOpenDetails(pkg) },
-                    contentPadding = PaddingValues(0.dp()),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
                     Text("打开它的系统详情页")
                 }
@@ -526,7 +526,7 @@ private fun NoticeBlock(text: String, tone: Color) {
             .background(tone.copy(alpha = 0.08f))
             .padding(
                 horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardInner - 4.dp(),
+                vertical = OneUiSpacing.CardInner - 4.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -547,7 +547,7 @@ private fun SectionTitle(title: String, why: String) {
             style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(2.dp()))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = why,
             style = MaterialTheme.typography.bodySmall,
@@ -565,8 +565,8 @@ private fun LoadingBox() {
         contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp()),
-            strokeWidth = 3.dp(),
+            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp),
+            strokeWidth = 3.dp,
             color = MaterialTheme.colorScheme.primary,
         )
     }
@@ -617,10 +617,10 @@ private fun ReleaseBar(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
-                            strokeWidth = 2.dp(),
+                            strokeWidth = 2.dp,
                             color = cs.primary,
                         )
-                        Spacer(Modifier.width(OneUiSpacing.CardInner - 2.dp()))
+                        Spacer(Modifier.width(OneUiSpacing.CardInner - 2.dp))
                         Text(
                             text = "正在清理本应用缓存并重新测量…",
                             style = MaterialTheme.typography.bodyMedium,
@@ -669,5 +669,5 @@ private fun ReleaseBar(
     }
 }
 
-private fun Int.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 private val ProgressBarHeight: Dp = OneUiSpacing.CardGap

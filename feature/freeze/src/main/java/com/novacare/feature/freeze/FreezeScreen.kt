@@ -326,7 +326,7 @@ private fun ReadyBody(
                         horizontal = OneUiSpacing.ScreenEdge,
                         vertical = OneUiSpacing.SectionTitleGap,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(0.dp()),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     items(items = candidates, key = { it.app.packageName }) { c ->
                         CandidateRow(
@@ -574,7 +574,7 @@ private fun EmptyList(usagePermissionGranted: Boolean, shizukuAvailable: Boolean
             style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(OneUiSpacing.CardGap / 2 + 1.dp()))
+        Spacer(Modifier.height(OneUiSpacing.CardGap / 2 + 1.dp))
         Text(
             text = when {
                 !usagePermissionGranted -> "请在系统设置授予「使用情况访问」"
@@ -633,7 +633,7 @@ private fun StatusBlock(title: String, subtitle: String) {
         Spacer(Modifier.height(OneUiSpacing.BlockGap))
         CircularProgressIndicator(
             modifier = Modifier.size(OneUiSpacing.CardInner * 2),
-            strokeWidth = 3.dp(),
+            strokeWidth = 3.dp,
             color = cs.primary,
         )
     }
@@ -691,7 +691,7 @@ private fun ListHairline() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(1.dp())
+            .height(1.dp)
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
     )
 }

@@ -306,7 +306,7 @@ private fun ResultsBody(
                     horizontal = OneUiSpacing.ScreenEdge,
                     vertical = OneUiSpacing.SectionTitleGap,
                 ),
-                verticalArrangement = Arrangement.spacedBy(0.dp()),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 items(items = plan.advices, key = { it.key() }) { advice ->
                     AdviceRow(
@@ -446,7 +446,7 @@ private fun StatusContent(title: String, subtitle: String) {
         Spacer(Modifier.height(OneUiSpacing.BlockGap))
         CircularProgressIndicator(
             modifier = Modifier.size(OneUiSpacing.CardInner * 2),
-            strokeWidth = 3.dp(),
+            strokeWidth = 3.dp,
             color = cs.primary,
         )
     }
@@ -826,7 +826,7 @@ private fun ListHairline() {
         modifier = Modifier
             .padding(start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap)
             .fillMaxWidth()
-            .height(1.dp())
+            .height(1.dp)
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
     )
 }
@@ -847,6 +847,6 @@ private fun CleanRisk.icon(): ImageVector = Icons.Outlined.WarningAmber
 // 衍生尺寸 —— 不引入裸字面值
 // ============================================================
 
-/** Int.dp() —— 让数字 + token 组合产出 Dp */
-private fun Int.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
-private fun Double.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
+/** Int.dp —— 让数字 + token 组合产出 Dp */
+private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Double.dp = androidx.compose.ui.unit.Dp(this.toFloat())

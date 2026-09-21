@@ -229,7 +229,7 @@ private fun ModeSegment(
                     color = if (selected) accent else cs.onSurface,
                 )
             }
-            Spacer(Modifier.height(2.dp()))
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = sublabel,
                 style = MaterialTheme.typography.bodySmall,
@@ -261,7 +261,7 @@ private fun UserBubble(text: String) {
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(
-                    horizontal = OneUiSpacing.CardInner - 2.dp(),
+                    horizontal = OneUiSpacing.CardInner - 2.dp,
                     vertical = OneUiSpacing.SectionTitleGap,
                 ),
             )
@@ -288,7 +288,7 @@ private fun AssistantBubble(
                 .widthIn(max = BubbleMaxWidth)
                 .clip(RoundedCornerShape(BubbleRadiusAssistant)),
         ) {
-            Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp())) {
+            Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
                 if (bubble.streamed) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -297,7 +297,7 @@ private fun AssistantBubble(
                                 .clip(CircleShape)
                                 .background(colors.healthGood),
                         )
-                        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap / 2 + 2.dp()))
+                        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap / 2 + 2.dp))
                         Text(
                             text = "云端对话",
                             style = MaterialTheme.typography.bodySmall,
@@ -363,7 +363,7 @@ private fun ActionCard(
             .clip(RoundedCornerShape(OneUiRadius.Medium)),
         color = cs.onSurface.copy(alpha = 0.05f),
     ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp())) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
@@ -376,7 +376,7 @@ private fun ActionCard(
                 color = cs.onSurfaceVariant,
             )
             if (previews.isNotEmpty()) {
-                Spacer(Modifier.height(OneUiSpacing.CardGap / 2 + 2.dp()))
+                Spacer(Modifier.height(OneUiSpacing.CardGap / 2 + 2.dp))
                 Text(
                     text = previews.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
@@ -434,8 +434,8 @@ private fun ActionCard(
                 AssistantViewModel.ActionStatus.Running -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp()),
-                            strokeWidth = 2.dp(),
+                            modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp),
+                            strokeWidth = 2.dp,
                             color = cs.primary,
                         )
                         Spacer(Modifier.width(OneUiSpacing.CardGap))
@@ -453,7 +453,7 @@ private fun ActionCard(
                             imageVector = Icons.Outlined.CheckCircleOutline,
                             contentDescription = null,
                             tint = NovaCareTheme.colors.healthGood,
-                            modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp()),
+                            modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp),
                         )
                         Spacer(Modifier.width(OneUiSpacing.CardGap))
                         Text(
@@ -610,8 +610,8 @@ private fun Composer(onSend: (String) -> Unit) {
 // 衍生尺寸 —— 不引入裸字面值
 // ============================================================
 
-private fun Int.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
-private fun Double.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Double.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 
 /** 用户气泡右上角小圆角 = Medium (14dp) */
 private val BubbleRadiusUser: Dp = OneUiRadius.Medium

@@ -81,8 +81,8 @@ fun BatteryGuardianScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp()),
-                            strokeWidth = 3.dp(),
+                            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp),
+                            strokeWidth = 3.dp,
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -232,7 +232,7 @@ private fun ReadyBody(
                     shape = RoundedCornerShape(OneUiRadius.Medium),
                     color = MaterialTheme.colorScheme.surfaceContainer,
                 ) {
-                    Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp())) {
+                    Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
                         Text(
                             text = suspect.label,
                             style = MaterialTheme.typography.bodyLarge,
@@ -288,21 +288,21 @@ private fun BatteryStatusCard(
                     text = statusLabel(data.status),
                     style = MaterialTheme.typography.bodyLarge,
                     color = tone,
-                    modifier = Modifier.padding(bottom = 4.dp()),
+                    modifier = Modifier.padding(bottom = 4.dp),
                 )
                 if (data.plugged) {
-                    Spacer(Modifier.width(OneUiSpacing.CardGap / 2 + 2.dp()))
+                    Spacer(Modifier.width(OneUiSpacing.CardGap / 2 + 2.dp))
                     Icon(
                         imageVector = Icons.Outlined.Bolt,
                         contentDescription = null,
                         tint = cs.primary,
                         modifier = Modifier
                             .size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap)
-                            .padding(bottom = 2.dp()),
+                            .padding(bottom = 2.dp),
                     )
                 }
             }
-            Spacer(Modifier.height(OneUiSpacing.CardInner - 4.dp()))
+            Spacer(Modifier.height(OneUiSpacing.CardInner - 4.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 MetricCell("温度", "%.1f°C".format(data.temperatureCelsius), Modifier.weight(1f))
                 MetricCell("电压", "${data.voltageMv} mV", Modifier.weight(1f))
@@ -331,7 +331,7 @@ private fun MetricCell(title: String, value: String, modifier: Modifier = Modifi
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(2.dp()))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
@@ -358,8 +358,8 @@ private fun AdviceCard(advice: GuardianAdvice, onRun: () -> Unit) {
             Row(verticalAlignment = Alignment.Top) {
                 Box(
                     modifier = Modifier
-                        .padding(top = 4.dp())
-                        .size(8.dp())
+                        .padding(top = 4.dp)
+                        .size(8.dp)
                         .clip(RoundedCornerShape(OneUiRadius.Pill))
                         .background(tone),
                 )
@@ -382,14 +382,14 @@ private fun AdviceCard(advice: GuardianAdvice, onRun: () -> Unit) {
                 Spacer(Modifier.height(OneUiSpacing.CardGap))
                 TextButton(
                     onClick = onRun,
-                    contentPadding = PaddingValues(0.dp()),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
                     Text(label)
                     Spacer(Modifier.width(OneUiSpacing.CardGap / 2))
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
                         contentDescription = null,
-                        modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp()),
+                        modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp),
                     )
                 }
             }
@@ -403,7 +403,7 @@ private fun RankRow(rank: AppUsageRank) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = OneUiSpacing.CardInner - 4.dp()),
+            .padding(vertical = OneUiSpacing.CardInner - 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -440,7 +440,7 @@ private fun NoticeCard(text: String, tone: Color) {
             .background(tone.copy(alpha = 0.08f))
             .padding(
                 horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardInner - 4.dp(),
+                vertical = OneUiSpacing.CardInner - 4.dp,
             ),
     ) {
         Icon(
@@ -461,13 +461,13 @@ private fun NoticeCard(text: String, tone: Color) {
 @Composable
 private fun SectionTitle(title: String, why: String) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(top = OneUiSpacing.SectionTitleGap, bottom = 2.dp())) {
+    Column(modifier = Modifier.padding(top = OneUiSpacing.SectionTitleGap, bottom = 2.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(2.dp()))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = why,
             style = MaterialTheme.typography.bodySmall,
@@ -489,7 +489,7 @@ private fun formatDuration(ms: Long): String {
     }
 }
 
-private fun Int.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
-private fun Double.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Double.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 
 private val BoltIconSize: Dp = OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap

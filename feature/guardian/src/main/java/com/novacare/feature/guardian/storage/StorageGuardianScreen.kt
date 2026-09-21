@@ -253,7 +253,7 @@ private fun ReadyBody(
             horizontal = OneUiSpacing.ScreenEdge,
             vertical = OneUiSpacing.SectionTitleGap,
         ),
-        verticalArrangement = Arrangement.spacedBy(0.dp()),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         item {
             Text(
@@ -548,8 +548,8 @@ private fun LoadingHero(scanning: Boolean) {
         )
         Spacer(Modifier.height(OneUiSpacing.BlockGap))
         CircularProgressIndicator(
-            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp()),
-            strokeWidth = 3.dp(),
+            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp),
+            strokeWidth = 3.dp,
             color = cs.primary,
         )
     }
@@ -608,7 +608,7 @@ private fun SectionTitle(title: String, why: String) {
             style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(2.dp()))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = why,
             style = MaterialTheme.typography.bodySmall,
@@ -628,7 +628,7 @@ private fun EmptyCard(text: String) {
             text = text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp()),
+            modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp),
         )
     }
 }
@@ -677,7 +677,7 @@ private fun DuplicateGroupCard(
             Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
             TextButton(
                 onClick = { onSelectGroup(group.members.first(), group.members.drop(1)) },
-                contentPadding = PaddingValues(0.dp()),
+                contentPadding = PaddingValues(0.dp),
             ) {
                 Text("保留第 1 份，删除其余")
             }
@@ -734,7 +734,7 @@ private fun AgedKindCard(
             Spacer(Modifier.height(OneUiSpacing.CardGap))
             TextButton(
                 onClick = { onSelectAll(files.map { it.file.path }, !allSelected) },
-                contentPadding = PaddingValues(0.dp()),
+                contentPadding = PaddingValues(0.dp),
             ) {
                 Text(if (allSelected) "取消全选" else "全选这一类")
             }
@@ -763,7 +763,7 @@ private fun ResidualRow(item: JunkItem, checked: Boolean, onToggle: () -> Unit) 
         shape = RoundedCornerShape(OneUiRadius.Medium),
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp())) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Outlined.WarningAmber,
@@ -791,7 +791,7 @@ private fun ResidualRow(item: JunkItem, checked: Boolean, onToggle: () -> Unit) 
                 color = cs.onSurfaceVariant,
             )
             Spacer(Modifier.height(OneUiSpacing.CardGap))
-            TextButton(onClick = onToggle, contentPadding = PaddingValues(0.dp())) {
+            TextButton(onClick = onToggle, contentPadding = PaddingValues(0.dp)) {
                 Text(if (checked) "已选中，点此取消" else "选中并删除")
             }
         }
@@ -836,7 +836,7 @@ private fun EmptyDirsCard(
             Spacer(Modifier.height(OneUiSpacing.CardGap))
             TextButton(
                 onClick = { onSelectAll(dirs, !allSelected) },
-                contentPadding = PaddingValues(0.dp()),
+                contentPadding = PaddingValues(0.dp),
             ) {
                 Text(if (allSelected) "取消全选" else "全选 ${dirs.size} 个")
             }
@@ -887,7 +887,7 @@ private fun ScanCtaCard(
                 if (loading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
-                        strokeWidth = 2.dp(),
+                        strokeWidth = 2.dp,
                         color = cs.primary,
                     )
                 }
@@ -916,12 +916,12 @@ private fun CheckRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable { onToggle() }
-            .padding(vertical = OneUiSpacing.CardInner - 4.dp()),
+            .padding(vertical = OneUiSpacing.CardInner - 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap + 4.dp())
+                .size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap + 4.dp)
                 .clip(CircleShape)
                 .background(if (checked) cs.primary else cs.onSurface.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
@@ -935,7 +935,7 @@ private fun CheckRow(
                 )
             }
         }
-        Spacer(Modifier.width(OneUiSpacing.CardInner - 2.dp()))
+        Spacer(Modifier.width(OneUiSpacing.CardInner - 2.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title.middleTruncate(),
@@ -976,7 +976,7 @@ private fun NoticeRow(
             .clickable { onClick() }
             .padding(
                 horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardInner - 4.dp(),
+                vertical = OneUiSpacing.CardInner - 4.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1029,7 +1029,7 @@ private fun DeleteBar(
                 if (busy) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
-                        strokeWidth = 2.dp(),
+                        strokeWidth = 2.dp,
                         color = cs.primary,
                     )
                 }
@@ -1076,7 +1076,7 @@ private fun ResultSheet(
         color = cs.surfaceContainerHigh,
         shadowElevation = OneUiSpacing.BlockGap - OneUiSpacing.CardGap,
     ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner + 2.dp())) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner + 2.dp)) {
             Text(
                 text = if (freedBytes > 0) "已释放 ${freedBytes.formatBytes()}" else "没有文件被删除",
                 style = MaterialTheme.typography.titleMedium,
@@ -1139,7 +1139,7 @@ private fun String.middleTruncate(max: Int = 42): String {
 // 衍生尺寸 —— 由现有 token 组合得到
 // ============================================================
 
-private fun Int.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
+private fun Int.dp = androidx.compose.ui.unit.Dp(this.toFloat())
 
 /** 饼图外径 = EmptyHeight - BlockGap (=88dp) */
 private val PieChartSize: Dp = OneUiSpacing.EmptyHeight - OneUiSpacing.BlockGap
