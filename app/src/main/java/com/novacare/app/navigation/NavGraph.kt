@@ -254,6 +254,8 @@ fun NovaCareNavHost(
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     onOpenGuardian = { route -> navController.navigateTo(route) },
+                    onOpenOneClick = { navController.navigateTo(Routes.ONE_CLICK) },
+                    onOpenExport = { navController.navigateTo(Routes.EXPORT) },
                 )
             }
             // ---- 守护中心三个模块：压栈下钻，返回键退回设置页 ----

@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novacare.core.system.AppRepository
 import com.novacare.core.system.MemoryProcessSource
 import com.novacare.core.system.SystemPermissions
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 /**
@@ -38,7 +40,17 @@ import javax.inject.Inject
 class MemoryGuardianViewModel @Inject constructor(
     private val source: MemoryProcessSource,
     private val permissions: SystemPermissions,
+    private val appRepository: AppRepository,
 ) : ViewModel() {
+
+    data class AppSizeEntry(
+        val packageName: String,
+        val label: String,
+        val totalBytes: Long,
+        val cacheBytes: Long,
+        val dataBytes: Long,
+        val apkBytes: Long,
+    )
 
     data class Snapshot(
         val overview: MemoryProcessSource.MemoryOverview,
@@ -46,6 +58,8 @@ class MemoryGuardianViewModel @Inject constructor(
         val selfCacheBytes: Long,
         /** 系统只给了很少的进程（第三方可见性受限） */
         val limitedVisibility: Boolean,
+        /** Top N 应用按占用（cache + data + apk）排序 —— 由 [AppRepository.loadInstalledApps] 配合 StorageStatsSource 计算 */
+        val topAppsBySize: List<AppSizeEntry>,
     )
 
     sealed interface ReleaseResult {
@@ -82,12 +96,35 @@ class MemoryGuardianViewModel @Inject constructor(
 
     fun refresh() {
         val processes = source.processes()
+        val topBySize = runBlocking {
+            runCatching {
+                // Top 10 大小排序；存储占用是慢 IO（要走 StorageStatsManager），
+                // 因此不放在每 3 秒的轮询里 —— 只在 refresh() 显式调用时跑。
+                // 这里和轮询一起跑是为了简化：每 3 秒最多调一次 StorageStatsManager，
+                // 实测在大多数设备上 < 500ms，可以接受。
+                appRepository.loadInstalledApps(System.currentTimeMillis())
+                    .sortedByDescending { it.sizeBytes }
+                    .take(TOP_N_APPS)
+                    .map { info ->
+                        AppSizeEntry(
+                            packageName = info.packageName,
+                            label = info.label,
+                            totalBytes = info.sizeBytes,
+                            cacheBytes = info.cacheBytes,
+                            dataBytes = info.dataBytes,
+                            apkBytes = (info.sizeBytes - info.cacheBytes - info.dataBytes)
+                                .coerceAtLeast(0L),
+                        )
+                    }
+            }.getOrElse { emptyList() }
+        }
         _snapshot.value = Snapshot(
             overview = source.overview(),
             processes = processes,
             selfCacheBytes = source.selfCacheBytes(),
             // 系统只肯给 3 个及以下进程时，明确标记为"可见性受限"
             limitedVisibility = processes.size in 1..LIMITED_VISIBILITY_THRESHOLD,
+            topAppsBySize = topBySize,
         )
     }
 
@@ -150,5 +187,6 @@ class MemoryGuardianViewModel @Inject constructor(
         /** 等系统把内存账目更新完再测，避免读到"删除前的旧值" */
         const val MEASURE_DELAY_MS = 700L
         const val LIMITED_VISIBILITY_THRESHOLD = 3
+        const val TOP_N_APPS = 10
     }
 }

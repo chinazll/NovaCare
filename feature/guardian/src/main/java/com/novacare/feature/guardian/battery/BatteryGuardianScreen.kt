@@ -1,6 +1,7 @@
 package com.novacare.feature.guardian.battery
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +64,7 @@ import com.novacare.ui.designsystem.OneUiSpacing
  */
 @Composable
 fun BatteryGuardianScreen(
+    onOpenAppDetail: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: BatteryGuardianViewModel = hiltViewModel(),
 ) {
@@ -181,6 +183,7 @@ private fun ReadyBody(
 
         // ---- 前台时长排行 ----
         item {
+            Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
             SectionTitle(
                 "前台时长排行 · 近 ${data.windowHours} 小时",
                 "这是**使用时长**，不是耗电量 —— 见下方说明",

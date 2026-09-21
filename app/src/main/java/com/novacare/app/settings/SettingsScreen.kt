@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BatteryFull
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Folder
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.SdCard
 import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -85,6 +87,10 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     /** 跳到守护中心的某个模块（传入 Routes.STORAGE / MEMORY / BATTERY） */
     onOpenGuardian: ((String) -> Unit)? = null,
+    /** 跳到一键体检 */
+    onOpenOneClick: (() -> Unit)? = null,
+    /** 跳到数据导出 */
+    onOpenExport: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -345,6 +351,31 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
+                // ---- 工具（v0.21.0 新增）----
+                if (onOpenOneClick != null || onOpenExport != null) {
+                    SectionLabel("工具")
+                    SettingsList {
+                        if (onOpenOneClick != null) {
+                            NavRow(
+                                icon = Icons.Outlined.AutoAwesome,
+                                title = "一键体检",
+                                subtitle = "5 步聚合扫描 · 直达清理 / 冻结",
+                                onClick = { NovaTap(view); onOpenOneClick() },
+                            )
+                            ListDivider()
+                        }
+                        if (onOpenExport != null) {
+                            NavRow(
+                                icon = Icons.Outlined.UploadFile,
+                                title = "数据导出",
+                                subtitle = "清理 / 冻结 / 电池历史 → CSV",
+                                onClick = { NovaTap(view); onOpenExport() },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(OneUiSpacing.BlockGap))
+                }
+
                 // ---- 关于 ----
                 SectionLabel("关于")
                 SettingsList {
@@ -507,6 +538,51 @@ private fun ListDivider() {
             .height(OneUiSpacing.SectionTitleGap / 5)
             .clip(RoundedCornerShape(OneUiSpacing.SectionTitleGap / 5)),
     )
+}
+
+/** 工具行（v0.21.0 新增）：图标 + 标题 + 副标 + chevron */
+@Composable
+private fun NavRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardInner),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Spacer(Modifier.width(OneUiSpacing.CardInner + OneUiSpacing.CardGap))
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.CardGap),
+        )
+        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.CardGap),
+        )
+    }
 }
 
 @Composable

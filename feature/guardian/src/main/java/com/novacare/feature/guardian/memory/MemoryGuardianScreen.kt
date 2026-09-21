@@ -72,6 +72,7 @@ import com.novacare.ui.designsystem.OneUiSpacing
  */
 @Composable
 fun MemoryGuardianScreen(
+    onOpenAppDetail: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: MemoryGuardianViewModel = hiltViewModel(),
 ) {
@@ -163,6 +164,27 @@ fun MemoryGuardianScreen(
                                     onOpenDetails = { pkg ->
                                         NovaTap(view)
                                         viewModel.openAppDetails(pkg)
+                                    },
+                                )
+                            }
+                        }
+
+                        // ---- v0.21.0 新增：占用 Top 10 应用 ----
+                        if (snap.topAppsBySize.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(OneUiSpacing.BlockGap))
+                                SectionTitle(
+                                    title = "占用 Top ${snap.topAppsBySize.size}",
+                                    why = "StorageStatsManager 实测 cache + data + 安装包",
+                                )
+                                Spacer(Modifier.height(OneUiSpacing.CardGap))
+                            }
+                            items(items = snap.topAppsBySize, key = { it.packageName }) { entry ->
+                                AppSizeRow(
+                                    entry = entry,
+                                    onClick = { pkg ->
+                                        NovaTap(view)
+                                        onOpenAppDetail(pkg)
                                     },
                                 )
                             }
@@ -512,6 +534,52 @@ private fun ProcessRow(
                     text = "「强行停止」只能由你在系统页里点 —— 第三方应用没有这个权限。",
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppSizeRow(
+    entry: MemoryGuardianViewModel.AppSizeEntry,
+    onClick: (String) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(OneUiRadius.Small))
+            .background(cs.onSurface.copy(alpha = 0.04f))
+            .clickable { onClick(entry.packageName) }
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = entry.label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurface,
+                maxLines = 1,
+            )
+            Text(
+                text = entry.packageName,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = entry.totalBytes.formatBytes(),
+                style = MaterialTheme.typography.titleMedium,
+                color = cs.onSurface,
+            )
+            if (entry.cacheBytes > 0L) {
+                Text(
+                    text = "缓存 ${entry.cacheBytes.formatBytes()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NovaCareTheme.colors.healthGood,
                 )
             }
         }
