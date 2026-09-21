@@ -1,8 +1,14 @@
 package com.novacare.feature.clean
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +63,8 @@ import com.novacare.core.domain.key
 import com.novacare.core.model.CleanAdvice
 import com.novacare.core.model.CleanRisk
 import com.novacare.core.system.MissingCapability
+import com.novacare.ui.designsystem.GlassPanel
+import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
@@ -431,11 +440,23 @@ private fun ResultsView(
                     color = cs.onSurface,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = "${selectedKeys.size} / ${plan.advices.size}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
+                AnimatedContent(
+                    targetState = selectedKeys.size to plan.advices.size,
+                    transitionSpec = {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(MotionTokens.standard) +
+                                slideInVertically(MotionTokens.standardOffset) { it / 4 },
+                            initialContentExit = fadeOut(tween(durationMillis = 120)),
+                        )
+                    },
+                    label = "selection-count",
+                ) { (sel, total) ->
+                    Text(
+                        text = "$sel / $total",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -458,16 +479,32 @@ private fun ResultsView(
                     .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Chip(
-                    text = if (selectedKeys.size == plan.advices.size) "全不选" else "全选",
-                    onClick = { onSelectAll(selectedKeys.size != plan.advices.size) },
-                )
+                key("chip-all") {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(MotionTokens.standard) +
+                            slideInVertically(MotionTokens.standardOffset) { it / 6 },
+                    ) {
+                        Chip(
+                            text = if (selectedKeys.size == plan.advices.size) "全不选" else "全选",
+                            onClick = { onSelectAll(selectedKeys.size != plan.advices.size) },
+                        )
+                    }
+                }
                 Spacer(Modifier.width(8.dp))
-                Chip(
-                    text = if (includeRisky) "✓ 含需确认" else "含需确认",
-                    selected = includeRisky,
-                    onClick = { onIncludeRiskyChange(!includeRisky) },
-                )
+                key("chip-risky") {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(MotionTokens.standard) +
+                            slideInVertically(MotionTokens.standardOffset) { it / 6 },
+                    ) {
+                        Chip(
+                            text = if (includeRisky) "✓ 含需确认" else "含需确认",
+                            selected = includeRisky,
+                            onClick = { onIncludeRiskyChange(!includeRisky) },
+                        )
+                    }
+                }
             }
 
             if (!engineAvailable && hasAdvices) {
@@ -506,12 +543,11 @@ private fun ResultsView(
             }
         }
 
-        Surface(
+        GlassPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter),
-            color = cs.surface,
-            shadowElevation = 8.dp,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         ) {
             Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
                 // 可释放时不占版面；不可释放时必须把「为什么 + 怎么办」写在按钮上方

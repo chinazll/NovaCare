@@ -1,5 +1,8 @@
 package com.novacare.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -24,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +45,9 @@ import com.novacare.core.model.DimensionScore
 import com.novacare.core.model.HealthDimension
 import com.novacare.core.model.HealthScore
 import com.novacare.core.system.MissingCapability
+import com.novacare.ui.designsystem.AiOrb
+import com.novacare.ui.designsystem.GlassPanel
+import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareColors
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
@@ -243,11 +250,15 @@ private fun HealthHero(
     val scored = score?.takeIf { it.dimensions.isNotEmpty() }
 
     Column {
-        Text(
-            text = "设备健康",
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AiOrb(size = 18.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "设备健康",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -276,12 +287,23 @@ private fun HealthHero(
 
         if (scored != null) {
             Spacer(Modifier.height(16.dp))
-            scored.dimensions.forEach { dim ->
-                DimensionRow(
-                    dim = dim,
-                    hint = hints[dim.dimension],
-                    onNavigate = onNavigate,
-                )
+            scored.dimensions.forEachIndexed { index, dim ->
+                key(dim.dimension) {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(MotionTokens.standard) +
+                            slideInVertically(
+                                animationSpec = MotionTokens.standardOffset,
+                                initialOffsetY = { (index + 1) * 14 },
+                            ),
+                    ) {
+                        DimensionRow(
+                            dim = dim,
+                            hint = hints[dim.dimension],
+                            onNavigate = onNavigate,
+                        )
+                    }
+                }
             }
         }
     }
@@ -390,11 +412,11 @@ private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.
 private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
     val cs = MaterialTheme.colorScheme
 
-    Surface(
+    GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp)),
-        color = cs.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -570,23 +592,19 @@ private fun batteryHealthLabel(raw: String): String = when (raw) {
 private fun AssistantEntry(onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
 
-    Surface(
+    GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp)),
-        color = cs.primary,
-        contentColor = cs.onPrimary,
-        onClick = onClick,
+        tint = cs.primary,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Star,
-                contentDescription = null,
-                modifier = Modifier.size(26.dp),
-            )
+            AiOrb(size = 30.dp)
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

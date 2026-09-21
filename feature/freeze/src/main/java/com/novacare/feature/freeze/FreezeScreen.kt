@@ -1,5 +1,8 @@
 package com.novacare.feature.freeze
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +46,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.model.FreezeCandidate
 import com.novacare.core.model.FreezeRisk
 import com.novacare.core.system.MissingCapability
+import com.novacare.ui.designsystem.GlassPanel
+import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
@@ -371,14 +377,27 @@ private fun ReadyView(
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     items(items = candidates, key = { it.app.packageName }) { c ->
-                        CandidateRow(
-                            candidate = c,
-                            selected = c.app.packageName in selected,
-                            frozen = c.app.packageName in frozen,
-                            onToggle = { onToggleSelected(c.app.packageName) },
-                            onUnfreeze = { onUnfreeze(c.app.packageName) },
-                        )
-                        HorizontalDivider()
+                        key(c.app.packageName) {
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(MotionTokens.standard) +
+                                    slideInVertically(
+                                        animationSpec = MotionTokens.standardOffset,
+                                        initialOffsetY = { it / 10 },
+                                    ),
+                            ) {
+                                Column {
+                                    CandidateRow(
+                                        candidate = c,
+                                        selected = c.app.packageName in selected,
+                                        frozen = c.app.packageName in frozen,
+                                        onToggle = { onToggleSelected(c.app.packageName) },
+                                        onUnfreeze = { onUnfreeze(c.app.packageName) },
+                                    )
+                                    HorizontalDivider()
+                                }
+                            }
+                        }
                     }
                     item {
                         Spacer(Modifier.height(120.dp))
@@ -388,12 +407,11 @@ private fun ReadyView(
         }
 
         if (selected.isNotEmpty()) {
-            Surface(
+            GlassPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter),
-                color = cs.surface,
-                shadowElevation = 8.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             ) {
                 Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
                     Surface(

@@ -1,5 +1,8 @@
 package com.novacare.feature.automation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +33,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,6 +48,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.model.AutomationRule
 import com.novacare.core.model.TriggerType
+import com.novacare.ui.designsystem.GlassPanel
+import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 
@@ -109,14 +115,25 @@ fun AutomationScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(items = rules, key = { it.id }) { rule ->
-                            RuleRow(
-                                rule = rule,
-                                onToggle = { enabled ->
-                                    NovaToggle(view.context, enabled)
-                                    viewModel.toggle(rule, enabled)
-                                },
-                                onEdit = { NovaTap(view); viewModel.startEdit(rule) },
-                            )
+                            key(rule.id) {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = fadeIn(MotionTokens.standard) +
+                                        slideInVertically(
+                                            animationSpec = MotionTokens.standardOffset,
+                                            initialOffsetY = { it / 10 },
+                                        ),
+                                ) {
+                                    RuleRow(
+                                        rule = rule,
+                                        onToggle = { enabled ->
+                                            NovaToggle(view.context, enabled)
+                                            viewModel.toggle(rule, enabled)
+                                        },
+                                        onEdit = { NovaTap(view); viewModel.startEdit(rule) },
+                                    )
+                                }
+                            }
                         }
                         item {
                             Spacer(Modifier.height(120.dp))
@@ -217,12 +234,12 @@ private fun RuleRow(
     val cs = MaterialTheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
 
-    Surface(
+    GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .clickable { expanded = !expanded },
-        color = cs.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -1,5 +1,9 @@
 package com.novacare.app.onboarding
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,7 +42,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.ui.designsystem.AuroraBackground
+import com.novacare.ui.designsystem.GlassPanel
 import com.novacare.ui.designsystem.LocalReduceMotion
+import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.PrimaryAction
@@ -93,6 +99,20 @@ fun OnboardingScreen(
 
     val isLastPage = pagerState.currentPage == ONBOARDING_PAGE_COUNT - 1
 
+    // "中间断掉"修复 / 引导 Back 键：默认行为是把 Onboarding 整页从栈里弹出后
+    // 直接退出 App —— 用户在最后一页误按 Back，会失去 4 页阅读进度，重新打开
+    // 还得再翻一遍。这里在非第一页时拦截 Back：先翻到上一页再放行。第一页保留
+    // 默认退出行为，让用户随时可以离开。
+    BackHandler(enabled = pagerState.currentPage > 0) {
+        scope.launch {
+            if (reduceMotion) {
+                pagerState.scrollToPage(pagerState.currentPage - 1)
+            } else {
+                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+            }
+        }
+    }
+
     AuroraBackground(modifier = modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -137,38 +157,54 @@ fun OnboardingScreen(
                         .fillMaxWidth()
                         .weight(1f),
                 ) { page ->
-                    when (page) {
-                        0 -> WelcomePage()
-                        1 -> PermissionsPage(items = items, onGrant = viewModel::grant)
-                        2 -> AiPage(cloudAiEnabled = cloudAiEnabled, apiKeySet = apiKeySet)
-                        3 -> ReadyPage(items = items, onGrant = viewModel::grant)
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(MotionTokens.emphasized) +
+                            slideInHorizontally(
+                                animationSpec = MotionTokens.emphasizedOffset,
+                                initialOffsetX = { it / 12 },
+                            ),
+                    ) {
+                        when (page) {
+                            0 -> WelcomePage()
+                            1 -> PermissionsPage(items = items, onGrant = viewModel::grant)
+                            2 -> AiPage(cloudAiEnabled = cloudAiEnabled, apiKeySet = apiKeySet)
+                            3 -> ReadyPage(items = items, onGrant = viewModel::grant)
+                        }
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-                PageIndicator(
-                    count = ONBOARDING_PAGE_COUNT,
-                    selected = pagerState.currentPage,
-                )
-                Spacer(Modifier.height(24.dp))
-                PrimaryAction(
-                    text = if (isLastPage) "开始使用" else "继续",
-                    onClick = {
-                        NovaTap(view)
-                        if (isLastPage) {
-                            viewModel.complete(onFinished)
-                        } else {
-                            scope.launch {
-                                if (reduceMotion) {
-                                    pagerState.scrollToPage(pagerState.currentPage + 1)
+                Spacer(Modifier.height(8.dp))
+                GlassPanel(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
+                        PageIndicator(
+                            count = ONBOARDING_PAGE_COUNT,
+                            selected = pagerState.currentPage,
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        PrimaryAction(
+                            text = if (isLastPage) "开始使用" else "继续",
+                            onClick = {
+                                NovaTap(view)
+                                if (isLastPage) {
+                                    viewModel.complete(onFinished)
                                 } else {
-                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    scope.launch {
+                                        if (reduceMotion) {
+                                            pagerState.scrollToPage(pagerState.currentPage + 1)
+                                        } else {
+                                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                        }
+                                    }
                                 }
-                            }
-                        }
-                    },
-                )
-                Spacer(Modifier.height(24.dp))
+                            },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }

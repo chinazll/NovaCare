@@ -140,7 +140,8 @@ fun SettingsScreen(
                     title = "Shizuku",
                     subtitle = if (shizukuAvailable) "已授权，可一键冻结 / 高级清理" else "未授权 — 配置后可一键冻结",
                     checked = shizukuAvailable,
-                    onChange = { /* trigger via grant */ },
+                    // Switch 是状态指示器，不是开关 —— 真要授权请点整行。
+                    onChange = null,
                     onClickAction = { NovaTap(view); viewModel.requestShizuku() },
                 )
                 HorizontalDivider()
@@ -154,7 +155,9 @@ fun SettingsScreen(
                         title = cap.title,
                         subtitle = if (cap.granted) cap.why else cap.consequence,
                         checked = cap.granted,
-                        onChange = {},
+                        // Switch 是状态指示器 —— 真要授权请点整行；空 onCheckedChange
+                        // 会让 Switch 显示 checked 状态但不响应点击（避免「按了没反应」的错觉）。
+                        onChange = null,
                         onClickAction = { NovaTap(view); viewModel.grant(cap.capability) },
                     )
                     if (index < capabilities.lastIndex) HorizontalDivider()
@@ -461,7 +464,13 @@ private fun ToggleRow(
     subtitle: String,
     checked: Boolean,
     enabled: Boolean = true,
-    onChange: (Boolean) -> Unit,
+    /**
+     * 真正的"开关"行为回调。
+     * 为 null 时 Switch 会以只读方式显示 [checked] 状态，但不响应点击
+     * （Material 3 Switch 接受可空的 onCheckedChange，传入 null 即非交互）。
+     * 这种情况通常配合 [onClickAction] 用 —— Switch 只展示状态，整行点击才真正动作。
+     */
+    onChange: ((Boolean) -> Unit)? = null,
     onClickAction: (() -> Unit)? = null,
 ) {
     val cs = MaterialTheme.colorScheme

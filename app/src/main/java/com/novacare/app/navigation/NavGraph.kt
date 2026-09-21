@@ -197,8 +197,11 @@ fun NovaCareNavHost(
                     onFinished = {
                         // 引导是一次性的：完成后把自己从栈里连同弹出，
                         // 返回键不会再退回引导页。
+                        // launchSingleTop 防止「开始使用」被快速连点时
+                        // 多次压入 HOME，导致 Back 要退多次才能退出 App。
                         navController.navigate(Routes.HOME) {
                             popUpTo(Routes.ONBOARDING) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                 )
