@@ -1,0 +1,117 @@
+# ============================================================
+# NovaCare Version Catalog —— 依赖与 SDK 版本的「单一事实源」
+#
+# 修复上一版问题：minSdk 在 build.gradle(30) / README(26) / Manifest 注释(26)
+# 三处不一致。现在所有版本号、SDK 等级只在此文件定义一次，
+# 各模块通过 libs.versions.* 引用，杜绝再次漂移。
+# ============================================================
+
+[versions]
+# ---- SDK（单一事实源，蓝图 §5.5.1）----
+minSdk = "26"        # Android 8.0，覆盖 97%+ 设备；StorageStatsManager(26+) 可用
+targetSdk = "36"     # Android 16
+compileSdk = "36"
+
+# ---- 构建工具 ----
+agp = "8.9.2"
+kotlin = "2.0.21"
+ksp = "2.0.21-1.0.28"
+gradle = "8.12.1"
+
+# ---- UI ----
+composeBom = "2025.04.00"
+navigation = "2.8.4"
+lifecycle = "2.8.7"
+activity = "1.9.3"
+
+# ---- 架构 ----
+coroutines = "1.9.0"
+hilt = "2.52"
+hiltAndroidx = "1.2.0"
+room = "2.7.0"
+work = "2.9.1"
+datastore = "1.1.1"
+coreKtx = "1.13.1"
+
+# ---- 网络（仅 L3 云端 AI 使用，默认不发请求）----
+okhttp = "4.12.0"
+kotlinxSerialization = "1.7.3"
+
+# ---- 系统控制 ----
+shizuku = "13.1.5"
+
+# ---- Rust / UniFFI ----
+uniffi = "0.28.3"
+jna = "5.14.0"
+
+# ---- 测试 ----
+junit = "4.13.2"
+truth = "1.4.4"
+turbine = "1.2.0"
+mockk = "1.13.13"
+
+[libraries]
+# AndroidX
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+androidx-datastore-prefs = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+
+# Compose
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+
+# Room
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+
+# Hilt
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
+hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltAndroidx" }
+androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hiltAndroidx" }
+androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltAndroidx" }
+
+# Coroutines
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# 网络（仅云端 AI）
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+# 系统控制
+shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
+shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
+
+# Rust 内核（UniFFI 生成的 Kotlin 绑定依赖 JNA 做 FFI 调用）
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+
+# 测试
+junit = { module = "junit:junit", version.ref = "junit" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+androidx-room = { id = "androidx.room", version.ref = "room" }

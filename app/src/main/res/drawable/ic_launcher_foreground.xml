@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OneUI 风格自适应图标前景：白色盾牌（保护）+ 蓝色闪电（清理/加速，挖空效果） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 盾牌（填充白色，落在安全区 24..84 内） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,24 L79,34 L79,55 C79,67 68,78 54,86 C40,78 29,67 29,55 L29,34 Z" />
+
+    <!-- 闪电（填充背景色 #2F6FED，形成盾牌上的挖空符号） -->
+    <path
+        android:fillColor="#FF2F6FED"
+        android:pathData="M58,37 L44,57 L52,57 L49,71 L67,50 L57,50 Z" />
+</vector>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NovaCare</string>
+
+    <!-- 常驻通知（前台服务）：清理/扫描期间展示 -->
+    <string name="notif_channel_maintenance">设备维护</string>
+    <string name="notif_channel_maintenance_desc">清理与冻结任务的前台执行状态</string>
+    <string name="notif_scanning_title">正在扫描</string>
+    <string name="notif_scanning_text">NovaCare 正在分析存储与缓存…</string>
+
+    <!-- 通知渠道（自动化） -->
+    <string name="notif_channel_automation">自动化规则</string>
+    <string name="notif_channel_automation_desc">定时规则触发与执行结果提醒</string>
+
+    <!-- 权限说明 -->
+    <string name="perm_usage_title">需要「使用情况访问权限」</string>
+    <string name="perm_usage_desc">用于识别长期未使用的应用，以便安全冻结。NovaCare 不会上传任何使用记录。</string>
+    <string name="perm_notification_title">需要「通知权限」</string>
+    <string name="perm_notification_desc">用于在清理或冻结任务执行时展示进度。</string>
+</resources>

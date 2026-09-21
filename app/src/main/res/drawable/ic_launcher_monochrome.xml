@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题图标（monochrome）：单色盾牌形状，系统会统一 tint -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,24 L79,34 L79,55 C79,67 68,78 54,86 C40,78 29,67 29,55 L29,34 Z" />
+</vector>

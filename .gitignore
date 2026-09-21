@@ -1,0 +1,51 @@
+# ===== Gradle =====
+.gradle/
+build/
+**/build/
+local.properties
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+.kotlin/
+
+# ===== Android =====
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===== Secrets =====
+google-services.json
+*.keystore
+*.jks
+key.properties
+
+# ===== Logs =====
+*.log
+hs_err_pid*
+
+# ===== Misc =====
+*.hprof
+
+# Rust 引擎产物（CI 用 cargo-ndk 现场编译，不入库 —— 体积大且 ABI 多）
+core/engine/jniLibs/
+core/engine/rust/target/
+
+# CI 签名密钥（含随机密码，绝不入库）
+.ci-keystore/
+
+# KSP/Hilt 编译缓存（路径超长，Windows 下 git 会失败）
+**/.transforms/
+**/kspCaches/
+**/tmp/release-artifacts/
