@@ -54,9 +54,6 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * 首页可跳转的目的地 —— 只列**首页有权引导去**的页。
@@ -133,12 +130,23 @@ fun HomeScreen(
             ) {
 
             // ---- 1. 顶条 ----
-            TopStatusBar(
-                engineAvailable = engineAvailable,
-                engineVersion = engineVersion,
+            OneUiAppBar(
+                title = "NovaCare",
+                actions = {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (engineAvailable) NovaCareTheme.colors.healthGood
+                                else NovaCareTheme.colors.riskCaution
+                            ),
+                    )
+                },
             )
 
-            Spacer(Modifier.height(OneUiSpacing.BlockGap))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
 
             // ---- 2 ~ 4. 主体（按装载状态分支，失败也要说清楚） ----
             when (loadState) {
@@ -194,49 +202,10 @@ fun HomeScreen(
 }
 
 // ============================================================
-// 1. 顶条
+// 1. 顶条（已并入 OneUiAppBar —— 删除）
 // ============================================================
-@Composable
-private fun TopStatusBar(
-    engineAvailable: Boolean,
-    engineVersion: String,
-) {
-    val colors = NovaCareTheme.colors
-    val timeText = remember {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(
-                    if (engineAvailable) colors.healthGood
-                    else colors.riskCaution,
-                ),
-        )
-        Spacer(Modifier.width(OneUiSpacing.CardGap))
-        Text(
-            text = when {
-                !engineAvailable -> "内核不可用"
-                engineVersion.isBlank() -> "内核初始化"
-                else -> "内核就绪"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = timeText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
+// 原 TopStatusBar 显示内核状态 + 时间。新 OneUiAppBar 把内核状态作为右侧
+// 8dp 圆点 action 显示，时间由系统状态栏承担（OneUI 标准）。
 
 // ============================================================
 // 2. 健康 Hero —— 单一主张：设备现在有多健康，以及哪一项该去处理

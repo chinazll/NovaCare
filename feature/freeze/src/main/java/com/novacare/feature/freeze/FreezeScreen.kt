@@ -54,6 +54,7 @@ import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * 冻结页 —— OneUI 9.5 真实设计语言。
@@ -82,7 +83,7 @@ fun FreezeScreen(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(Modifier.height(56.dp))
+            OneUiAppBar(title = "冻结")
 
             when (val s = state) {
                 FreezeViewModel.UiState.Idle -> IdleHero(
@@ -133,17 +134,11 @@ private fun IdleHero(onScan: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(modifier = Modifier.padding(horizontal = OneUiSpacing.BlockGap)) {
         Text(
-            text = "冻结",
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
             text = "看看哪些应用长期没被打开",
             style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
-        Spacer(Modifier.height(48.dp))
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,12 +312,6 @@ private fun ReadyView(
                     .fillMaxWidth()
                     .padding(horizontal = OneUiSpacing.BlockGap),
             ) {
-                Text(
-                    text = "冻结",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = cs.onSurface,
-                )
-                Spacer(Modifier.height(4.dp))
                 Text(
                     text = "${candidatesSafeCount} 个长期未用 · 共 ${allApps.size} 个应用",
                     style = MaterialTheme.typography.bodyMedium,

@@ -57,6 +57,7 @@ import com.novacare.ui.designsystem.MotionTokens
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * AI 助手 —— OneUI 9.5 真实设计语言。
@@ -85,23 +86,13 @@ fun AssistantScreen(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(modifier = Modifier.fillMaxSize().imePadding()) {
-            Spacer(Modifier.height(56.dp))
+            OneUiAppBar(title = "AI 助手")
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AiOrb(size = 30.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = "AI 助手",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
                 Text(
                     text = capability.tierLabel,
                     style = MaterialTheme.typography.bodySmall,

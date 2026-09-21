@@ -63,6 +63,7 @@ import com.novacare.core.model.CloudModel
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * 设置页 —— OneUI 9.5 真实设计语言。
@@ -109,13 +110,8 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
         ) {
-            Spacer(Modifier.height(56.dp))
+            OneUiAppBar(title = "设置")
 
-            Text(
-                text = "设置",
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
             Spacer(Modifier.height(24.dp))
 
             if (notice != null) {

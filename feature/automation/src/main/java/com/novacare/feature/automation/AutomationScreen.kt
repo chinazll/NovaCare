@@ -54,6 +54,7 @@ import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * 自动化页 —— OneUI 9.5 真实设计语言。
@@ -73,7 +74,7 @@ fun AutomationScreen(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Spacer(Modifier.height(56.dp))
+                OneUiAppBar(title = "自动化")
 
                 Row(
                     modifier = Modifier
@@ -82,12 +83,6 @@ fun AutomationScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "自动化",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = "${rules.count { it.enabled }} / ${rules.size} 已启用",
                             style = MaterialTheme.typography.bodyMedium,

@@ -432,12 +432,6 @@ private fun ResultsView(
                     .padding(horizontal = OneUiSpacing.BlockGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "清理",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = cs.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
                 AnimatedContent(
                     targetState = selectedKeys.size to plan.advices.size,
                     transitionSpec = {
