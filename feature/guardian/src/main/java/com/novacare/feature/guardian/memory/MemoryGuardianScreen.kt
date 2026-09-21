@@ -49,6 +49,7 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaLongPress
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * 内存守护（Memory Guardian）
@@ -72,26 +73,21 @@ fun MemoryGuardianScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-            ) {
-                item {
-                    Spacer(Modifier.height(48.dp))
-                    Text(
-                        text = "内存守护",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "每 3 秒读一次系统真实内存账目",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(20.dp))
-                }
+        Column(modifier = Modifier.fillMaxSize()) {
+            OneUiAppBar(title = "内存守护")
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                ) {
+                    item {
+                        Text(
+                            text = "每 3 秒读一次系统真实内存账目",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(20.dp))
+                    }
 
                 val snap = snapshot
                 if (snap == null) {
@@ -163,15 +159,16 @@ fun MemoryGuardianScreen(
 
                     item { Spacer(Modifier.height(140.dp)) }
                 }
-            }
+                }
 
-            // 回收按钮（常驻底部）
-            ReleaseBar(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                release = release,
-                onRelease = { NovaLongPress(view); viewModel.release() },
-                onDismiss = { NovaSuccess(view.context); viewModel.dismissRelease() },
-            )
+                // 回收按钮（常驻底部）
+                ReleaseBar(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    release = release,
+                    onRelease = { NovaLongPress(view); viewModel.release() },
+                    onDismiss = { NovaSuccess(view.context); viewModel.dismissRelease() },
+                )
+            }
         }
     }
 }

@@ -27,14 +27,15 @@ import androidx.compose.ui.unit.sp
 //
 // 【定调说明 / Direction Lock】
 //   受众：普通 Android 用户（非极客）。他们要的是「打开就知道该按哪」。
-//   调性：克制的下一代（One UI next-gen）—— 深色优先、大圆角浮层、
-//         单一电光青强调色、极浅的氛围渐变、发丝描边代替重阴影。
-//   记忆点：首页那枚会呼吸的健康环。全应用只有这一处动效主角。
+//   调性：OneUI 9 招牌蓝家族 —— 大圆角浮层、单主张强调色、
+//         极浅的氛围渐变、发丝描边代替重阴影、玻璃感来自 alpha 而非模糊。
+//   记忆点：首页那枚会呼吸的健康环 + 底部胶囊 dock。
+//   强调色系按 OneUI 9 实测取色：浅色 #2F6FED，深色 #89BBFF。
 //
 // 【配色纪律 60 / 30 / 10】
 //   60% 基底  —— background / surface 系列（冷调近黑，非纯黑）
 //   30% 承载  —— surfaceContainer 卡片与面板
-//   10% 强调  —— Aurora 电光青，只给「主操作按钮」与「健康环」
+//   10% 强调  —— OneUI 9 招牌蓝，只给「主操作按钮」与「健康环」
 //   语义色（好/中/差、安全/需确认/有风险）独立于强调色，绝不混用。
 //
 // 【为什么不用 Material You 动态取色】
@@ -87,8 +88,9 @@ data class NovaCareColors(
 )
 
 private val LightPalette = NovaCareColors(
-    accent = Color(0xFF007E9E),
-    accentDim = Color(0xFFB9E4F0),
+    // OneUI 9 招牌蓝（浅色）：实测 #2F6FED,比 Material 默认偏冷、更"夜空蓝"
+    accent = Color(0xFF2F6FED),
+    accentDim = Color(0xFFD5E1FB),
     healthGood = Color(0xFF1B7A46),
     healthFair = Color(0xFFA86A00),
     healthPoor = Color(0xFFB3261E),
@@ -97,8 +99,8 @@ private val LightPalette = NovaCareColors(
     riskRisky = Color(0xFFB3261E),
     ringTrack = Color(0xFFE1E7EB),
     hairline = Color(0x14000000),
-    auraTop = Color(0x1A00B4D8),
-    auraBottom = Color(0x0A007E9E),
+    auraTop = Color(0x1A2F6FED),
+    auraBottom = Color(0x0A1B4FCB),
     floatSurface = Color(0xF2FFFFFF),
     floatSurfacePressed = Color(0xFFFFFFFF),
     floatHighlight = Color(0x99FFFFFF),
@@ -108,8 +110,9 @@ private val LightPalette = NovaCareColors(
 )
 
 private val DarkPalette = NovaCareColors(
-    accent = Color(0xFF4FD8FF),
-    accentDim = Color(0xFF0B4A61),
+    // OneUI 9 招牌蓝（深色）：实测 #89BBFF —— 比浅色更亮、给深色底足够对比度
+    accent = Color(0xFF89BBFF),
+    accentDim = Color(0xFF1B3A7A),
     healthGood = Color(0xFF6FE0A0),
     healthFair = Color(0xFFFFC46B),
     healthPoor = Color(0xFFFF8A80),
@@ -118,7 +121,7 @@ private val DarkPalette = NovaCareColors(
     riskRisky = Color(0xFFFF8A80),
     ringTrack = Color(0xFF22303A),
     hairline = Color(0x1AFFFFFF),
-    auraTop = Color(0x2E4FD8FF),
+    auraTop = Color(0x2E89BBFF),
     auraBottom = Color(0x00101820),
     floatSurface = Color(0xE61C242B),
     floatSurfacePressed = Color(0xF22A343C),
@@ -143,29 +146,30 @@ object NovaCareTheme {
 // ---- Material3 角色映射 ----
 
 private val LightScheme = lightColorScheme(
-    primary = Color(0xFF007E9E),
+    // OneUI 9 招牌蓝（浅色）：实测 #2F6FED —— 比 Material 默认偏冷、更"夜空蓝"
+    primary = Color(0xFF2F6FED),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFC3E8F5),
-    onPrimaryContainer = Color(0xFF00303C),
-    secondary = Color(0xFF4A626D),
+    primaryContainer = Color(0xFFD5E1FB),
+    onPrimaryContainer = Color(0xFF0B1F4D),
+    secondary = Color(0xFF5A6275),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFCDE7F2),
-    onSecondaryContainer = Color(0xFF051F28),
-    tertiary = Color(0xFF5A5B7E),
+    secondaryContainer = Color(0xFFE0E4F1),
+    onSecondaryContainer = Color(0xFF161B2A),
+    tertiary = Color(0xFF6E5B7E),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF5F8FA),
-    onBackground = Color(0xFF151C20),
+    background = Color(0xFFF6F7FB),
+    onBackground = Color(0xFF15171C),
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF151C20),
-    surfaceVariant = Color(0xFFDCE3E8),
-    onSurfaceVariant = Color(0xFF41484D),
+    onSurface = Color(0xFF15171C),
+    surfaceVariant = Color(0xFFE1E5EE),
+    onSurfaceVariant = Color(0xFF44495A),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF0F4F7),
-    surfaceContainer = Color(0xFFEAEFF3),
-    surfaceContainerHigh = Color(0xFFE4EAEF),
-    surfaceContainerHighest = Color(0xFFDEE4EA),
-    outline = Color(0xFF70787E),
-    outlineVariant = Color(0xFFC0C7CD),
+    surfaceContainerLow = Color(0xFFF1F3F9),
+    surfaceContainer = Color(0xFFEAEDF4),
+    surfaceContainerHigh = Color(0xFFE4E7EF),
+    surfaceContainerHighest = Color(0xFFDDE1EB),
+    outline = Color(0xFF73778A),
+    outlineVariant = Color(0xFFC3C8D3),
     error = Color(0xFFB3261E),
     onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFF9DEDC),
@@ -173,31 +177,32 @@ private val LightScheme = lightColorScheme(
 )
 
 private val DarkScheme = darkColorScheme(
-    primary = Color(0xFF4FD8FF),
-    onPrimary = Color(0xFF003544),
-    primaryContainer = Color(0xFF004D61),
-    onPrimaryContainer = Color(0xFFB8EAFB),
-    secondary = Color(0xFFB1CBD7),
-    onSecondary = Color(0xFF1C343D),
-    secondaryContainer = Color(0xFF334B54),
-    onSecondaryContainer = Color(0xFFCDE7F2),
-    tertiary = Color(0xFFC3C3EA),
-    onTertiary = Color(0xFF2C2E4C),
+    // OneUI 9 招牌蓝（深色）：实测 #89BBFF —— 比浅色更亮、给深色底足够对比度
+    primary = Color(0xFF89BBFF),
+    onPrimary = Color(0xFF0B2447),
+    primaryContainer = Color(0xFF1B3A7A),
+    onPrimaryContainer = Color(0xFFD5E1FB),
+    secondary = Color(0xFFC0C5DD),
+    onSecondary = Color(0xFF292F40),
+    secondaryContainer = Color(0xFF3F455A),
+    onSecondaryContainer = Color(0xFFE0E4F1),
+    tertiary = Color(0xFFD4C3E3),
+    onTertiary = Color(0xFF3B2D4C),
     // 深色底：带冷调的近黑，不用纯黑（OLED 纯黑会让浮层边界消失）
-    background = Color(0xFF0E1216),
-    onBackground = Color(0xFFE2E8EC),
+    background = Color(0xFF12151A),
+    onBackground = Color(0xFFE6E8EE),
     // 卡片浮起一级 —— 用亮度分层替代重阴影（现代 Android 的做法）
-    surface = Color(0xFF151A1F),
-    onSurface = Color(0xFFE2E8EC),
-    surfaceVariant = Color(0xFF3F484E),
-    onSurfaceVariant = Color(0xFFBFC8CE),
-    surfaceContainerLowest = Color(0xFF0A0E11),
-    surfaceContainerLow = Color(0xFF141A1E),
-    surfaceContainer = Color(0xFF1A2126),
-    surfaceContainerHigh = Color(0xFF222A30),
-    surfaceContainerHighest = Color(0xFF2C353B),
-    outline = Color(0xFF899399),
-    outlineVariant = Color(0xFF3F484E),
+    surface = Color(0xFF181C22),
+    onSurface = Color(0xFFE6E8EE),
+    surfaceVariant = Color(0xFF44495A),
+    onSurfaceVariant = Color(0xFFC3C8D3),
+    surfaceContainerLowest = Color(0xFF0C0F13),
+    surfaceContainerLow = Color(0xFF161A20),
+    surfaceContainer = Color(0xFF1C2127),
+    surfaceContainerHigh = Color(0xFF24292F),
+    surfaceContainerHighest = Color(0xFF2E343B),
+    outline = Color(0xFF8B91A2),
+    outlineVariant = Color(0xFF44495A),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),

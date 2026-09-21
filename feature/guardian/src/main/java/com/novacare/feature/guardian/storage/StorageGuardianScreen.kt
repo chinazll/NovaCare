@@ -57,6 +57,7 @@ import com.novacare.ui.designsystem.NovaLongPress
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * 存储守护（Storage Guardian）
@@ -88,10 +89,12 @@ fun StorageGuardianScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (val s = state) {
-                StorageGuardianViewModel.UiState.Idle,
-                StorageGuardianViewModel.UiState.Scanning -> {
+        Column(modifier = Modifier.fillMaxSize()) {
+            OneUiAppBar(title = "存储守护")
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val s = state) {
+                    StorageGuardianViewModel.UiState.Idle,
+                    StorageGuardianViewModel.UiState.Scanning -> {
                     LoadingHero(scanning = s is StorageGuardianViewModel.UiState.Scanning)
                 }
 
@@ -145,6 +148,7 @@ fun StorageGuardianScreen(
                     busy = deleting,
                     onClick = { NovaLongPress(view); confirmDelete = true },
                 )
+            }
             }
         }
     }
@@ -202,14 +206,7 @@ private fun ReadyContent(
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        item { Spacer(Modifier.height(48.dp)) }
         item {
-            Text(
-                text = "存储守护",
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(4.dp))
             Text(
                 text = "容量来自 StatFs，文件来自内核真实遍历 —— 没有一个数字是估算的",
                 style = MaterialTheme.typography.bodyMedium,
@@ -944,15 +941,14 @@ private fun ResultSheet(
 private fun LoadingHero(scanning: Boolean) {
     val cs = MaterialTheme.colorScheme
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        Spacer(Modifier.height(56.dp))
         Text(
-            text = if (scanning) "正在扫描" else "存储守护",
+            text = if (scanning) "正在扫描" else "准备扫描",
             style = MaterialTheme.typography.displaySmall,
             color = cs.onSurface,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = if (scanning) "遍历存储并统计真实占用" else "准备扫描",
+            text = if (scanning) "遍历存储并统计真实占用" else "点击返回后再试",
             style = MaterialTheme.typography.bodyLarge,
             color = cs.onSurfaceVariant,
         )
@@ -969,7 +965,6 @@ private fun LoadingHero(scanning: Boolean) {
 private fun FailedHero(message: String, onRetry: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        Spacer(Modifier.height(56.dp))
         Text(
             text = "扫描失败",
             style = MaterialTheme.typography.displaySmall,

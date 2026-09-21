@@ -41,6 +41,7 @@ import com.novacare.core.domain.GuardianAction
 import com.novacare.core.domain.GuardianAdvice
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
+import com.novacare.ui.designsystem.OneUiAppBar
 
 /**
  * 电池守护（Battery Guardian）
@@ -62,45 +63,47 @@ fun BatteryGuardianScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        when (val s = state) {
-            BatteryGuardianViewModel.UiState.Idle,
-            BatteryGuardianViewModel.UiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(28.dp),
-                        strokeWidth = 3.dp,
-                        color = MaterialTheme.colorScheme.primary,
+        Column(modifier = Modifier.fillMaxSize()) {
+            OneUiAppBar(title = "电池守护")
+            when (val s = state) {
+                BatteryGuardianViewModel.UiState.Idle,
+                BatteryGuardianViewModel.UiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 3.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+
+                is BatteryGuardianViewModel.UiState.Failed -> {
+                    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                        Text(
+                            text = "读取失败",
+                            style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = s.message,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                is BatteryGuardianViewModel.UiState.Ready -> {
+                    ReadyContent(
+                        data = s.data,
+                        statusLabel = { viewModel.statusLabel(it) },
+                        healthLabel = { viewModel.healthLabel(it) },
+                        onRunAction = { advice -> NovaTap(view); viewModel.runAction(advice) },
                     )
                 }
-            }
-
-            is BatteryGuardianViewModel.UiState.Failed -> {
-                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                    Spacer(Modifier.height(56.dp))
-                    Text(
-                        text = "读取失败",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = s.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            is BatteryGuardianViewModel.UiState.Ready -> {
-                ReadyContent(
-                    data = s.data,
-                    statusLabel = { viewModel.statusLabel(it) },
-                    healthLabel = { viewModel.healthLabel(it) },
-                    onRunAction = { advice -> NovaTap(view); viewModel.runAction(advice) },
-                )
             }
         }
     }
@@ -118,13 +121,6 @@ private fun ReadyContent(
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
     ) {
         item {
-            Spacer(Modifier.height(48.dp))
-            Text(
-                text = "电池守护",
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(4.dp))
             Text(
                 text = "电量、温度、电压、电流均为系统 BatteryManager 实时读数",
                 style = MaterialTheme.typography.bodyMedium,
