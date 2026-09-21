@@ -260,8 +260,16 @@ fun NovaCareNavHost(
             }
             // ---- 守护中心三个模块：压栈下钻，返回键退回设置页 ----
             composable(Routes.STORAGE) { StorageGuardianScreen(rootPath = rootPath) }
-            composable(Routes.MEMORY) { MemoryGuardianScreen() }
-            composable(Routes.BATTERY) { BatteryGuardianScreen() }
+            composable(Routes.MEMORY) {
+                MemoryGuardianScreen(
+                    onOpenAppDetail = { pkg -> navController.navigateTo(Routes.appDetail(pkg)) },
+                )
+            }
+            composable(Routes.BATTERY) {
+                BatteryGuardianScreen(
+                    onOpenAppDetail = { pkg -> navController.navigateTo(Routes.appDetail(pkg)) },
+                )
+            }
 
             // ---- v0.20.0 新增：屏幕时长 + 流量 ----
             // 屏幕时长未授权时跳系统设置页（PACKAGE_USAGE_STATS 不走运行时弹窗）。
