@@ -38,6 +38,13 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      流量模块（feature/traffic）专用：让 ConnectivityManager / TrafficStats
+      能查询当前网络接口的活跃状态。读取其他 UID 的流量仍需系统授权，
+      本权限只解决"能不能看到 NetworkInfo"这一步。
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:name=".NovaCareApp"
         android:allowBackup="true"

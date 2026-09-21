@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -43,6 +44,8 @@ import com.novacare.feature.guardian.storage.StorageGuardianScreen
 import com.novacare.feature.home.HomeDestination
 import com.novacare.feature.home.GuardianHub
 import com.novacare.feature.home.HomeScreen
+import com.novacare.feature.screentime.ScreenTimeScreen
+import com.novacare.feature.traffic.TrafficScreen
 import com.novacare.ui.designsystem.NovaDock
 import com.novacare.ui.designsystem.NovaDockItem
 
@@ -62,6 +65,11 @@ object Routes {
     const val STORAGE = "guardian/storage"
     const val MEMORY = "guardian/memory"
     const val BATTERY = "guardian/battery"
+
+    // ---- v0.20.0 新增：屏幕时长 + 流量 ----
+    // 同样不进底栏（原因同上：5 tab 已占满），由 HomeScreen tile 进入。
+    const val SCREENTIME = "screentime"
+    const val TRAFFIC = "traffic"
 }
 
 /**
@@ -237,6 +245,26 @@ fun NovaCareNavHost(
             composable(Routes.STORAGE) { StorageGuardianScreen(rootPath = rootPath) }
             composable(Routes.MEMORY) { MemoryGuardianScreen() }
             composable(Routes.BATTERY) { BatteryGuardianScreen() }
+
+            // ---- v0.20.0 新增：屏幕时长 + 流量 ----
+            // 屏幕时长未授权时跳系统设置页（PACKAGE_USAGE_STATS 不走运行时弹窗）。
+            composable(Routes.SCREENTIME) {
+                val activityContext = LocalContext.current
+                ScreenTimeScreen(
+                    onGrant = {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS,
+                        ).apply {
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            data = android.net.Uri.parse("package:${activityContext.packageName}")
+                        }
+                        runCatching { activityContext.startActivity(intent) }
+                    },
+                )
+            }
+            // 流量模块本身不需要权限引导（TrafficStats.getTotal* 始终可用），
+            // 只在 per-UID 列表里诚实地展示系统允许的部分。
+            composable(Routes.TRAFFIC) { TrafficScreen() }
         }
     }
 }

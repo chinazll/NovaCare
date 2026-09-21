@@ -30,6 +30,14 @@ class MemoryProcessSource @Inject constructor(
      * [cachedBytes] 来自 /proc/meminfo 的 Cached + Buffers —— 这部分内存
      * 系统随时可以回收，把它和"应用真正占用"混在一起说"已用 90%"是误导。
      * 读不到 /proc/meminfo（个别 ROM 限制）时为 null，UI 需如实省略该行。
+     *
+     * [/proc/meminfo 完整账目]—— MemTotal/MemAvailable/Buffers/Cached/SwapTotal/SwapFree。
+     * 这一组字段让 UI 能展示"系统内存的真实账目"，而不是只给一个总量+可用量。
+     * 任何一项读不到时为 0，UI 据此判断是否要折叠展示。
+     *
+     * [selfRssBytes] —— 本应用（当前进程）的真实 RSS（Resident Set Size）。
+     * 来自 /proc/self/status 的 VmRSS 行，单位 bytes。这是"我自己占着多少物理内存"的真实值，
+     * **绝不**与 PSS 混用，也不与"系统总内存已用"合并展示。
      */
     data class MemoryOverview(
         val totalBytes: Long,
@@ -41,11 +49,29 @@ class MemoryProcessSource @Inject constructor(
         val cachedBytes: Long?,
         /** /proc/meminfo 是否可读（决定 UI 能否展示细分项） */
         val memInfoAvailable: Boolean,
+        /** /proc/meminfo: MemTotal（bytes；0 = 读不到） */
+        val memTotalBytes: Long = 0L,
+        /** /proc/meminfo: MemAvailable（bytes；0 = 读不到） */
+        val memAvailableBytes: Long = 0L,
+        /** /proc/meminfo: Buffers（bytes；0 = 读不到） */
+        val buffersBytes: Long = 0L,
+        /** /proc/meminfo: Cached（bytes；0 = 读不到） */
+        val cachedRawBytes: Long = 0L,
+        /** /proc/meminfo: SwapTotal（bytes；0 = 读不到或设备无 swap） */
+        val swapTotalBytes: Long = 0L,
+        /** /proc/meminfo: SwapFree（bytes；0 = 读不到或设备无 swap） */
+        val swapFreeBytes: Long = 0L,
+        /** /proc/self/status: VmRSS（当前进程常驻物理内存，bytes；0 = 读不到） */
+        val selfRssBytes: Long = 0L,
     ) {
         val usedBytes: Long get() = (totalBytes - availableBytes).coerceAtLeast(0)
         /** 可用占比 0.0~1.0；总量为 0（拿不到）时返回 null，UI 不得画环 */
         val availableRatio: Float?
             get() = if (totalBytes > 0) availableBytes.toFloat() / totalBytes.toFloat() else null
+        /** Swap 已用 = SwapTotal - SwapFree；任一为 0 时返回 0 */
+        val swapUsedBytes: Long get() = (swapTotalBytes - swapFreeBytes).coerceAtLeast(0L)
+        /** 是否有 swap 区域（SwapTotal > 0） */
+        val hasSwap: Boolean get() = swapTotalBytes > 0L
     }
 
     /** 单个进程的内存占用 */
@@ -68,6 +94,7 @@ class MemoryProcessSource @Inject constructor(
             runCatching { am.getMemoryInfo(info) }
         }
         val memInfo = readMemInfo()
+        val selfRss = readSelfRssBytes()
         return MemoryOverview(
             totalBytes = info.totalMem,
             availableBytes = info.availMem,
@@ -75,6 +102,13 @@ class MemoryProcessSource @Inject constructor(
             lowMemory = info.lowMemory,
             cachedBytes = memInfo?.let { (it["Cached"] ?: 0L) + (it["Buffers"] ?: 0L) },
             memInfoAvailable = memInfo != null,
+            memTotalBytes = memInfo?.get("MemTotal") ?: 0L,
+            memAvailableBytes = memInfo?.get("MemAvailable") ?: 0L,
+            buffersBytes = memInfo?.get("Buffers") ?: 0L,
+            cachedRawBytes = memInfo?.get("Cached") ?: 0L,
+            swapTotalBytes = memInfo?.get("SwapTotal") ?: 0L,
+            swapFreeBytes = memInfo?.get("SwapFree") ?: 0L,
+            selfRssBytes = selfRss,
         )
     }
 
@@ -169,6 +203,32 @@ class MemoryProcessSource @Inject constructor(
             }
             if (map.isEmpty()) null else map
         }.getOrNull()
+    }
+
+    /**
+     * /proc/self/status 的 VmRSS（Resident Set Size）—— 当前进程占着的物理内存。
+     *
+     * 与 [selfCacheBytes] 的区别：
+     *   - selfCacheBytes = 应用 cacheDir 体积（磁盘占用，可以主动删除）
+     *   - selfRssBytes   = 进程驻留集（物理内存占用，回收受系统调度）
+     *
+     * 单位是 kB。读不到（个别 ROM 屏蔽 / App 被沙箱化）时返回 0，
+     * UI 据此判断是否折叠"本应用内存占用"行。
+     */
+    private fun readSelfRssBytes(): Long {
+        return runCatching {
+            var rssKb: Long? = null
+            File("/proc/self/status").bufferedReader().useLines { lines ->
+                lines.forEach { line ->
+                    if (!line.startsWith("VmRSS:")) return@forEach
+                    rssKb = line.substringAfter(':').trim()
+                        .split(Regex("\\s+"))
+                        .firstOrNull()
+                        ?.toLongOrNull()
+                }
+            }
+            (rssKb ?: 0L) * 1024L
+        }.getOrDefault(0L)
     }
 
     private fun sizeOf(file: File?): Long {

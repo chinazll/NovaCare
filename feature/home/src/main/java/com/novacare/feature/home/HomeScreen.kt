@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.CleaningServices
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -75,7 +77,9 @@ private data class ModuleTile(
     val route: ModuleRoute,
 )
 
-private enum class ModuleRoute { CLEAN, FREEZE, AUTOMATION, STORAGE, MEMORY, BATTERY, ASSISTANT }
+private enum class ModuleRoute {
+    CLEAN, FREEZE, AUTOMATION, STORAGE, MEMORY, BATTERY, ASSISTANT, SCREENTIME, TRAFFIC,
+}
 
 private val ModuleTiles = listOf(
     ModuleTile(
@@ -114,6 +118,18 @@ private val ModuleTiles = listOf(
         subtitle = "应用耗电排行",
         route = ModuleRoute.BATTERY,
     ),
+    ModuleTile(
+        icon = Icons.Outlined.AccessTime,
+        title = "屏幕时长",
+        subtitle = "最近 24h 应用前台时长",
+        route = ModuleRoute.SCREENTIME,
+    ),
+    ModuleTile(
+        icon = Icons.Outlined.SwapVert,
+        title = "流量",
+        subtitle = "自启动以来上下行汇总",
+        route = ModuleRoute.TRAFFIC,
+    ),
 )
 
 /** AI 助手是 placement 内单独的**提醒入口** —— 不是聊天（AI 没真接通） */
@@ -130,11 +146,19 @@ enum class HomeDestination { CLEAN, FREEZE, AUTOMATION }
 /** 守护中心三模块 —— HomeScreen 也可达（点 metric bar 直接进） */
 enum class GuardianHub { STORAGE, MEMORY, BATTERY }
 
+/**
+ * v0.20.0 新增的两个下钻入口：屏幕时长 / 流量。
+ * 它们与守护中心类似 —— 不进底栏，由首页 tile 进入；返回键回首页。
+ */
+enum class InsightHub { SCREENTIME, TRAFFIC }
+
 @Composable
 fun HomeScreen(
     onOpenAssistant: () -> Unit,
     onNavigate: (HomeDestination) -> Unit,
     onOpenGuardian: (GuardianHub) -> Unit = {},
+    onOpenScreenTime: () -> Unit = {},
+    onOpenTraffic: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -203,6 +227,8 @@ fun HomeScreen(
                                 ModuleRoute.MEMORY -> onOpenGuardian(GuardianHub.MEMORY)
                                 ModuleRoute.BATTERY -> onOpenGuardian(GuardianHub.BATTERY)
                                 ModuleRoute.ASSISTANT -> onOpenAssistant()
+                                ModuleRoute.SCREENTIME -> onOpenScreenTime()
+                                ModuleRoute.TRAFFIC -> onOpenTraffic()
                             }
                         },
                     )

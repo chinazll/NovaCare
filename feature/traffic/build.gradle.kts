@@ -1,12 +1,13 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
 
 android {
-    namespace = "com.novacare.core.system"
+    namespace = "com.novacare.feature.traffic"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
@@ -29,12 +30,24 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.shizuku.api)
-    implementation(libs.shizuku.provider)
+    implementation(project(":core:system"))
+    implementation(project(":ui:designsystem"))
+
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.hilt.navigation.compose)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
     testImplementation(libs.junit)
     testImplementation(libs.truth)
 }

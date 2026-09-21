@@ -104,6 +104,8 @@ dependencies {
     implementation(project(":feature:automation"))
     implementation(project(":feature:assistant"))
     implementation(project(":feature:guardian")) // 守护中心：存储 / 内存 / 电池
+    implementation(project(":feature:screentime")) // 屏幕时长（UsageStatsManager）
+    implementation(project(":feature:traffic"))   // 流量（TrafficStats + /proc/net/dev）
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

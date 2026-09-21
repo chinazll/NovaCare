@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -109,6 +111,20 @@ fun MemoryGuardianScreen(
                     item {
                         MemoryGauge(overview = snap.overview)
                         Spacer(Modifier.height(12.dp))
+                    }
+
+                    // ---- v0.20.0 新增：本应用 RSS（/proc/self/status VmRSS）----
+                    item {
+                        SelfRssCard(selfRssBytes = snap.overview.selfRssBytes)
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    // ---- v0.20.0 新增：/proc/meminfo 完整细分账目 ----
+                    if (snap.overview.memInfoAvailable) {
+                        item {
+                            MemInfoBreakdownCard(overview = snap.overview)
+                            Spacer(Modifier.height(20.dp))
+                        }
                     }
 
                     item {
@@ -305,6 +321,152 @@ private fun BoundaryCard(
                 Text("去系统「应用管理」自行处理")
             }
         }
+    }
+}
+
+/**
+ * 本应用真实 RSS 卡（v0.20.0 新增）
+ *
+ * 数据来自 /proc/self/status 的 VmRSS 行 —— 当前进程常驻物理内存。
+ *
+ * 为什么单独展示（不与"系统总内存"合并）：
+ *   - 系统已用 90% ≠ 你这个 App 占了 90%
+ *   - 与下面"能力边界"卡呼应：清理本应用缓存只能影响 cacheDir（磁盘），
+ *     不能降低 RSS（物理内存）；后者由系统调度。
+ */
+@Composable
+private fun SelfRssCard(selfRssBytes: Long) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = cs.surfaceContainer,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Memory,
+                    contentDescription = null,
+                    tint = cs.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "本应用 RSS（/proc/self/status）",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = cs.onSurface,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = if (selfRssBytes > 0L) selfRssBytes.formatBytes() else "系统未提供 VmRSS",
+                style = MaterialTheme.typography.headlineMedium,
+                color = cs.onSurface,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = buildString {
+                    append("常驻物理内存（VmRSS，单位 bytes），不含被 swap 的部分。")
+                    if (selfRssBytes <= 0L) {
+                        append("本设备无法读取 /proc/self/status —— 极少数 ROM 沙箱化导致，不影响其他指标。")
+                    } else {
+                        append("回收本应用缓存只能减小 cacheDir（磁盘占用），不影响 RSS（物理内存占用）。")
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * /proc/meminfo 完整细分账目（v0.20.0 新增）
+ *
+ * 与顶部 MemoryGauge 的关系：Gauge 给的是"系统给的总量 + 可用量"，
+ * 这张卡给的是**内核自己记账的细分**。两者口径不同：
+ *   - ActivityManager.MemoryInfo.availMem 是系统估算的"应用可用"
+ *   - /proc/meminfo MemAvailable 是内核估算的"能释放出来给应用的"
+ *
+ * 不强行对齐 —— 让用户看到两份数对比，更能判断内存压力真实程度。
+ */
+@Composable
+private fun MemInfoBreakdownCard(overview: MemoryProcessSource.MemoryOverview) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = cs.surfaceContainer,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Storage,
+                    contentDescription = null,
+                    tint = cs.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "/proc/meminfo 真实账目",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = cs.onSurface,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+
+            MemInfoRow("MemTotal", overview.memTotalBytes, "内核可见的全部物理内存")
+            MemInfoRow("MemAvailable", overview.memAvailableBytes, "内核估算的「还能给应用用的」")
+            MemInfoRow("Buffers", overview.buffersBytes, "文件系统缓冲（可回收）")
+            MemInfoRow("Cached", overview.cachedRawBytes, "页缓存（可回收）")
+            if (overview.hasSwap) {
+                MemInfoRow("SwapTotal", overview.swapTotalBytes, "交换分区总大小")
+                MemInfoRow("SwapFree", overview.swapFreeBytes, "剩余交换空间")
+            } else {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "本设备未配置 swap 区域（SwapTotal = 0）—— 不展示对应行。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "单位 bytes；读自 /proc/meminfo（无需权限）。" +
+                    "MemAvailable 与顶部「可用」口径不同 —— 内核视角 vs 系统视角。",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MemInfoRow(label: String, bytes: Long, hint: String) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                color = cs.onSurface,
+            )
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = if (bytes > 0L) bytes.formatBytes() else "—",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (bytes > 0L) cs.onSurface else cs.onSurfaceVariant,
+        )
     }
 }
 

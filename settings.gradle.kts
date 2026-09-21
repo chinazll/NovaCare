@@ -46,6 +46,8 @@ include(":feature:freeze")    // 冻结
 include(":feature:automation")// 自动化规则
 include(":feature:assistant") // AI 助手（对话式）
 include(":feature:guardian")  // 守护中心：存储 / 内存 / 电池三个持续监测模块
+include(":feature:screentime")// 屏幕时长（UsageStatsManager）
+include(":feature:traffic")   // 流量（TrafficStats + /proc/net/dev）
 
 // ---- app：应用壳 ----
 include(":app")

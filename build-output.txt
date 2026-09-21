@@ -1,0 +1,22 @@
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   app/build.gradle.kts
+	modified:   app/src/main/AndroidManifest.xml
+	modified:   app/src/main/java/com/novacare/app/navigation/NavGraph.kt
+	modified:   core/system/build.gradle.kts
+	modified:   core/system/src/main/java/com/novacare/core/system/MemoryProcessSource.kt
+	modified:   feature/guardian/src/main/java/com/novacare/feature/guardian/memory/MemoryGuardianScreen.kt
+	modified:   feature/home/src/main/java/com/novacare/feature/home/HomeScreen.kt
+	modified:   settings.gradle.kts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	build-output.txt
+	core/system/src/main/java/com/novacare/core/system/ScreenTimeSource.kt
+	core/system/src/main/java/com/novacare/core/system/TrafficSource.kt
+	feature/screentime/
+	feature/traffic/
+
+no changes added to commit (use "git add" and/or "git commit -a")
