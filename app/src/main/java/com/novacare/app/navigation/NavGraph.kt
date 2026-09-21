@@ -41,6 +41,7 @@ import com.novacare.feature.guardian.battery.BatteryGuardianScreen
 import com.novacare.feature.guardian.memory.MemoryGuardianScreen
 import com.novacare.feature.guardian.storage.StorageGuardianScreen
 import com.novacare.feature.home.HomeDestination
+import com.novacare.feature.home.GuardianHub
 import com.novacare.feature.home.HomeScreen
 import com.novacare.ui.designsystem.NovaDock
 import com.novacare.ui.designsystem.NovaDockItem
@@ -216,6 +217,7 @@ fun NovaCareNavHost(
                 HomeScreen(
                     onOpenAssistant = { navController.navigateTo(Routes.ASSISTANT) },
                     onNavigate = { destination -> navController.switchTab(routeOf(destination)) },
+                    onOpenGuardian = { hub -> navController.navigateTo(routeOfGuardian(hub)) },
                 )
             }
             composable(Routes.CLEAN) { CleanScreen(rootPath = rootPath) }
@@ -284,4 +286,11 @@ private fun NavHostController.navigateTo(route: String) {
 private fun routeOf(destination: HomeDestination): String = when (destination) {
     HomeDestination.CLEAN -> Routes.CLEAN
     HomeDestination.FREEZE -> Routes.FREEZE
+}
+
+/** HomeScreen metric bar → 守护中心深页路由（带栈下钻，按返回键回首页） */
+private fun routeOfGuardian(hub: GuardianHub): String = when (hub) {
+    GuardianHub.STORAGE -> Routes.STORAGE
+    GuardianHub.MEMORY -> Routes.MEMORY
+    GuardianHub.BATTERY -> Routes.BATTERY
 }

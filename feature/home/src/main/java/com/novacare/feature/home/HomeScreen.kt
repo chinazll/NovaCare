@@ -70,10 +70,14 @@ import com.novacare.ui.designsystem.OneUiSpacing
 /** 首页可跳转的目的地 —— 故意只两个（避免和底栏复读） */
 enum class HomeDestination { CLEAN, FREEZE }
 
+/** 守护中心三模块 —— HomeScreen 也可达（点 metric bar 直接进） */
+enum class GuardianHub { STORAGE, MEMORY, BATTERY }
+
 @Composable
 fun HomeScreen(
     onOpenAssistant: () -> Unit,
     onNavigate: (HomeDestination) -> Unit,
+    onOpenGuardian: (GuardianHub) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -150,7 +154,22 @@ fun HomeScreen(
                         Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
                         // OneUI 8.5 Device Care：宽状态条 + 大百分比
-                        DeviceStatusCard(overview = overview)
+                        // 每条 metric 都可点：跳到对应守护中心深页
+                        DeviceStatusCard(
+                            overview = overview,
+                            onClickStorage = {
+                                NovaTap(view)
+                                onOpenGuardian(GuardianHub.STORAGE)
+                            },
+                            onClickMemory = {
+                                NovaTap(view)
+                                onOpenGuardian(GuardianHub.MEMORY)
+                            },
+                            onClickBattery = {
+                                NovaTap(view)
+                                onOpenGuardian(GuardianHub.BATTERY)
+                            },
+                        )
 
                         Spacer(Modifier.height(OneUiSpacing.BlockGap))
 
@@ -346,7 +365,12 @@ private fun scoreColor(total: Int, colors: NovaCareColors): androidx.compose.ui.
 // 3. 设备状态 —— OneUI 8.5 Device Care 风格：宽状态条 + 大百分比
 // =========================================================================
 @Composable
-private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
+private fun DeviceStatusCard(
+    overview: HomeViewModel.Overview?,
+    onClickStorage: () -> Unit,
+    onClickMemory: () -> Unit,
+    onClickBattery: () -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
 
     Surface(
@@ -385,6 +409,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                     (overview.usedBytes.toFloat() / overview.totalBytes).coerceIn(0f, 1f)
                 } else 0f,
                 measurable = overview.totalBytes > 0L,
+                onClick = onClickStorage,
             )
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
@@ -401,6 +426,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 } else "未获取内存读数",
                 fraction = memFraction,
                 measurable = memMeasurable,
+                onClick = onClickMemory,
             )
 
             Spacer(Modifier.height(OneUiSpacing.BlockGap))
@@ -420,6 +446,7 @@ private fun DeviceStatusCard(overview: HomeViewModel.Overview?) {
                 },
                 fraction = (overview.batteryPercent / 100f).coerceIn(0f, 1f),
                 measurable = overview.batteryPercent > 0,
+                onClick = onClickBattery,
             )
         }
     }
@@ -433,11 +460,18 @@ private fun MetricBar(
     detail: String,
     fraction: Float,
     measurable: Boolean,
+    onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(OneUiRadius.Small))
+            .clickable(onClick = onClick)
+            .padding(vertical = OneUiSpacing.CardGap),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
