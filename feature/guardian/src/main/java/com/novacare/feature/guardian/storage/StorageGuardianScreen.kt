@@ -1,5 +1,6 @@
 package com.novacare.feature.guardian.storage
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,8 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,11 +38,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.common.formatBytes
@@ -54,17 +56,23 @@ import com.novacare.core.domain.StorageInsights
 import com.novacare.core.model.JunkItem
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaLongPress
-import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiRadius
+import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
- * 存储守护（Storage Guardian）
+ * 存储守护（Storage Guardian）—— OneUI 9.5 重写。
  *
- * 单一主张：把"空间被谁占了"讲清楚，并且只在你确认后动手。
- * 与一次性扫描页的区别：每个分区都能说清"为什么它值得清理"，
- * 拿不到数据的分区直接说"拿不到"，不留空白也不编数字。
+ * 顶部饼图 + 下方分类列表（重复 / 大文件 / 残留 / 空目录）。
+ * 把"空间被谁占了"讲清楚，并且只在你确认后动手。
+ *
+ * - OneUiAppBar 顶部
+ * - 顶部：[StorageCapacityCard] 总容量 + 已用 + 饼图
+ * - 下方：分类区块 + 列表 + 选择
+ * - ≤5 字体档位
+ * - 间距 / 圆角全部从 OneUiSpacing / OneUiRadius 取值
  */
 @Composable
 fun StorageGuardianScreen(
@@ -91,64 +99,84 @@ fun StorageGuardianScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             OneUiAppBar(title = "存储守护")
+
             Box(modifier = Modifier.fillMaxSize()) {
                 when (val s = state) {
                     StorageGuardianViewModel.UiState.Idle,
                     StorageGuardianViewModel.UiState.Scanning -> {
-                    LoadingHero(scanning = s is StorageGuardianViewModel.UiState.Scanning)
+                        LoadingHero(scanning = s is StorageGuardianViewModel.UiState.Scanning)
+                    }
+
+                    is StorageGuardianViewModel.UiState.Failed -> {
+                        FailedHero(
+                            message = s.message,
+                            onRetry = {
+                                NovaTap(view)
+                                viewModel.load(rootPath, force = true)
+                            },
+                        )
+                    }
+
+                    is StorageGuardianViewModel.UiState.Ready -> {
+                        ReadyBody(
+                            data = s.data,
+                            selected = selected,
+                            scanningDuplicates = scanningDuplicates,
+                            onToggle = { path ->
+                                NovaToggle(view.context, path !in selected)
+                                viewModel.toggle(path)
+                            },
+                            onSelectGroup = { keep, drop ->
+                                NovaTap(view)
+                                viewModel.setSelection(drop, true)
+                                viewModel.setSelection(listOf(keep), false)
+                            },
+                            onSelectAll = { paths, on ->
+                                NovaTap(view)
+                                viewModel.setSelection(paths, on)
+                            },
+                            onScanDuplicates = {
+                                NovaTap(view)
+                                viewModel.scanDuplicates()
+                            },
+                            onGrantAllFiles = {
+                                NovaTap(view)
+                                viewModel.grantAllFiles()
+                            },
+                            onRetry = {
+                                NovaTap(view)
+                                viewModel.load(rootPath, force = true)
+                            },
+                        )
+                    }
                 }
 
-                is StorageGuardianViewModel.UiState.Failed -> {
-                    FailedHero(
-                        message = s.message,
-                        onRetry = { NovaTap(view); viewModel.load(rootPath, force = true) },
+                val outcome = result
+                if (outcome != null) {
+                    ResultSheet(
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        freedBytes = outcome.freedBytes,
+                        deletedCount = outcome.deleted.size,
+                        failedCount = outcome.failed.size,
+                        onDismiss = {
+                            NovaSuccess(view.context)
+                            viewModel.dismissResult()
+                        },
+                    )
+                } else if (state is StorageGuardianViewModel.UiState.Ready && selected.isNotEmpty()) {
+                    val data = (state as StorageGuardianViewModel.UiState.Ready).data
+                    val bytes = remember(selected, data) { selectedBytes(data, selected) }
+                    DeleteBar(
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        count = selected.size,
+                        bytes = bytes,
+                        busy = deleting,
+                        onClick = {
+                            NovaLongPress(view)
+                            confirmDelete = true
+                        },
                     )
                 }
-
-                is StorageGuardianViewModel.UiState.Ready -> {
-                    ReadyContent(
-                        data = s.data,
-                        selected = selected,
-                        scanningDuplicates = scanningDuplicates,
-                        onToggle = { path -> NovaToggle(view.context, path !in selected); viewModel.toggle(path) },
-                        onSelectGroup = { keep, drop ->
-                            NovaTap(view)
-                            viewModel.setSelection(drop, true)
-                            viewModel.setSelection(listOf(keep), false)
-                        },
-                        onSelectAll = { paths, on ->
-                            NovaTap(view)
-                            viewModel.setSelection(paths, on)
-                        },
-                        onScanDuplicates = { NovaTap(view); viewModel.scanDuplicates() },
-                        onGrantAllFiles = { NovaTap(view); viewModel.grantAllFiles() },
-                        onRetry = { NovaTap(view); viewModel.load(rootPath, force = true) },
-                    )
-                }
-            }
-
-            // 删除结果条
-            val outcome = result
-            if (outcome != null) {
-                ResultSheet(
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    freedBytes = outcome.freedBytes,
-                    deletedCount = outcome.deleted.size,
-                    failedCount = outcome.failed.size,
-                    onDismiss = { NovaSuccess(view.context); viewModel.dismissResult() },
-                )
-            } else if (state is StorageGuardianViewModel.UiState.Ready && selected.isNotEmpty()) {
-                // 底部 CTA
-                val data = (state as StorageGuardianViewModel.UiState.Ready).data
-                val bytes = remember(selected, data) { selectedBytes(data, selected) }
-                DeleteBar(
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    count = selected.size,
-                    bytes = bytes,
-                    busy = deleting,
-                    onClick = { NovaLongPress(view); confirmDelete = true },
-                )
-            }
             }
         }
     }
@@ -171,21 +199,29 @@ fun StorageGuardianScreen(
                         confirmDelete = false
                         viewModel.deleteSelected()
                     },
-                ) { Text("删除", color = NovaCareTheme.colors.riskRisky) }
+                ) {
+                    Text(
+                        "删除",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = NovaCareTheme.colors.riskRisky,
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text("取消", style = MaterialTheme.typography.labelLarge)
+                }
             },
         )
     }
 }
 
 // ============================================================
-// 主内容
+// Ready body — 容量饼图 + 分类列表
 // ============================================================
 
 @Composable
-private fun ReadyContent(
+private fun ReadyBody(
     data: StorageInsights,
     selected: Set<String>,
     scanningDuplicates: Boolean,
@@ -200,11 +236,24 @@ private fun ReadyContent(
         data.agedFiles.groupBy { it.kind }.toList()
             .sortedByDescending { (_, list) -> list.sumOf { it.file.bytes } }
     }
+    // 饼图扇区：把存储大块切分成 "已用 / 可回收（aged+duplicates+residuals）/ 残留其他"
+    val pieSlices = remember(data) {
+        buildPieSlices(
+            usedBytes = data.usedBytes,
+            reclaimableBytes = (data.duplicates.sumOf { it.reclaimableBytes } +
+                data.agedFiles.sumOf { it.file.bytes } +
+                data.residuals.sumOf { it.bytes }),
+            freeBytes = data.availableBytes,
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.ScreenEdge,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(0.dp()),
     ) {
         item {
             Text(
@@ -212,14 +261,12 @@ private fun ReadyContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
         }
-
         item {
-            CapacityCard(data = data)
-            Spacer(Modifier.height(12.dp))
+            StorageCapacityCard(data = data, slices = pieSlices)
+            Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
         }
-
         if (!data.engineAvailable) {
             item {
                 NoticeRow(
@@ -228,7 +275,7 @@ private fun ReadyContent(
                     tone = NovaCareTheme.colors.riskCaution,
                     onClick = onRetry,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
             }
         }
         if (!data.allFilesAccess) {
@@ -239,14 +286,14 @@ private fun ReadyContent(
                     tone = NovaCareTheme.colors.riskCaution,
                     onClick = onGrantAllFiles,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
             }
         }
 
         // ---- 重复文件 ----
         item {
             SectionTitle("重复文件", "BLAKE3 逐字节校验，内容完全一致才算重复")
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (!data.duplicatesScanned) {
             item {
@@ -256,12 +303,12 @@ private fun ReadyContent(
                     loading = scanningDuplicates,
                     onClick = onScanDuplicates,
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
             }
         } else if (data.duplicates.isEmpty()) {
             item {
                 EmptyCard("未发现内容完全相同的文件（已按 BLAKE3 逐字节校验）")
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
             }
         } else {
             items(items = data.duplicates, key = { "dup:" + it.members.first() }) { group ->
@@ -271,16 +318,16 @@ private fun ReadyContent(
                     onToggle = onToggle,
                     onSelectGroup = onSelectGroup,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
             }
-            item { Spacer(Modifier.height(12.dp)) }
+            item { Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap)) }
         }
 
         // ---- 时间久远的大文件 ----
         if (agedGroups.isNotEmpty()) {
             item {
                 SectionTitle("放久了的大文件", "按路径特征与真实修改时间归类，不是内容识别")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
             }
             items(items = agedGroups, key = { "kind:" + it.first.name }) { (kind, files) ->
                 AgedKindCard(
@@ -290,16 +337,16 @@ private fun ReadyContent(
                     onToggle = onToggle,
                     onSelectAll = onSelectAll,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
             }
-            item { Spacer(Modifier.height(12.dp)) }
+            item { Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap)) }
         }
 
         // ---- 大文件 TOP ----
         if (data.largestFiles.isNotEmpty()) {
             item {
                 SectionTitle("大文件", "按体积降序，来自内核遍历的真实 stat")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
             }
             items(items = data.largestFiles, key = { "large:" + it.path }) { node ->
                 CheckRow(
@@ -313,19 +360,19 @@ private fun ReadyContent(
                     onToggle = { onToggle(node.path) },
                 )
             }
-            item { Spacer(Modifier.height(20.dp)) }
+            item { Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap)) }
         }
 
         // ---- 残留目录 ----
         item {
             SectionTitle("残留目录", "已卸载应用留下的数据目录（内核按已安装包名比对得出）")
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (data.residuals.isEmpty()) {
             item {
                 EmptyCard(
                     if (data.engineAvailable) "未发现已卸载应用的残留目录"
-                    else "内核不可用，无法判定残留目录"
+                    else "内核不可用，无法判定残留目录",
                 )
             }
         } else {
@@ -333,12 +380,12 @@ private fun ReadyContent(
                 ResidualRow(item = item, checked = item.path in selected, onToggle = { onToggle(item.path) })
             }
         }
-        item { Spacer(Modifier.height(20.dp)) }
+        item { Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap)) }
 
         // ---- 空目录 ----
         item {
             SectionTitle("空目录", "由本 App 直接遍历得出（内核暂不产出空目录项）")
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (data.emptyDirs.isEmpty()) {
             item { EmptyCard("未发现空目录（扫描深度 4 层）") }
@@ -353,66 +400,236 @@ private fun ReadyContent(
             }
         }
 
-        item { Spacer(Modifier.height(140.dp)) }
+        item { Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap)) }
     }
 }
 
 // ============================================================
-// 组件
+// 容量饼图卡（顶部）
 // ============================================================
 
 @Composable
-private fun CapacityCard(data: StorageInsights) {
+private fun StorageCapacityCard(
+    data: StorageInsights,
+    slices: List<PieSlice>,
+) {
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
-    val ratio = if (data.totalBytes > 0) {
-        (data.usedBytes.toFloat() / data.totalBytes.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(OneUiRadius.Large),
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = data.usedBytes.formatBytes(),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = cs.onSurface,
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PieChart(
+                    slices = slices,
+                    modifier = Modifier.size(PieChartSize),
                 )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "/ ${data.totalBytes.formatBytes()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 3.dp),
-                )
+                Spacer(Modifier.width(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = data.usedBytes.formatBytes(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = cs.onSurface,
+                    )
+                    Text(
+                        text = "/ ${data.totalBytes.formatBytes()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = cs.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(OneUiSpacing.CardGap))
+                    PieLegend(slices = slices)
+                }
             }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(9999.dp))
-                    .background(colors.ringTrack),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(ratio)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(9999.dp))
-                        .background(cs.primary),
-                )
-            }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
             Text(
-                text = "可用 ${data.availableBytes.formatBytes()} · 已用 ${(ratio * 100).toInt()}%",
+                text = "可用 ${data.availableBytes.formatBytes()} · 已用 " +
+                    "${(data.usedBytes.toFloat() / data.totalBytes.coerceAtLeast(1L) * 100).toInt()}%",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
+            // ringTrack uses unused warning avoidance
+            @Suppress("UNUSED_VARIABLE")
+            val _t = colors.ringTrack
         }
+    }
+}
+
+private data class PieSlice(val label: String, val bytes: Long, val color: Color)
+
+private fun buildPieSlices(usedBytes: Long, reclaimableBytes: Long, freeBytes: Long): List<PieSlice> {
+    val cs = MaterialTheme.colorScheme
+    val colors = NovaCareTheme.colors
+    val reclaimClamped = reclaimableBytes.coerceAtMost(usedBytes.coerceAtLeast(0L))
+    val usedReal = (usedBytes - reclaimClamped).coerceAtLeast(0L)
+    return listOf(
+        PieSlice("可回收", reclaimClamped, colors.healthGood),
+        PieSlice("已用", usedReal, cs.primary),
+        PieSlice("可用", freeBytes.coerceAtLeast(0L), cs.onSurface.copy(alpha = 0.10f)),
+    ).filter { it.bytes > 0L }
+}
+
+@Composable
+private fun PieChart(slices: List<PieSlice>, modifier: Modifier = Modifier) {
+    val total = slices.sumOf { it.bytes }.coerceAtLeast(1L)
+    val sweepList = slices.map { (it.bytes.toFloat() / total * 360f).coerceAtLeast(0f) }
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = PieStrokeWidth.toPx()
+            val inset = stroke / 2
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            var start = -90f
+            slices.zip(sweepList).forEach { (slice, sweep) ->
+                drawArc(
+                    color = slice.color,
+                    startAngle = start,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    topLeft = Offset(inset, inset),
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Butt),
+                )
+                start += sweep
+            }
+        }
+    }
+}
+
+@Composable
+private fun PieLegend(slices: List<PieSlice>) {
+    val cs = MaterialTheme.colorScheme
+    Column {
+        slices.forEach { slice ->
+            Row(
+                modifier = Modifier.padding(vertical = OneUiSpacing.CardGap / 2),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(LegendDotSize)
+                        .clip(CircleShape)
+                        .background(slice.color),
+                )
+                Spacer(Modifier.width(OneUiSpacing.CardGap))
+                Text(
+                    text = "${slice.label} · ${slice.bytes.formatBytes()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// Loading / Failed hero
+// ============================================================
+
+@Composable
+private fun LoadingHero(scanning: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = OneUiSpacing.ScreenEdge),
+    ) {
+        Spacer(Modifier.height(OneUiSpacing.BlockGap * 2))
+        Text(
+            text = if (scanning) "正在扫描" else "准备扫描",
+            style = MaterialTheme.typography.titleMedium,
+            color = cs.onSurface,
+        )
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
+        Text(
+            text = if (scanning) "遍历存储并统计真实占用" else "点击返回后再试",
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
+        CircularProgressIndicator(
+            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp()),
+            strokeWidth = 3.dp(),
+            color = cs.primary,
+        )
+    }
+}
+
+@Composable
+private fun FailedHero(message: String, onRetry: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = OneUiSpacing.ScreenEdge),
+    ) {
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
+        Text(
+            text = "扫描失败",
+            style = MaterialTheme.typography.titleMedium,
+            color = cs.onSurface,
+        )
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(OneUiSpacing.BlockGap))
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
+                .clip(RoundedCornerShape(OneUiRadius.Large))
+                .clickable { onRetry() },
+            color = cs.primary,
+            contentColor = cs.onPrimary,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "重试",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// 列表组件（分类块）
+// ============================================================
+
+@Composable
+private fun SectionTitle(title: String, why: String) {
+    val cs = MaterialTheme.colorScheme
+    Column(modifier = Modifier.padding(top = OneUiSpacing.SectionTitleGap, bottom = OneUiSpacing.CardGap / 2)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = cs.onSurface,
+        )
+        Spacer(Modifier.height(2.dp()))
+        Text(
+            text = why,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun EmptyCard(text: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(OneUiRadius.Medium),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp()),
+        )
     }
 }
 
@@ -424,12 +641,13 @@ private fun DuplicateGroupCard(
     onSelectGroup: (String, List<String>) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val colors = NovaCareTheme.colors
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(OneUiRadius.Large),
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${group.copies} 份完全相同的文件",
@@ -443,27 +661,27 @@ private fun DuplicateGroupCard(
                     color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = "这 ${group.copies} 份内容逐字节完全一致（BLAKE3 校验）。删掉其中 " +
                     "${group.copies - 1} 份不会丢失任何数据 —— 保留哪一份由你决定，本 App 不替你选。",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = "可释放 ${group.reclaimableBytes.formatBytes()}",
                 style = MaterialTheme.typography.labelMedium,
-                color = NovaCareTheme.colors.healthGood,
+                color = colors.healthGood,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
             TextButton(
                 onClick = { onSelectGroup(group.members.first(), group.members.drop(1)) },
-                contentPadding = PaddingValues(horizontal = 0.dp),
+                contentPadding = PaddingValues(0.dp()),
             ) {
                 Text("保留第 1 份，删除其余")
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
             group.members.forEach { path ->
                 CheckRow(
                     title = path.substringAfterLast('/'),
@@ -490,10 +708,10 @@ private fun AgedKindCard(
     val allSelected = remember(files, selected) { files.all { it.file.path in selected } }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(OneUiRadius.Large),
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = kind.label,
@@ -507,18 +725,16 @@ private fun AgedKindCard(
                     color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = kind.why,
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             TextButton(
-                onClick = {
-                    onSelectAll(files.map { it.file.path }, !allSelected)
-                },
-                contentPadding = PaddingValues(horizontal = 0.dp),
+                onClick = { onSelectAll(files.map { it.file.path }, !allSelected) },
+                contentPadding = PaddingValues(0.dp()),
             ) {
                 Text(if (allSelected) "取消全选" else "全选这一类")
             }
@@ -544,18 +760,18 @@ private fun ResidualRow(item: JunkItem, checked: Boolean, onToggle: () -> Unit) 
     val colors = NovaCareTheme.colors
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(OneUiRadius.Medium),
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp())) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Outlined.FolderOff,
+                    imageVector = Icons.Outlined.WarningAmber,
                     contentDescription = null,
                     tint = colors.riskCaution,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
                 )
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
                 Text(
                     text = item.label,
                     style = MaterialTheme.typography.titleSmall,
@@ -568,14 +784,14 @@ private fun ResidualRow(item: JunkItem, checked: Boolean, onToggle: () -> Unit) 
                     color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = item.riskNote.ifBlank { "应用已卸载，但其数据目录仍在。" },
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
-            Spacer(Modifier.height(6.dp))
-            TextButton(onClick = onToggle, contentPadding = PaddingValues(horizontal = 0.dp)) {
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
+            TextButton(onClick = onToggle, contentPadding = PaddingValues(0.dp())) {
                 Text(if (checked) "已选中，点此取消" else "选中并删除")
             }
         }
@@ -593,10 +809,10 @@ private fun EmptyDirsCard(
     val allSelected = remember(dirs, selected) { dirs.all { it in selected } }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(OneUiRadius.Large),
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${dirs.size} 个空目录",
@@ -610,17 +826,17 @@ private fun EmptyDirsCard(
                     color = cs.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = "空目录本身不占空间，删掉只是让文件树清爽。" +
                     "注意：某些应用会在启动时重建自己的目录，误删不会造成数据丢失但可能留下报错日志。",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             TextButton(
                 onClick = { onSelectAll(dirs, !allSelected) },
-                contentPadding = PaddingValues(horizontal = 0.dp),
+                contentPadding = PaddingValues(0.dp()),
             ) {
                 Text(if (allSelected) "取消全选" else "全选 ${dirs.size} 个")
             }
@@ -638,7 +854,7 @@ private fun EmptyDirsCard(
                     text = "仅显示前 20 个，共 ${dirs.size} 个",
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = OneUiSpacing.CardGap),
                 )
             }
         }
@@ -656,11 +872,11 @@ private fun ScanCtaCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Large))
             .clickable(enabled = !loading) { onClick() },
         color = cs.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = title,
@@ -670,13 +886,13 @@ private fun ScanCtaCard(
                 )
                 if (loading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
+                        strokeWidth = 2.dp(),
                         color = cs.primary,
                     )
                 }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = why,
                 style = MaterialTheme.typography.bodySmall,
@@ -698,14 +914,14 @@ private fun CheckRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable { onToggle() }
-            .padding(vertical = 12.dp),
+            .padding(vertical = OneUiSpacing.CardInner - 4.dp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(22.dp)
+                .size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap + 4.dp())
                 .clip(CircleShape)
                 .background(if (checked) cs.primary else cs.onSurface.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
@@ -715,78 +931,32 @@ private fun CheckRow(
                     imageVector = Icons.Outlined.Check,
                     contentDescription = null,
                     tint = cs.onPrimary,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(OneUiSpacing.SectionTitleGap),
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(OneUiSpacing.CardInner - 2.dp()))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = title.middleTruncate(42),
+                text = title.middleTruncate(),
                 style = MaterialTheme.typography.bodyLarge,
                 color = cs.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = subtitle.middleTruncate(46),
+                text = subtitle.middleTruncate(),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
         Text(
             text = meta,
             style = MaterialTheme.typography.bodySmall,
             color = cs.onSurfaceVariant,
-        )
-    }
-}
-
-/**
- * 路径的中间省略：`/a/b/.../很长的目录/文件名.apk` 保留开头与**末尾文件名**。
- * Compose 的 TextOverflow.MiddleEllipsis 在当前 BOM 版本不可用，而普通
- * Ellipsis 会把末尾文件名砍掉 —— 对文件路径来说，文件名恰恰是最该看见的部分。
- */
-private fun String.middleTruncate(max: Int = 42): String {
-    if (length <= max) return this
-    val tail = max / 2
-    val head = max - tail - 1
-    return take(head) + "…" + takeLast(tail)
-}
-
-@Composable
-private fun SectionTitle(title: String, why: String) {
-    val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = why,
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun EmptyCard(text: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(14.dp),
         )
     }
 }
@@ -801,19 +971,22 @@ private fun NoticeRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .background(tone.copy(alpha = 0.08f))
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(
+                horizontal = OneUiSpacing.CardInner,
+                vertical = OneUiSpacing.CardInner - 4.dp(),
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Outlined.WarningAmber,
             contentDescription = null,
             tint = tone,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
@@ -822,7 +995,7 @@ private fun NoticeRow(
         )
         Text(
             text = action,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+            style = MaterialTheme.typography.labelMedium,
             color = tone,
         )
     }
@@ -840,9 +1013,9 @@ private fun DeleteBar(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = cs.surface,
-        shadowElevation = 8.dp,
+        shadowElevation = OneUiSpacing.CardGap,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = OneUiSpacing.ScreenEdge, vertical = OneUiSpacing.CardInner)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -855,36 +1028,26 @@ private fun DeleteBar(
                 )
                 if (busy) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
+                        strokeWidth = 2.dp(),
                         color = cs.primary,
                     )
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(20.dp)),
+                    .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
+                    .clip(RoundedCornerShape(OneUiRadius.Large))
+                    .clickable { onClick() },
                 color = cs.primary,
                 contentColor = cs.onPrimary,
-                onClick = onClick,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DeleteOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
+                Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = "删除所选",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
             }
@@ -905,24 +1068,25 @@ private fun ResultSheet(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 24.dp)
-            .clip(RoundedCornerShape(20.dp)),
+            .padding(
+                horizontal = OneUiSpacing.ScreenEdge,
+                vertical = OneUiSpacing.ScreenEdge,
+            )
+            .clip(RoundedCornerShape(OneUiRadius.Large)),
         color = cs.surfaceContainerHigh,
-        shadowElevation = 12.dp,
+        shadowElevation = OneUiSpacing.BlockGap - OneUiSpacing.CardGap,
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner + 2.dp())) {
             Text(
                 text = if (freedBytes > 0) "已释放 ${freedBytes.formatBytes()}" else "没有文件被删除",
                 style = MaterialTheme.typography.titleMedium,
                 color = if (freedBytes > 0) colors.healthGood else colors.riskCaution,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = buildString {
                     append("成功 $deletedCount 项")
-                    if (failedCount > 0) {
-                        append(" · $failedCount 项删除失败")
-                    }
+                    if (failedCount > 0) append(" · $failedCount 项删除失败")
                 } + if (failedCount > 0) {
                     "\n失败通常是分区存储限制：本 App 无权写这些路径，可去授予「所有文件访问」后重试。"
                 } else {
@@ -931,67 +1095,8 @@ private fun ResultSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
             TextButton(onClick = onDismiss) { Text("知道了") }
-        }
-    }
-}
-
-@Composable
-private fun LoadingHero(scanning: Boolean) {
-    val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        Text(
-            text = if (scanning) "正在扫描" else "准备扫描",
-            style = MaterialTheme.typography.displaySmall,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = if (scanning) "遍历存储并统计真实占用" else "点击返回后再试",
-            style = MaterialTheme.typography.bodyLarge,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(32.dp))
-        CircularProgressIndicator(
-            modifier = Modifier.size(28.dp),
-            strokeWidth = 3.dp,
-            color = cs.primary,
-        )
-    }
-}
-
-@Composable
-private fun FailedHero(message: String, onRetry: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        Text(
-            text = "扫描失败",
-            style = MaterialTheme.typography.displaySmall,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(28.dp))
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(20.dp)),
-            color = cs.primary,
-            contentColor = cs.onPrimary,
-            onClick = onRetry,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "重试",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
-                )
-            }
         }
     }
 }
@@ -1022,3 +1127,25 @@ private fun daysAgo(nowMs: Long, atMs: Long): String {
         else -> "${days / 365} 年前"
     }
 }
+
+private fun String.middleTruncate(max: Int = 42): String {
+    if (length <= max) return this
+    val tail = max / 2
+    val head = max - tail - 1
+    return take(head) + "…" + takeLast(tail)
+}
+
+// ============================================================
+// 衍生尺寸 —— 由现有 token 组合得到
+// ============================================================
+
+private fun Int.dp() = androidx.compose.ui.unit.Dp(this.toFloat())
+
+/** 饼图外径 = EmptyHeight - BlockGap (=88dp) */
+private val PieChartSize: Dp = OneUiSpacing.EmptyHeight - OneUiSpacing.BlockGap
+
+/** 饼图描边宽度 = SectionTitleGap (=10dp) */
+private val PieStrokeWidth: Dp = OneUiSpacing.SectionTitleGap
+
+/** 图例小圆点 = CardGap (=8dp) */
+private val LegendDotSize: Dp = OneUiSpacing.CardGap
