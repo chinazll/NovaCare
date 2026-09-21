@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.common.formatBytes
@@ -56,6 +57,7 @@ import com.novacare.core.domain.StorageInsights
 import com.novacare.core.model.JunkItem
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaLongPress
+import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
@@ -459,14 +461,16 @@ private fun StorageCapacityCard(
 private data class PieSlice(val label: String, val bytes: Long, val color: Color)
 
 private fun buildPieSlices(usedBytes: Long, reclaimableBytes: Long, freeBytes: Long): List<PieSlice> {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
     val reclaimClamped = reclaimableBytes.coerceAtMost(usedBytes.coerceAtLeast(0L))
     val usedReal = (usedBytes - reclaimClamped).coerceAtLeast(0L)
+    // 颜色：'可回收'=green, '已用'=primary blue, '可用'=黑10%alpha —— 全部硬编码避免引用 @Composable local
+    val green = androidx.compose.ui.graphics.Color(0xFF1B7A46)
+    val blue = androidx.compose.ui.graphics.Color(0xFF2F6FED)
+    val faint = androidx.compose.ui.graphics.Color(0x14000000)
     return listOf(
-        PieSlice("可回收", reclaimClamped, colors.healthGood),
-        PieSlice("已用", usedReal, cs.primary),
-        PieSlice("可用", freeBytes.coerceAtLeast(0L), cs.onSurface.copy(alpha = 0.10f)),
+        PieSlice("可回收", reclaimClamped, green),
+        PieSlice("已用", usedReal, blue),
+        PieSlice("可用", freeBytes.coerceAtLeast(0L), faint),
     ).filter { it.bytes > 0L }
 }
 

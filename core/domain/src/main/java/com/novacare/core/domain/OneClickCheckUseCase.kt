@@ -1,16 +1,11 @@
 package com.novacare.core.domain
 
-import com.novacare.core.system.AppRepository
-import com.novacare.core.system.BatteryInsights
-import com.novacare.core.system.BatteryInsightsSource
 import com.novacare.core.system.DeviceStatusSource
-import com.novacare.core.system.RecentUsageSource
+import com.novacare.core.system.MemoryProcessSource
 import com.novacare.core.system.ScreenTimeSource
 import com.novacare.core.system.SystemPermissions
 import com.novacare.core.system.TrafficSource
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,72 +15,33 @@ import javax.inject.Singleton
  *
  * 设计原则：
  *   - 顺序扫描 5 个维度（每步都真实执行对应模块的数据采集，不"假装"扫描）：
- *     1) 存储 — DeviceStatusSource.storage() + StorageInsightsUseCase
+ *     1) 存储 — StorageInsightsUseCase（基于 StatFs + Rust 内核）
  *     2) 内存 — MemoryProcessSource.overview()
  *     3) 电池 — BatteryInsightsUseCase（电量 / 温度 / 健康）
  *     4) 屏幕时长 — ScreenTimeSource.summary()（需 UsageStats 权限）
- *     5) 流量 — TrafficSource.total()（始终可读，无需权限）
+ *     5) 流量 — TrafficSource.summary()（始终可读，无需权限）
  *   - 每步独立可失败；失败时该维度记为 null，UI 据此显示"系统未给出"而非"健康"
  *   - 总分按各维度的"健康比例"加权求和；任何维度缺失都按 0 计入 —— 这是诚实策略：
  *     拿不到的数据**不应**用乐观假设补回满分。
- *
- * 这是 v0.21.0 的一键体检入口。聚合数据供 OneClickScreen 渲染 5 步进度条。
  */
 @Singleton
 class OneClickCheckUseCase @Inject constructor(
     private val device: DeviceStatusSource,
     private val storageInsights: StorageInsightsUseCase,
-    private val memoryProcess: com.novacare.core.system.MemoryProcessSource,
+    private val memoryProcess: MemoryProcessSource,
     private val batteryInsights: BatteryInsightsUseCase,
     private val screenTime: ScreenTimeSource,
     private val traffic: TrafficSource,
     private val permissions: SystemPermissions,
-    private val apps: AppRepository,
-    private val recentUsage: RecentUsageSource,
 ) {
 
-    /**
-     * 体检步骤的固定顺序（UI 进度条按这个顺序推进）。
-     *
-     * 顺序的考虑：依赖关系 → 重 → 轻
-     *   - 存储扫描是最重的 IO（要走文件系统），但用户最关心
-     *   - 内存次重（要枚举进程）
-     *   - 电池、屏幕时长、流量几乎瞬时
-     */
-    enum class Step {
-        STORAGE,
-        MEMORY,
-        BATTERY,
-        SCREEN_TIME,
-        TRAFFIC,
-    }
+    enum class Step { STORAGE, MEMORY, BATTERY, SCREEN_TIME, TRAFFIC }
 
-    /**
-     * 单步结果。
-     *
-     * @param healthScore 0..100，0 = 不健康，100 = 满健康；null = 该维度无法计算（如权限缺失）
-     * @param summary 一句话描述
-     * @param suggestion 给用户的下一步动作；null = 没有具体动作建议
-     */
     data class StepResult(
         val step: Step,
         val healthScore: Int?,
         val summary: String,
         val suggestion: String?,
-    )
-
-    /**
-     * 体检汇总。
-     *
-     * @param score 0..100 的总分（按各维度 score 平均，缺失按 0 计入）
-     * @param results 每一步的结果
-     * @param issues 体检后总结的可执行建议清单
-     */
-    data class Report(
-        val score: Int,
-        val results: List<StepResult>,
-        val issues: List<Issue>,
-        val nowMs: Long,
     )
 
     data class Issue(
@@ -94,11 +50,14 @@ class OneClickCheckUseCase @Inject constructor(
         val targetRoute: IssueTarget,
     )
 
-    enum class IssueTarget {
-        CLEAN,
-        FREEZE,
-        SETTINGS,
-    }
+    enum class IssueTarget { CLEAN, FREEZE, SETTINGS }
+
+    data class Report(
+        val score: Int,
+        val results: List<StepResult>,
+        val issues: List<Issue>,
+        val nowMs: Long,
+    )
 
     suspend operator fun invoke(
         rootPath: String,
@@ -111,17 +70,22 @@ class OneClickCheckUseCase @Inject constructor(
         // 1) 存储 —— 走 StorageInsightsUseCase 的完整扫描（仅该步较重）
         onStepStart(Step.STORAGE)
         runCatching {
-            val insight = storageInsights(rootPath)
+            val insight = storageInsights(rootPath, detectDuplicates = false)
+            val storageScore = if (insight.totalBytes > 0L) {
+                val usedPct = insight.usedBytes.toDouble() / insight.totalBytes.toDouble()
+                (100 - (usedPct * 100).toInt()).coerceIn(0, 100)
+            } else null
             results += StepResult(
                 step = Step.STORAGE,
-                healthScore = insight.healthScore?.coerceIn(0, 100),
+                healthScore = storageScore,
                 summary = buildStorageSummary(insight),
-                suggestion = if ((insight.healthScore ?: 0) < 80) "释放缓存/大文件" else null,
+                suggestion = if ((storageScore ?: 0) < 80) "释放缓存/大文件" else null,
             )
-            if ((insight.healthScore ?: 0) < 70) {
+            if ((storageScore ?: 0) < 70) {
                 issues += Issue(
                     title = "存储空间偏低",
-                    why = "可用空间不足 ${insight.healthScore ?: 0}/100，长期低位会拖累系统流畅度。",
+                    why = "已用 ${insight.usedBytes.toReadableSize()} / 共 ${insight.totalBytes.toReadableSize()}，" +
+                        "长期低位会拖累系统流畅度。",
                     targetRoute = IssueTarget.CLEAN,
                 )
             }
@@ -161,7 +125,6 @@ class OneClickCheckUseCase @Inject constructor(
                 summary = "${battery.levelPercent}% · ${"%.1f".format(battery.temperatureCelsius)}°C",
                 suggestion = battery.advices.firstOrNull()?.title,
             )
-            // 温度偏高或电量过低 → 给出"去设置"的建议
             if (battery.temperatureCelsius >= 40f || battery.levelPercent <= 15) {
                 issues += Issue(
                     title = if (battery.temperatureCelsius >= 40f) "机身温度偏高" else "电量过低",
@@ -206,14 +169,14 @@ class OneClickCheckUseCase @Inject constructor(
             )
         }
 
-        // 5) 流量 —— TrafficSource.total()（始终可读）
+        // 5) 流量 —— TrafficSource.summary()（始终可读）
         onStepStart(Step.TRAFFIC)
         runCatching {
-            val total = traffic.total()
+            val total = traffic.summary(topN = 0)
             results += StepResult(
                 step = Step.TRAFFIC,
                 healthScore = null, // 流量无健康分
-                summary = "下行 ${total.rxBytes.toReadableSize()} · 上行 ${total.txBytes.toReadableSize()}",
+                summary = "下行 ${total.totalRxBytes.toReadableSize()} · 上行 ${total.totalTxBytes.toReadableSize()}",
                 suggestion = null,
             )
         }.onFailure {
@@ -239,7 +202,6 @@ class OneClickCheckUseCase @Inject constructor(
         return "已用 ${insight.usedBytes.toReadableSize()} / ${insight.totalBytes.toReadableSize()}（${usedPct}%）"
     }
 
-    /** 把 Long 字节转成人能看懂的字符串（避免引入 formatBytes 依赖到 domain） */
     private fun Long.toReadableSize(): String {
         if (this <= 0L) return "0 B"
         val mb = this / 1024L / 1024L
