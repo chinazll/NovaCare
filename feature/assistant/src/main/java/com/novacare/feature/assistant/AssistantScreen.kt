@@ -8,10 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -20,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -48,7 +43,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,22 +57,20 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
-/**
- * AI 助手 —— OneUI 9.5 重写。
- *
- * 设计：
- * - OneUiAppBar 顶部
- * - Mode picker（云端 / 本地）—— 用户一眼看清现在 AI 在哪种模式
- *   下工作，并在两种模式间切换。Capsule 选择器，云端=已配 key 才可用
- *   否则灰；点击切换**未来**模式（或仅显示当前可用模式）
- * - 对话流：UserBubble 右对齐 / AssistantBubble 左对齐
- * - Composer：底部输入栏 + 发送按钮，键盘弹出用 imePadding
- * - ≤5 字体档位
- * - 间距 / 圆角全部从 OneUiSpacing / OneUiRadius 取值
- */
+// =========================================================================
+// AssistantScreen — OneUI 9 重写版
+//
+// 模式：
+//   - 顶部 OneUiAppBar
+//   - Mode picker（云端 / 本地）= OneUiListSection（一个 squircle 包两个 mode segment）
+//   - 下方：scrollable message list（user right / assistant left）
+//   - 底部：composer = 固定 squircle（pill shape input + send button）
+// =========================================================================
+
 @Composable
 fun AssistantScreen(
     rootPath: String,
@@ -113,14 +109,33 @@ fun AssistantScreen(
                     .fillMaxWidth(),
                 state = listState,
                 contentPadding = PaddingValues(
-                    horizontal = OneUiSpacing.ScreenEdge,
+                    horizontal = OneUiSpacing.BlockGap,
                     vertical = OneUiSpacing.CardGap,
                 ),
                 verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap),
             ) {
                 if (bubbles.isEmpty()) {
                     item {
-                        GreetingHero(cloudEnabled = capability.cloudEnabled)
+                        OneUiListSection {
+                            Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
+                                Text(
+                                    text = "我能帮你做什么？",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
+                                Text(
+                                    text = if (capability.cloudEnabled)
+                                        "云端 LLM 已连接。我会读你的设备状态来回答具体问题，" +
+                                            "并把可执行的动作变成卡片。"
+                                    else
+                                        "本地规则模式（未配置云端 key）。我只能识别固定的几种问法，" +
+                                            "去 设置 → AI 开启云端获得自然对话。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                     item {
                         QuickPrompts(
@@ -155,7 +170,7 @@ fun AssistantScreen(
 }
 
 // ============================================================
-// 顶部：Mode picker
+// 顶部：Mode picker —— 一个 squircle 包两个 mode segment
 // ============================================================
 
 @Composable
@@ -165,38 +180,46 @@ private fun ModePicker(
     onPickCloud: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val accent = NovaCareTheme.colors.accent
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
+            .padding(horizontal = OneUiSpacing.BlockGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ModeSegment(
-            icon = Icons.Outlined.Cloud,
-            label = "云端",
-            sublabel = if (cloudEnabled) "已配 key · 流式" else "未配 key · 灰",
-            selected = cloudEnabled,
-            enabled = cloudEnabled,
-            onClick = onPickCloud,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(OneUiSpacing.CardGap))
-        ModeSegment(
-            icon = Icons.Outlined.SmartToy,
-            label = "本地",
-            sublabel = "离线 · 确定性",
-            selected = !cloudEnabled,
-            enabled = true,
-            onClick = { /* local mode is the only fallback */ },
-            modifier = Modifier.weight(1f),
-        )
+        OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(OneUiSpacing.CardInner),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ModeSegment(
+                    icon = Icons.Outlined.Cloud,
+                    label = "云端",
+                    sublabel = if (cloudEnabled) "已配 key · 流式" else "未配 key · 灰",
+                    selected = cloudEnabled,
+                    enabled = cloudEnabled,
+                    onClick = onPickCloud,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(OneUiSpacing.CardGap))
+                ModeSegment(
+                    icon = Icons.Outlined.SmartToy,
+                    label = "本地",
+                    sublabel = "离线 · 确定性",
+                    selected = !cloudEnabled,
+                    enabled = true,
+                    onClick = { /* 本地模式始终可用，无需切换 */ },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun ModeSegment(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     sublabel: String,
     selected: Boolean,
@@ -208,13 +231,13 @@ private fun ModeSegment(
     val accent = NovaCareTheme.colors.accent
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(OneUiRadius.Large))
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
             .clickable(enabled = enabled) { onClick() },
-        color = if (selected) accent.copy(alpha = 0.12f)
+        color = if (selected) accent.copy(alpha = 0.14f)
         else cs.onSurface.copy(alpha = 0.04f),
     ) {
         Column(
-            modifier = Modifier.padding(OneUiSpacing.CardInner),
+            modifier = Modifier.padding(OneUiSpacing.SectionTitleGap),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -230,11 +253,12 @@ private fun ModeSegment(
                     color = if (selected) accent else cs.onSurface,
                 )
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
             Text(
                 text = sublabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
+                maxLines = 1,
             )
         }
     }
@@ -262,7 +286,7 @@ private fun UserBubble(text: String) {
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(
-                    horizontal = OneUiSpacing.CardInner - 2.dp,
+                    horizontal = OneUiSpacing.CardInner,
                     vertical = OneUiSpacing.SectionTitleGap,
                 ),
             )
@@ -283,13 +307,13 @@ private fun AssistantBubble(
         horizontalArrangement = Arrangement.Start,
     ) {
         Surface(
-            color = cs.surfaceContainer,
+            color = cs.surfaceVariant,
             contentColor = cs.onSurface,
             modifier = Modifier
                 .widthIn(max = BubbleMaxWidth)
                 .clip(RoundedCornerShape(BubbleRadiusAssistant)),
         ) {
-            Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
+            Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
                 if (bubble.streamed) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -298,7 +322,7 @@ private fun AssistantBubble(
                                 .clip(CircleShape)
                                 .background(colors.healthGood),
                         )
-                        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap / 2 + 2.dp))
+                        Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
                         Text(
                             text = "云端对话",
                             style = MaterialTheme.typography.bodySmall,
@@ -314,7 +338,7 @@ private fun AssistantBubble(
                 val card = bubble.card
                 val actionStatus = bubble.actionStatus
                 if (card != null && actionStatus != null) {
-                    Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
+                    Spacer(Modifier.height(OneUiSpacing.CardGap))
                     ActionCard(
                         card = card,
                         status = actionStatus,
@@ -343,6 +367,7 @@ private fun ActionCard(
     onCancel: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val colors = NovaCareTheme.colors
     val view = LocalView.current
 
     val (title, impact, previews) = when (card) {
@@ -362,12 +387,12 @@ private fun ActionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium)),
-        color = cs.onSurface.copy(alpha = 0.05f),
+        color = cs.onSurface.copy(alpha = 0.06f),
     ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
+        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W600),
                 color = cs.onSurface,
             )
             Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
@@ -377,7 +402,7 @@ private fun ActionCard(
                 color = cs.onSurfaceVariant,
             )
             if (previews.isNotEmpty()) {
-                Spacer(Modifier.height(OneUiSpacing.CardGap / 2 + 2.dp))
+                Spacer(Modifier.height(OneUiSpacing.CardGap))
                 Text(
                     text = previews.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
@@ -386,7 +411,7 @@ private fun ActionCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
+            Spacer(Modifier.height(OneUiSpacing.CardInner))
 
             when (status) {
                 is AssistantViewModel.ActionStatus.Pending -> {
@@ -395,7 +420,7 @@ private fun ActionCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(ActionButtonHeight)
-                                .clip(RoundedCornerShape(OneUiRadius.Medium))
+                                .clip(RoundedCornerShape(OneUiRadius.Pill))
                                 .clickable {
                                     NovaTap(view)
                                     onConfirm()
@@ -414,12 +439,12 @@ private fun ActionCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(ActionButtonHeight)
-                                .clip(RoundedCornerShape(OneUiRadius.Medium))
+                                .clip(RoundedCornerShape(OneUiRadius.Pill))
                                 .clickable {
                                     NovaTap(view)
                                     onCancel()
                                 },
-                            color = cs.onSurface.copy(alpha = 0.06f),
+                            color = cs.onSurface.copy(alpha = 0.08f),
                             contentColor = cs.onSurfaceVariant,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -435,8 +460,8 @@ private fun ActionCard(
                 AssistantViewModel.ActionStatus.Running -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp),
-                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(OneUiSpacing.CardInner * 2),
+                            strokeWidth = OneUiSpacing.CardGap / 2,
                             color = cs.primary,
                         )
                         Spacer(Modifier.width(OneUiSpacing.CardGap))
@@ -453,8 +478,8 @@ private fun ActionCard(
                         Icon(
                             imageVector = Icons.Outlined.CheckCircleOutline,
                             contentDescription = null,
-                            tint = NovaCareTheme.colors.healthGood,
-                            modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp),
+                            tint = colors.healthGood,
+                            modifier = Modifier.size(OneUiSpacing.CardInner * 2),
                         )
                         Spacer(Modifier.width(OneUiSpacing.CardGap))
                         Text(
@@ -469,7 +494,7 @@ private fun ActionCard(
                     Text(
                         text = status.message,
                         style = MaterialTheme.typography.bodySmall,
-                        color = NovaCareTheme.colors.riskCaution,
+                        color = colors.riskCaution,
                     )
                 }
 
@@ -486,35 +511,8 @@ private fun ActionCard(
 }
 
 // ============================================================
-// 空态 + Composer
+// Quick prompts —— OneUiListSection 包一组快捷 prompt
 // ============================================================
-
-@Composable
-private fun GreetingHero(cloudEnabled: Boolean) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = OneUiSpacing.BlockGap),
-    ) {
-        Text(
-            text = "我能帮你做什么？",
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = if (cloudEnabled)
-                "云端 LLM 已连接。我会读你的设备状态来回答具体问题，" +
-                    "并把可执行的动作变成卡片。"
-            else
-                "本地规则模式（未配置云端 key）。我只能识别固定的几种问法，" +
-                    "去 设置 → AI 开启云端获得自然对话。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-    }
-}
 
 @Composable
 private fun QuickPrompts(onSelect: (String) -> Unit) {
@@ -524,44 +522,56 @@ private fun QuickPrompts(onSelect: (String) -> Unit) {
         "我手机里最大的几个文件是什么",
         "存储空间为什么只剩这么少",
     )
-    Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap)) {
-        prompts.forEach { prompt ->
-            Surface(
+    OneUiListSection {
+        prompts.forEachIndexed { index, prompt ->
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(OneUiRadius.Medium))
-                    .clickable { onSelect(prompt) },
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                    .clickable { onSelect(prompt) }
+                    .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.ListRowVertical),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = prompt,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(OneUiSpacing.CardGap),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (index < prompts.lastIndex) {
+                Spacer(Modifier.height(OneUiSpacing.ListRowVertical))
+                Box(
+                    modifier = Modifier
+                        .padding(start = OneUiSpacing.CardInner)
+                        .fillMaxWidth()
+                        .height(OneUiSpacing.CardGap / 2)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
                 )
             }
         }
     }
 }
 
+// ============================================================
+// Composer —— 固定底部 squircle（pill shape 输入 + send 按钮）
+// ============================================================
+
 @Composable
 private fun Composer(onSend: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     val cs = MaterialTheme.colorScheme
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(
-                horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardGap,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = OneUiSpacing.BlockGap, vertical = OneUiSpacing.CardGap),
+        color = cs.surfaceVariant,
+        shape = RoundedCornerShape(OneUiRadius.Pill),
     ) {
-        Surface(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(OneUiRadius.Pill)),
-            color = cs.surfaceContainer,
+                .fillMaxWidth()
+                .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             TextField(
                 value = text,
@@ -573,44 +583,43 @@ private fun Composer(onSend: (String) -> Unit) {
                         color = cs.onSurfaceVariant,
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = cs.surfaceContainer,
-                    unfocusedContainerColor = cs.surfaceContainer,
-                    focusedIndicatorColor = cs.surfaceContainer,
-                    unfocusedIndicatorColor = cs.surfaceContainer,
+                    focusedContainerColor = cs.surfaceVariant,
+                    unfocusedContainerColor = cs.surfaceVariant,
+                    focusedIndicatorColor = cs.surfaceVariant,
+                    unfocusedIndicatorColor = cs.surfaceVariant,
                 ),
                 textStyle = MaterialTheme.typography.bodyMedium,
                 maxLines = 4,
             )
-        }
-        Spacer(Modifier.width(OneUiSpacing.CardGap / 2))
-        Surface(
-            modifier = Modifier
-                .size(ComposerSendSize)
-                .clip(CircleShape)
-                .clickable(enabled = text.isNotBlank()) {
-                    onSend(text.trim())
-                    text = ""
-                },
-            color = if (text.isNotBlank()) cs.primary else cs.onSurface.copy(alpha = 0.12f),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Send,
-                    contentDescription = "发送",
-                    tint = if (text.isNotBlank()) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
-                    modifier = Modifier.size(OneUiSpacing.BlockGap),
-                )
+            Spacer(Modifier.width(OneUiSpacing.CardGap / 2))
+            Surface(
+                modifier = Modifier
+                    .size(ComposerSendSize)
+                    .clip(CircleShape)
+                    .clickable(enabled = text.isNotBlank()) {
+                        onSend(text.trim())
+                        text = ""
+                    },
+                color = if (text.isNotBlank()) cs.primary else cs.onSurface.copy(alpha = 0.12f),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Send,
+                        contentDescription = "发送",
+                        tint = if (text.isNotBlank()) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
+                        modifier = Modifier.size(OneUiSpacing.BlockGap),
+                    )
+                }
             }
         }
     }
 }
 
 // ============================================================
-// 衍生尺寸 —— 不引入裸字面值
+// 衍生尺寸 —— 由 token 派生，0 自由 dp
 // ============================================================
-
 
 /** 用户气泡右上角小圆角 = Medium (14dp) */
 private val BubbleRadiusUser: Dp = OneUiRadius.Medium
@@ -618,16 +627,16 @@ private val BubbleRadiusUser: Dp = OneUiRadius.Medium
 /** AI 气泡左上角小圆角 = Medium (14dp) */
 private val BubbleRadiusAssistant: Dp = OneUiRadius.Medium
 
-/** 对话气泡最大宽 = 280dp */
+/** 对话气泡最大宽 = CardInner*17 + SectionTitleGap*2 ≈ 280dp */
 private val BubbleMaxWidth: Dp = OneUiSpacing.CardInner * 17 + OneUiSpacing.SectionTitleGap * 2
 
 /** 气泡图标尺寸 = BlockGap - SectionTitleGap (14dp) */
 private val BubbleIconSize: Dp = OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap
 
-/** 流式小圆点 = 6dp (流式标识) — 用 SectionTitleGap - CardGap 近似 */
+/** 流式小圆点 = SectionTitleGap - CardGap/2 (6dp) */
 private val StreamingDotSize: Dp = OneUiSpacing.SectionTitleGap - OneUiSpacing.CardGap / 2
 
-/** ActionCard 按钮高度 = 40dp (CardInner * 2 + CardGap) */
+/** ActionCard 按钮高度 = CardInner * 2 + CardGap = 40dp */
 private val ActionButtonHeight: Dp = OneUiSpacing.CardInner * 2 + OneUiSpacing.CardGap
 
 /** Composer 发送按钮 = 40dp (与 ActionCard 一致) */
