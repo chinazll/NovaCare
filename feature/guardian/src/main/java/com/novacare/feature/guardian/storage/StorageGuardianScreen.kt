@@ -20,7 +20,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,13 +56,14 @@ import com.novacare.core.domain.AgedFileKind
 import com.novacare.core.domain.AgedLargeFile
 import com.novacare.core.domain.DuplicateGroup
 import com.novacare.core.domain.StorageInsights
-import com.novacare.core.model.JunkItem
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaLongPress
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
@@ -344,28 +347,40 @@ private fun ReadyBody(
             item { Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap)) }
         }
 
-        // ---- 大文件 TOP ----
+        // ---- 大文件 TOP (OneUI List Section) ----
         if (data.largestFiles.isNotEmpty()) {
             item {
                 SectionTitle("大文件", "按体积降序，来自内核遍历的真实 stat")
                 Spacer(Modifier.height(OneUiSpacing.CardGap))
             }
-            items(items = data.largestFiles, key = { "large:" + it.path }) { node ->
-                CheckRow(
-                    title = node.path.substringAfterLast('/'),
-                    subtitle = node.path,
-                    meta = buildString {
-                        append(node.bytes.formatBytes())
-                        node.modifiedEpochMs?.let { append(" · 修改于 ${daysAgo(data.nowMs, it)}") }
-                    },
-                    checked = node.path in selected,
-                    onToggle = { onToggle(node.path) },
-                )
+            item {
+                OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+                    data.largestFiles.forEachIndexed { index, node ->
+                        OneUiListRow(
+                            icon = Icons.AutoMirrored.Outlined.InsertDriveFile,
+                            iconTint = StorageTints.engine,
+                            title = node.path.substringAfterLast('/'),
+                            subtitle = node.path,
+                            trailing = {
+                                Text(
+                                    text = buildString {
+                                        append(node.bytes.formatBytes())
+                                        node.modifiedEpochMs?.let { append(" · 修改于 ${daysAgo(data.nowMs, it)}") }
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = { onToggle(node.path) },
+                            showDivider = index < data.largestFiles.lastIndex,
+                        )
+                    }
+                }
             }
             item { Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap)) }
         }
 
-        // ---- 残留目录 ----
+        // ---- 残留目录 (OneUI List Section) ----
         item {
             SectionTitle("残留目录", "已卸载应用留下的数据目录（内核按已安装包名比对得出）")
             Spacer(Modifier.height(OneUiSpacing.CardGap))
@@ -378,13 +393,31 @@ private fun ReadyBody(
                 )
             }
         } else {
-            items(items = data.residuals, key = { "res:" + it.path }) { item ->
-                ResidualRow(item = item, checked = item.path in selected, onToggle = { onToggle(item.path) })
+            item {
+                OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+                    data.residuals.forEachIndexed { index, junk ->
+                        OneUiListRow(
+                            icon = Icons.Outlined.WarningAmber,
+                            iconTint = NovaCareTheme.colors.riskCaution,
+                            title = junk.label,
+                            subtitle = junk.riskNote.ifBlank { "应用已卸载，但其数据目录仍在。" },
+                            trailing = {
+                                Text(
+                                    text = junk.bytes.formatBytes(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = { onToggle(junk.path) },
+                            showDivider = index < data.residuals.lastIndex,
+                        )
+                    }
+                }
             }
         }
         item { Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap)) }
 
-        // ---- 空目录 ----
+        // ---- 空目录 (OneUI List Section) ----
         item {
             SectionTitle("空目录", "由本 App 直接遍历得出（内核暂不产出空目录项）")
             Spacer(Modifier.height(OneUiSpacing.CardGap))
@@ -393,12 +426,35 @@ private fun ReadyBody(
             item { EmptyCard("未发现空目录（扫描深度 4 层）") }
         } else {
             item {
-                EmptyDirsCard(
-                    dirs = data.emptyDirs,
-                    selected = selected,
-                    onToggle = onToggle,
-                    onSelectAll = onSelectAll,
-                )
+                OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+                    data.emptyDirs.take(20).forEachIndexed { index, path ->
+                        OneUiListRow(
+                            icon = Icons.Outlined.Folder,
+                            iconTint = StorageTints.engine,
+                            title = path.substringAfterLast('/').ifBlank { path },
+                            subtitle = path,
+                            trailing = {
+                                Text(
+                                    text = "空目录",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = { onToggle(path) },
+                            showDivider = index < data.emptyDirs.take(20).lastIndex,
+                        )
+                    }
+                }
+            }
+            if (data.emptyDirs.size > 20) {
+                item {
+                    Text(
+                        text = "仅显示前 20 个，共 ${data.emptyDirs.size} 个",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = OneUiSpacing.CardGap),
+                    )
+                }
             }
         }
 
@@ -759,113 +815,6 @@ private fun AgedKindCard(
 }
 
 @Composable
-private fun ResidualRow(item: JunkItem, checked: Boolean, onToggle: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(OneUiRadius.Medium),
-        color = cs.surfaceContainer,
-    ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.WarningAmber,
-                    contentDescription = null,
-                    tint = colors.riskCaution,
-                    modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
-                )
-                Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = cs.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = item.bytes.formatBytes(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
-            Text(
-                text = item.riskNote.ifBlank { "应用已卸载，但其数据目录仍在。" },
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
-            TextButton(onClick = onToggle, contentPadding = PaddingValues(0.dp)) {
-                Text(if (checked) "已选中，点此取消" else "选中并删除")
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyDirsCard(
-    dirs: List<String>,
-    selected: Set<String>,
-    onToggle: (String) -> Unit,
-    onSelectAll: (List<String>, Boolean) -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val allSelected = remember(dirs, selected) { dirs.all { it in selected } }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(OneUiRadius.Large),
-        color = cs.surfaceContainer,
-    ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${dirs.size} 个空目录",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = cs.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = "0 B",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
-            Text(
-                text = "空目录本身不占空间，删掉只是让文件树清爽。" +
-                    "注意：某些应用会在启动时重建自己的目录，误删不会造成数据丢失但可能留下报错日志。",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
-            TextButton(
-                onClick = { onSelectAll(dirs, !allSelected) },
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text(if (allSelected) "取消全选" else "全选 ${dirs.size} 个")
-            }
-            dirs.take(20).forEach { path ->
-                CheckRow(
-                    title = path.substringAfterLast('/').ifBlank { path },
-                    subtitle = path,
-                    meta = "空目录",
-                    checked = path in selected,
-                    onToggle = { onToggle(path) },
-                )
-            }
-            if (dirs.size > 20) {
-                Text(
-                    text = "仅显示前 20 个，共 ${dirs.size} 个",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                    modifier = Modifier.padding(top = OneUiSpacing.CardGap),
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ScanCtaCard(
     title: String,
     why: String,
@@ -1152,3 +1101,8 @@ private val PieStrokeWidth: Dp = OneUiSpacing.SectionTitleGap
 
 /** 图例小圆点 = CardGap (=8dp) */
 private val LegendDotSize: Dp = OneUiSpacing.CardGap
+
+/** OneUI 9 调色 —— 与 SettingsScreen / 守护页一致 */
+private object StorageTints {
+    val engine: Color = Color(0xFF2F6FED)
+}
