@@ -1,8 +1,6 @@
 package com.novacare.feature.guardian.battery
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,29 +37,32 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.novacare.core.domain.AppUsageRank
 import com.novacare.core.domain.BatteryInsights
 import com.novacare.core.domain.GuardianAction
 import com.novacare.core.domain.GuardianAdvice
 import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
- * 电池守护（Battery Guardian）—— OneUI 9.5 重写。
+ * 电池守护（Battery Guardian）—— OneUI 9 一致性收紧。
  *
  * 三条纪律写死在 UI 上：
  *   1. 排行叫"前台时长"，不叫"耗电排行"—— Android 不向第三方提供真实耗电
  *   2. 每条建议都带"为什么"，且给出数据的出处
  *   3. 拿不到的数据（未授权 / 内核不可用）直接说拿不到，不留空白也不编数字
  *
- * v0.21 增量：建议区 + 前台时长排行 + 疑似后台活跃。
+ * v0.25 增量：把 Top N 应用、前台时长排行都改成 OneUiListSection + OneUiListRow，
+ * 跟 SettingsScreen / HomeScreen 的卡风格保持一致；状态/建议等仍是独立 Card。
  *
  * - OneUiAppBar 顶部
  * - ≤5 字体档位
  * - 间距 / 圆角全部从 OneUiSpacing / OneUiRadius 取值
+ * - 0 自由 dp
  */
 @Composable
 fun BatteryGuardianScreen(
@@ -85,7 +87,7 @@ fun BatteryGuardianScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - 4.dp),
+                            modifier = Modifier.size(OneUiSpacing.CardInner * 2 - OneUiSpacing.CardGap / 2),
                             strokeWidth = 3.dp,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -114,6 +116,7 @@ fun BatteryGuardianScreen(
                         data = s.data,
                         statusLabel = { viewModel.statusLabel(it) },
                         healthLabel = { viewModel.healthLabel(it) },
+                        onOpenAppDetail = onOpenAppDetail,
                         onRunAction = { advice ->
                             NovaTap(view)
                             viewModel.runAction(advice)
@@ -130,6 +133,7 @@ private fun ReadyBody(
     data: BatteryInsights,
     statusLabel: (String) -> String,
     healthLabel: (String) -> String,
+    onOpenAppDetail: (String) -> Unit,
     onRunAction: (GuardianAdvice) -> Unit,
 ) {
     LazyColumn(
@@ -148,6 +152,7 @@ private fun ReadyBody(
             Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
         }
 
+        // ---- 状态卡：Hero card（4 个 metric 在同一卡内） ----
         item {
             BatteryStatusCard(
                 data = data,
@@ -181,7 +186,7 @@ private fun ReadyBody(
             item { Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap)) }
         }
 
-        // ---- 前台时长排行 ----
+        // ---- 前台时长排行（OneUI List Section） ----
         item {
             Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
             SectionTitle(
@@ -200,24 +205,48 @@ private fun ReadyBody(
             )
             Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
         }
-        if (!data.usagePermissionGranted) {
-            item {
-                NoticeCard(
-                    text = "未授予「使用情况访问」，拿不到前台时长。这是 AppOps 权限，" +
-                        "需要你到系统设置页手动开启；本 App 不会用其他数据凑一个假排行。",
-                    tone = NovaCareTheme.colors.riskCaution,
-                )
+        when {
+            !data.usagePermissionGranted -> {
+                item {
+                    NoticeCard(
+                        text = "未授予「使用情况访问」，拿不到前台时长。这是 AppOps 权限，" +
+                            "需要你到系统设置页手动开启；本 App 不会用其他数据凑一个假排行。",
+                        tone = NovaCareTheme.colors.riskCaution,
+                    )
+                }
             }
-        } else if (data.foregroundRanking.isEmpty()) {
-            item {
-                NoticeCard(
-                    text = "近 ${data.windowHours} 小时内系统没有记录到任何应用的前台使用。",
-                    tone = NovaCareTheme.colors.riskCaution,
-                )
+            data.foregroundRanking.isEmpty() -> {
+                item {
+                    NoticeCard(
+                        text = "近 ${data.windowHours} 小时内系统没有记录到任何应用的前台使用。",
+                        tone = NovaCareTheme.colors.riskCaution,
+                    )
+                }
             }
-        } else {
-            items(items = data.foregroundRanking, key = { it.packageName }) { rank ->
-                RankRow(rank = rank)
+            else -> {
+                item {
+                    OneUiListSection(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        data.foregroundRanking.forEachIndexed { index, rank ->
+                            OneUiListRow(
+                                icon = Icons.Outlined.Schedule,
+                                iconTint = BatteryTints.engine,
+                                title = rank.label,
+                                subtitle = if (rank.packageName != rank.label) rank.packageName else null,
+                                trailing = {
+                                    Text(
+                                        text = formatDuration(rank.foregroundMs),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                                onClick = { onOpenAppDetail(rank.packageName) },
+                                showDivider = index < data.foregroundRanking.lastIndex,
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -237,7 +266,7 @@ private fun ReadyBody(
                     shape = RoundedCornerShape(OneUiRadius.Medium),
                     color = MaterialTheme.colorScheme.surfaceContainer,
                 ) {
-                    Column(modifier = Modifier.padding(OneUiSpacing.CardInner - 2.dp)) {
+                    Column(modifier = Modifier.padding(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap / 2)) {
                         Text(
                             text = suspect.label,
                             style = MaterialTheme.typography.bodyLarge,
@@ -260,7 +289,7 @@ private fun ReadyBody(
 }
 
 // ============================================================
-// 卡：BatteryStatusCard / AdviceCard / RankRow
+// 卡：BatteryStatusCard / AdviceCard / NoticeCard / SectionTitle
 // ============================================================
 
 @Composable
@@ -293,21 +322,21 @@ private fun BatteryStatusCard(
                     text = statusLabel(data.status),
                     style = MaterialTheme.typography.bodyLarge,
                     color = tone,
-                    modifier = Modifier.padding(bottom = 4.dp),
+                    modifier = Modifier.padding(bottom = OneUiSpacing.CardGap / 2),
                 )
                 if (data.plugged) {
-                    Spacer(Modifier.width(OneUiSpacing.CardGap / 2 + 2.dp))
+                    Spacer(Modifier.width(OneUiSpacing.CardGap))
                     Icon(
                         imageVector = Icons.Outlined.Bolt,
                         contentDescription = null,
                         tint = cs.primary,
                         modifier = Modifier
-                            .size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap)
-                            .padding(bottom = 2.dp),
+                            .size(BoltIconSize)
+                            .padding(bottom = OneUiSpacing.CardGap / 2),
                     )
                 }
             }
-            Spacer(Modifier.height(OneUiSpacing.CardInner - 4.dp))
+            Spacer(Modifier.height(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
             Row(modifier = Modifier.fillMaxWidth()) {
                 MetricCell("温度", "%.1f°C".format(data.temperatureCelsius), Modifier.weight(1f))
                 MetricCell("电压", "${data.voltageMv} mV", Modifier.weight(1f))
@@ -336,7 +365,7 @@ private fun MetricCell(title: String, value: String, modifier: Modifier = Modifi
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
@@ -363,8 +392,8 @@ private fun AdviceCard(advice: GuardianAdvice, onRun: () -> Unit) {
             Row(verticalAlignment = Alignment.Top) {
                 Box(
                     modifier = Modifier
-                        .padding(top = 4.dp)
-                        .size(8.dp)
+                        .padding(top = OneUiSpacing.CardGap / 2)
+                        .size(OneUiRadius.Small - OneUiSpacing.CardGap / 2)
                         .clip(RoundedCornerShape(OneUiRadius.Pill))
                         .background(tone),
                 )
@@ -394,45 +423,11 @@ private fun AdviceCard(advice: GuardianAdvice, onRun: () -> Unit) {
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
                         contentDescription = null,
-                        modifier = Modifier.size(OneUiSpacing.CardInner + 2.dp),
+                        modifier = Modifier.size(OneUiSpacing.CardInner + OneUiSpacing.CardGap / 2),
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RankRow(rank: AppUsageRank) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = OneUiSpacing.CardInner - 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = rank.label,
-                style = MaterialTheme.typography.bodyLarge,
-                color = cs.onSurface,
-                maxLines = 1,
-            )
-            if (rank.packageName != rank.label) {
-                Text(
-                    text = rank.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-        }
-        Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.SectionTitleGap))
-        Text(
-            text = formatDuration(rank.foregroundMs),
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
     }
 }
 
@@ -445,14 +440,14 @@ private fun NoticeCard(text: String, tone: Color) {
             .background(tone.copy(alpha = 0.08f))
             .padding(
                 horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardInner - 4.dp,
+                vertical = OneUiSpacing.CardInner - OneUiSpacing.CardGap,
             ),
     ) {
         Icon(
             imageVector = Icons.Outlined.Info,
             contentDescription = null,
             tint = tone,
-            modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
+            modifier = Modifier.size(BoltIconSize),
         )
         Spacer(Modifier.width(OneUiSpacing.SectionTitleGap))
         Text(
@@ -466,13 +461,13 @@ private fun NoticeCard(text: String, tone: Color) {
 @Composable
 private fun SectionTitle(title: String, why: String) {
     val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.padding(top = OneUiSpacing.SectionTitleGap, bottom = 2.dp)) {
+    Column(modifier = Modifier.padding(top = OneUiSpacing.SectionTitleGap, bottom = OneUiSpacing.CardGap / 2)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = cs.onSurface,
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
         Text(
             text = why,
             style = MaterialTheme.typography.bodySmall,
@@ -480,6 +475,10 @@ private fun SectionTitle(title: String, why: String) {
         )
     }
 }
+
+// ============================================================
+// 工具件
+// ============================================================
 
 private fun formatDuration(ms: Long): String {
     if (ms <= 0) return "不足 1 分钟"
@@ -494,5 +493,10 @@ private fun formatDuration(ms: Long): String {
     }
 }
 
+/** OneUI 9 调色 —— 与 SettingsScreen / 电池 Hero 配色一致 */
+private object BatteryTints {
+    val engine: Color = Color(0xFF2F6FED)
+}
 
+/** 衍生尺寸：BlockGap - SectionTitleGap = 14dp */
 private val BoltIconSize: Dp = OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap
