@@ -169,7 +169,7 @@ private fun IdleState(onStart: () -> Unit) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = "开始体检",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                            style = MaterialTheme.typography.titleMedium,
                         )
                     }
                 }
@@ -363,7 +363,7 @@ private fun DoneState(
         item {
             Text(
                 text = "分项结果",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -380,7 +380,7 @@ private fun DoneState(
                 Spacer(Modifier.height(OneUiSpacing.BlockGap))
                 Text(
                     text = "体检发现",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp),
                 )
@@ -508,7 +508,7 @@ private fun ActionButton(
         ) {
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.W600))
+            Text(text, style = MaterialTheme.typography.labelLarge)
         }
     }
 }

@@ -388,7 +388,7 @@ private fun ExportButton(enabled: Boolean, onClick: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "导出 CSV",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.titleMedium,
             )
         }
     }
@@ -398,7 +398,7 @@ private fun ExportButton(enabled: Boolean, onClick: () -> Unit) {
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp),
     )

@@ -249,7 +249,7 @@ private fun ReadyState(summary: ScreenTimeSource.Summary) {
         item {
             Text(
                 text = "应用排行 · TOP ${summary.appCount}",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = OneUiSpacing.SectionTitleGap),
             )
@@ -296,7 +296,7 @@ private fun TotalCard(
                 Spacer(Modifier.size(8.dp))
                 Text(
                     text = "最近 24 小时 · 前台时长",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                 )
             }
@@ -342,7 +342,7 @@ private fun AppRow(rank: Int, app: ScreenTimeSource.AppUsage) {
         ) {
             Text(
                 text = "$rank",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.labelMedium,
                 color = cs.primary,
             )
         }

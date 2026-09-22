@@ -463,7 +463,7 @@ private data class PieSlice(val label: String, val bytes: Long, val color: Color
 private fun buildPieSlices(usedBytes: Long, reclaimableBytes: Long, freeBytes: Long): List<PieSlice> {
     val reclaimClamped = reclaimableBytes.coerceAtMost(usedBytes.coerceAtLeast(0L))
     val usedReal = (usedBytes - reclaimClamped).coerceAtLeast(0L)
-    // 颜色：'可回收'=green, '已用'=primary blue, '可用'=黑10%alpha —— 全部硬编码避免引用 @Composable local
+    // 颜色：硬编码避免引用 @Composable local（不在 @Composable 函数里）
     val green = androidx.compose.ui.graphics.Color(0xFF1B7A46)
     val blue = androidx.compose.ui.graphics.Color(0xFF2F6FED)
     val faint = androidx.compose.ui.graphics.Color(0x14000000)

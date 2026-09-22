@@ -471,7 +471,7 @@ private fun SourceFootnote(text: String) {
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp),
     )

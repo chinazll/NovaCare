@@ -226,7 +226,7 @@ private fun ReadyState(summary: TrafficSource.Summary, self: TrafficSource.UidTr
             item {
                 Text(
                     text = "按网络接口",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = OneUiSpacing.SectionTitleGap),
                 )
@@ -240,7 +240,7 @@ private fun ReadyState(summary: TrafficSource.Summary, self: TrafficSource.UidTr
         item {
             Text(
                 text = "本应用（NovaCare）",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = OneUiSpacing.SectionTitleGap),
             )
@@ -254,7 +254,7 @@ private fun ReadyState(summary: TrafficSource.Summary, self: TrafficSource.UidTr
             item {
                 Text(
                     text = "应用排行 · TOP ${summary.topApps.size}",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = OneUiSpacing.SectionTitleGap),
                 )
@@ -303,7 +303,7 @@ private fun TotalCard(summary: TrafficSource.Summary) {
                 Spacer(Modifier.size(8.dp))
                 Text(
                     text = "自设备启动累计",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                 )
             }
@@ -351,7 +351,7 @@ private fun ByteStat(
         Text(text = label, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
         Text(
             text = bytes.formatBytes(),
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+            style = MaterialTheme.typography.titleMedium,
             color = color,
         )
     }
@@ -443,7 +443,7 @@ private fun UidRow(rank: Int, app: TrafficSource.UidTraffic) {
         ) {
             Text(
                 text = "$rank",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.labelMedium,
                 color = cs.primary,
             )
         }

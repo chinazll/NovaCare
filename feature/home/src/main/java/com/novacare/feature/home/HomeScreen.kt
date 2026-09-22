@@ -281,7 +281,7 @@ fun HomeScreen(
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = OneUiSpacing.SectionTitleGap),
     )
@@ -320,7 +320,7 @@ private fun ModuleListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = tile.title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurface,
             )
             Text(
@@ -352,7 +352,7 @@ private fun DeviceStatusSummary(overview: HomeViewModel.Overview?) {
     ) {
         Text(
             text = "当前状态",
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+            style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
         )
         Spacer(Modifier.height(OneUiSpacing.CardGap))
@@ -484,7 +484,7 @@ private fun DegradedItem(
         }
         Text(
             text = actionLabel,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+            style = MaterialTheme.typography.labelMedium,
             color = accent,
         )
     }
