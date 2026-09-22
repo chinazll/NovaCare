@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AcUnit
@@ -30,12 +29,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -48,20 +50,23 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
-/**
- * 冻结页 —— OneUI 9.5 重写。
- *
- * - OneUiAppBar 顶部（替代裸 Text）
- * - 候选用 M3 ListItem（leading=应用首字母/状态色块 / trailing=Switch 或 chip），
- *   替代手搓 Row + clickable
- * - 顶部不再用 StickyHeader —— 用 LazyColumn + 第一项做"概览"即可，避免
- *   滚动时 sticky 头遮挡内容
- * - ≤5 字体档位
- * - 间距 / 圆角全部从 OneUiSpacing / OneUiRadius 取值
- */
+// =========================================================================
+// FreezeScreen — OneUI 9 重写版
+//
+// 模式：
+//   - 顶部 OneUiAppBar
+//   - Idle / Scanning / Failed / Applied 状态：单 squircle card（OneUiListSection）
+//   - Ready 状态：全部 app 都包在一个 OneUiListSection 里
+//     每行 = 36dp 圆形 tinted icon（首字母）+ 应用名 + daysLabel + M3 Switch
+//     点击行 = 展开到包信息行（含"解冻/停用"按钮）
+//   - sticky bottom CTA（OneUiListSection 风格保持一致）
+// =========================================================================
+
 @Composable
 fun FreezeScreen(
     rootPath: String,
@@ -87,20 +92,26 @@ fun FreezeScreen(
             OneUiAppBar(title = "冻结")
 
             when (val s = state) {
-                FreezeViewModel.UiState.Idle -> IdleHero(
+                FreezeViewModel.UiState.Idle -> IdleBody(
                     onScan = { NovaTap(view); viewModel.load(rootPath, force = true) },
                 )
 
-                FreezeViewModel.UiState.Scanning -> ScanningHero()
+                FreezeViewModel.UiState.Scanning -> StatusBody(
+                    title = "正在读取",
+                    subtitle = "读取你设备上的应用与最近使用情况",
+                )
 
-                is FreezeViewModel.UiState.Failed -> FailedHero(
+                is FreezeViewModel.UiState.Failed -> FailedBody(
                     message = s.message,
                     onRetry = { NovaTap(view); viewModel.load(rootPath, force = true) },
                 )
 
-                is FreezeViewModel.UiState.Applying -> ApplyingHero(s.label, s.freezing)
+                is FreezeViewModel.UiState.Applying -> StatusBody(
+                    title = if (s.freezing) "正在冻结" else "正在解冻",
+                    subtitle = s.label,
+                )
 
-                is FreezeViewModel.UiState.Applied -> ResultBody(
+                is FreezeViewModel.UiState.Applied -> AppliedBody(
                     label = s.label,
                     success = s.result.success,
                     freezing = s.freezing,
@@ -136,68 +147,110 @@ fun FreezeScreen(
 }
 
 // ============================================================
-// 状态视图（统一用 StatusContent 思路）
+// 状态视图
 // ============================================================
 
 @Composable
-private fun IdleHero(onScan: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
+private fun IdleBody(onScan: () -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
     ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = "看看哪些应用长期没被打开",
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        PrimaryCta(text = "读取应用列表", onClick = onScan)
+        item {
+            OneUiListSection {
+                OneUiListRow(
+                    icon = Icons.Outlined.AcUnit,
+                    iconTint = FreezeTints.idle,
+                    title = "看看哪些应用长期没被打开",
+                    subtitle = "读取你设备上的应用与最近使用情况，列出可冻结的应用",
+                    onClick = null,
+                )
+            }
+        }
+        item {
+            PrimaryPillCta(text = "读取应用列表", enabled = true, onClick = onScan)
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
     }
 }
 
 @Composable
-private fun ScanningHero() {
-    StatusBlock(title = "正在读取", subtitle = "读取你设备上的应用与最近使用情况")
-}
-
-@Composable
-private fun FailedHero(message: String, onRetry: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
+private fun StatusBody(title: String, subtitle: String) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
     ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = "读取失败",
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        PrimaryCta(text = "重试", onClick = onRetry)
+        item {
+            OneUiListSection {
+                OneUiListRow(
+                    icon = Icons.Outlined.AcUnit,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    title = title,
+                    subtitle = subtitle,
+                    onClick = null,
+                )
+            }
+        }
+        item {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(OneUiSpacing.CardInner * 3),
+                    strokeWidth = OneUiSpacing.CardGap / 2,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
     }
 }
 
 @Composable
-private fun ApplyingHero(label: String, freezing: Boolean) {
-    StatusBlock(
-        title = if (freezing) "正在冻结" else "正在解冻",
-        subtitle = label,
-    )
+private fun FailedBody(message: String, onRetry: () -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
+    ) {
+        item {
+            OneUiListSection {
+                OneUiListRow(
+                    icon = Icons.Outlined.AcUnit,
+                    iconTint = NovaCareTheme.colors.riskRisky,
+                    title = "读取失败",
+                    subtitle = message,
+                    onClick = null,
+                )
+            }
+        }
+        item {
+            PrimaryPillCta(text = "重试", enabled = true, onClick = onRetry)
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
+    }
 }
 
 @Composable
-private fun ResultBody(
+private fun AppliedBody(
     label: String,
     success: Boolean,
     freezing: Boolean,
@@ -207,36 +260,48 @@ private fun ResultBody(
     val cs = MaterialTheme.colorScheme
     val colors = NovaCareTheme.colors
     val view = LocalView.current
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
     ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = when {
-                !success -> if (freezing) "冻结失败" else "解冻失败"
-                else -> if (freezing) "已冻结 $label" else "已解冻 $label"
-            },
-            style = MaterialTheme.typography.titleMedium,
-            color = if (success) colors.healthGood else colors.riskRisky,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = if (method == "SHIZUKU_SUSPEND")
-                "Shizuku 已写入系统状态"
-            else
-                "已引导至系统设置页，请按指示完成最后一步",
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        PrimaryCta(text = "完成", onClick = { NovaTap(view); onDismiss() })
+        item {
+            OneUiListSection {
+                Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
+                    Text(
+                        text = when {
+                            !success -> if (freezing) "冻结失败" else "解冻失败"
+                            else -> if (freezing) "已冻结 $label" else "已解冻 $label"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (success) colors.healthGood else colors.riskRisky,
+                    )
+                    Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
+                    Text(
+                        text = if (method == "SHIZUKU_SUSPEND")
+                            "Shizuku 已写入系统状态"
+                        else
+                            "已引导至系统设置页，请按指示完成最后一步",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        item {
+            PrimaryPillCta(text = "完成", enabled = true, onClick = { NovaTap(view); onDismiss() })
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
     }
 }
 
 // ============================================================
-// 主内容：ReadyBody
+// ReadyBody —— 全部 app 一个 OneUiListSection
 // ============================================================
 
 @Composable
@@ -258,90 +323,105 @@ private fun ReadyBody(
     onRetry: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val candidatesSafeCount = candidates.count { it.risk == FreezeRisk.SAFE }
+    val safeCandidates = candidates.filter { it.risk == FreezeRisk.SAFE }
+    val safeSelectedCount = selected.size
+    val allSafeSelected = safeCandidates.isNotEmpty() && safeSelectedCount == safeCandidates.size
+
+    var expandedPackage by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = OneUiSpacing.ScreenEdge),
-            ) {
-                Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
-                Text(
-                    text = "$candidatesSafeCount 个长期未用 · 共 ${allApps.size} 个应用",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                horizontal = OneUiSpacing.BlockGap,
+                vertical = OneUiSpacing.SectionTitleGap,
+            ),
+            verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap),
+        ) {
+            // 概览行：长期未用安全项 + 总数
+            item {
+                OneUiListSection {
+                    OneUiListRow(
+                        icon = Icons.Outlined.AcUnit,
+                        iconTint = FreezeTints.idle,
+                        title = "${safeCandidates.size} 个长期未用 · 共 ${allApps.size} 个应用",
+                        subtitle = "已选 $safeSelectedCount 个 · ${frozen.size} 个已冻结",
+                        onClick = null,
+                    )
+                }
             }
 
+            // 权限 / 引擎提示
             if (!usagePermissionGranted || !shizukuAvailable || !engineAvailable) {
-                Spacer(Modifier.height(OneUiSpacing.CardInner))
-                NoticeBanner(
-                    usagePermissionGranted = usagePermissionGranted,
-                    shizukuAvailable = shizukuAvailable,
-                    engineAvailable = engineAvailable,
-                    onGrantShizuku = onGrantShizuku,
-                    onRetry = onRetry,
-                )
+                item {
+                    NoticeStack(
+                        usagePermissionGranted = usagePermissionGranted,
+                        shizukuAvailable = shizukuAvailable,
+                        engineAvailable = engineAvailable,
+                        onGrantShizuku = onGrantShizuku,
+                        onRetry = onRetry,
+                    )
+                }
             }
 
-            Spacer(Modifier.height(OneUiSpacing.CardInner))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = OneUiSpacing.ScreenEdge),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ChipToggle(
-                    text = if (selected.size == candidatesSafeCount && candidatesSafeCount > 0) "全不选"
-                    else "全选",
-                    selected = false,
-                    onClick = {
-                        onSelectAll(!(selected.size == candidatesSafeCount && candidatesSafeCount > 0))
-                    },
-                )
-                Spacer(Modifier.width(OneUiSpacing.CardGap))
-                ChipToggle(
-                    text = if (includeSystem) "✓ 含系统" else "含系统应用",
-                    selected = includeSystem,
-                    onClick = { onIncludeSystemChange(!includeSystem) },
-                )
+            // 全选 / 含系统 行
+            item {
+                OneUiListSection {
+                    ChipRow(
+                        allSelected = allSafeSelected,
+                        includeSystem = includeSystem,
+                        onSelectAll = onSelectAll,
+                        onIncludeSystemChange = onIncludeSystemChange,
+                    )
+                }
             }
 
-            Spacer(Modifier.height(OneUiSpacing.CardInner))
-
+            // 清单主体
             if (candidates.isEmpty()) {
-                EmptyList(
-                    usagePermissionGranted = usagePermissionGranted,
-                    shizukuAvailable = shizukuAvailable,
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(
-                        horizontal = OneUiSpacing.ScreenEdge,
-                        vertical = OneUiSpacing.SectionTitleGap,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    items(items = candidates, key = { it.app.packageName }) { c ->
-                        CandidateRow(
-                            candidate = c,
-                            selected = c.app.packageName in selected,
-                            frozen = c.app.packageName in frozen,
-                            onToggle = { onToggleSelected(c.app.packageName) },
-                            onUnfreeze = { onUnfreeze(c.app.packageName) },
+                item {
+                    OneUiListSection {
+                        OneUiListRow(
+                            icon = Icons.Outlined.AcUnit,
+                            iconTint = cs.onSurfaceVariant,
+                            title = when {
+                                !usagePermissionGranted -> "无法识别长期未用应用"
+                                !shizukuAvailable -> "未配置 Shizuku，无法冻结"
+                                else -> "暂未发现值得冻结的应用"
+                            },
+                            subtitle = when {
+                                !usagePermissionGranted -> "请在系统设置授予「使用情况访问」"
+                                !shizukuAvailable -> "配置 Shizuku 后即可一键冻结"
+                                else -> "你常用的应用都很活跃"
+                            },
+                            onClick = null,
                         )
-                        ListHairline()
-                    }
-                    item {
-                        Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap))
                     }
                 }
+            } else {
+                item {
+                    OneUiListSection {
+                        candidates.forEachIndexed { index, candidate ->
+                            val expanded = expandedPackage == candidate.app.packageName
+                            CandidateRow(
+                                candidate = candidate,
+                                selected = candidate.app.packageName in selected,
+                                frozen = candidate.app.packageName in frozen,
+                                expanded = expanded,
+                                onToggle = { onToggleSelected(candidate.app.packageName) },
+                                onTap = {
+                                    expandedPackage =
+                                        if (expanded) null else candidate.app.packageName
+                                },
+                                onUnfreeze = { onUnfreeze(candidate.app.packageName) },
+                                showDivider = index < candidates.lastIndex,
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap))
             }
         }
 
@@ -364,94 +444,178 @@ private fun CandidateRow(
     candidate: FreezeCandidate,
     selected: Boolean,
     frozen: Boolean,
+    expanded: Boolean,
     onToggle: () -> Unit,
+    onTap: () -> Unit,
     onUnfreeze: () -> Unit,
+    showDivider: Boolean,
 ) {
     val cs = MaterialTheme.colorScheme
-    val accent = cs.primary
-    Row(
+    val colors = NovaCareTheme.colors
+    val view = LocalView.current
+    val accent = if (frozen) FreezeTints.frozen else FreezeTints.idle
+    val firstLetter = candidate.app.label.firstOrNull()?.uppercase() ?: "?"
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onTap() }
+                .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.ListRowVertical),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(AvatarSize)
+                    .clip(RoundedCornerShape(OneUiRadius.Pill))
+                    .background(accent.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = firstLetter,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                    color = accent,
+                )
+            }
+            Spacer(Modifier.width(OneUiSpacing.CardInner))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = candidate.app.label,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    color = cs.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
+                Text(
+                    text = when {
+                        frozen -> "已冻结"
+                        candidate.daysUnused == null -> "无使用记录"
+                        else -> "${candidate.daysUnused} 天未用"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (frozen) accent else cs.onSurfaceVariant,
+                )
+            }
+            if (candidate.risk != FreezeRisk.SAFE) {
+                RiskChip(risk = candidate.risk)
+                Spacer(Modifier.width(OneUiSpacing.CardInner))
+            }
+            if (frozen) {
+                Surface(
+                    color = accent.copy(alpha = 0.18f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(OneUiRadius.Pill))
+                        .clickable { NovaTap(view); onUnfreeze() },
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(
+                            horizontal = OneUiSpacing.SectionTitleGap,
+                            vertical = OneUiSpacing.CardGap,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AcUnit,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(RiskIconSize),
+                        )
+                        Spacer(Modifier.width(OneUiSpacing.CardGap / 2))
+                        Text(
+                            text = "解冻",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = accent,
+                        )
+                    }
+                }
+            } else {
+                // Switch 是状态指示器（整行点击是真实动作）
+                Switch(
+                    checked = selected,
+                    onCheckedChange = null,
+                    enabled = false,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = cs.onPrimary,
+                        checkedTrackColor = cs.primary,
+                    ),
+                )
+            }
+        }
+
+        if (expanded) {
+            PackageDetail(
+                packageName = candidate.app.packageName,
+                reason = candidate.reason,
+                risk = candidate.risk,
+                frozen = frozen,
+                onUnfreeze = onUnfreeze,
+                onToggle = onToggle,
+            )
+        }
+
+        if (showDivider) {
+            Spacer(Modifier.height(OneUiSpacing.ListRowVertical))
+            Box(
+                modifier = Modifier
+                    .padding(start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap)
+                    .fillMaxWidth()
+                    .height(OneUiSpacing.CardGap / 2)
+                    .background(cs.onSurface.copy(alpha = 0.06f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PackageDetail(
+    packageName: String,
+    reason: String,
+    risk: FreezeRisk,
+    frozen: Boolean,
+    onUnfreeze: () -> Unit,
+    onToggle: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val view = LocalView.current
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .clickable { if (frozen) onUnfreeze() else onToggle() }
-            .padding(vertical = OneUiSpacing.SectionTitleGap),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(
+                start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap,
+                end = OneUiSpacing.CardInner,
+                bottom = OneUiSpacing.ListRowVertical,
+            ),
     ) {
-        Box(
-            modifier = Modifier
-                .size(AvatarSize)
-                .clip(RoundedCornerShape(OneUiRadius.Medium))
-                .background(accent.copy(alpha = 0.10f)),
-            contentAlignment = Alignment.Center,
-        ) {
+        Text(
+            text = packageName,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (reason.isNotBlank()) {
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
-                text = candidate.app.label.firstOrNull()?.uppercase() ?: "?",
-                style = MaterialTheme.typography.titleMedium,
-                color = accent,
-            )
-        }
-        Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = candidate.app.label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = when {
-                    frozen -> "已冻结"
-                    candidate.daysUnused == null -> "无使用记录"
-                    else -> "${candidate.daysUnused} 天未用"
-                },
+                text = reason,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (frozen) accent else cs.onSurfaceVariant,
+                color = cs.onSurface,
             )
         }
-        Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
-        if (candidate.risk != FreezeRisk.SAFE) {
-            RiskChip(risk = candidate.risk)
-            Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
-        }
+        Spacer(Modifier.height(OneUiSpacing.CardGap))
+        Text(
+            text = risk.explain,
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(OneUiSpacing.CardInner))
         if (frozen) {
-            Surface(
-                color = accent.copy(alpha = 0.12f),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(OneUiRadius.Pill))
-                    .clickable { onUnfreeze() },
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(
-                        horizontal = OneUiSpacing.SectionTitleGap,
-                        vertical = OneUiSpacing.CardGap,
-                    ),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AcUnit,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(RiskIconSize),
-                    )
-                    Spacer(Modifier.width(OneUiSpacing.CardGap / 2))
-                    Text(
-                        text = "解冻",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accent,
-                    )
-                }
-            }
+            SecondaryPillCta(text = "解冻", onClick = { NovaTap(view); onUnfreeze() })
         } else {
-            // Switch 是状态指示器，整行点击是真实动作
-            Switch(
-                checked = selected,
-                onCheckedChange = null,
-                enabled = false,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = cs.onPrimary,
-                    checkedTrackColor = cs.primary,
-                ),
+            PrimaryPillCta(
+                text = "加入待冻结",
+                enabled = risk != FreezeRisk.RISKY,
+                onClick = { NovaTap(view); onToggle() },
             )
         }
     }
@@ -460,13 +624,14 @@ private fun CandidateRow(
 @Composable
 private fun RiskChip(risk: FreezeRisk) {
     val cs = MaterialTheme.colorScheme
+    val colors = NovaCareTheme.colors
     val (label, color) = when (risk) {
         FreezeRisk.SAFE -> return
         FreezeRisk.CAUTION -> "需确认" to cs.tertiary
-        FreezeRisk.RISKY -> "有风险" to NovaCareTheme.colors.riskRisky
+        FreezeRisk.RISKY -> "有风险" to colors.riskRisky
     }
     Surface(
-        color = color.copy(alpha = 0.12f),
+        color = color.copy(alpha = 0.18f),
         modifier = Modifier.clip(RoundedCornerShape(OneUiRadius.Pill)),
     ) {
         Text(
@@ -482,7 +647,7 @@ private fun RiskChip(risk: FreezeRisk) {
 }
 
 @Composable
-private fun NoticeBanner(
+private fun NoticeStack(
     usagePermissionGranted: Boolean,
     shizukuAvailable: Boolean,
     engineAvailable: Boolean,
@@ -491,9 +656,7 @@ private fun NoticeBanner(
 ) {
     val view = LocalView.current
     val colors = NovaCareTheme.colors
-    Column(
-        modifier = Modifier.padding(horizontal = OneUiSpacing.ScreenEdge),
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap)) {
         if (!usagePermissionGranted) {
             NoticeRow(
                 text = "未授予「使用情况访问」，无法识别长期未用应用",
@@ -501,7 +664,6 @@ private fun NoticeBanner(
                 tone = colors.riskCaution,
                 onClick = { NovaTap(view); onRetry() },
             )
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (!shizukuAvailable) {
             NoticeRow(
@@ -510,7 +672,6 @@ private fun NoticeBanner(
                 tone = colors.riskCaution,
                 onClick = { NovaTap(view); onGrantShizuku() },
             )
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
         }
         if (!engineAvailable) {
             NoticeRow(
@@ -534,7 +695,7 @@ private fun NoticeRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .background(tone.copy(alpha = 0.08f))
+            .background(tone.copy(alpha = 0.10f))
             .clickable { onClick() }
             .padding(
                 horizontal = OneUiSpacing.CardInner,
@@ -544,7 +705,7 @@ private fun NoticeRow(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
@@ -557,32 +718,28 @@ private fun NoticeRow(
 }
 
 @Composable
-private fun EmptyList(usagePermissionGranted: Boolean, shizukuAvailable: Boolean) {
-    val cs = MaterialTheme.colorScheme
-    Column(
+private fun ChipRow(
+    allSelected: Boolean,
+    includeSystem: Boolean,
+    onSelectAll: (Boolean) -> Unit,
+    onIncludeSystemChange: (Boolean) -> Unit,
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.SectionTitleGap),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = when {
-                !usagePermissionGranted -> "无法识别长期未用应用"
-                !shizukuAvailable -> "未配置 Shizuku，无法冻结"
-                else -> "暂未发现值得冻结的应用"
-            },
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
+        ChipToggle(
+            text = if (allSelected) "全不选" else "全选",
+            selected = false,
+            onClick = { onSelectAll(!allSelected) },
         )
-        Spacer(Modifier.height(OneUiSpacing.CardGap / 2 + 1.dp))
-        Text(
-            text = when {
-                !usagePermissionGranted -> "请在系统设置授予「使用情况访问」"
-                !shizukuAvailable -> "配置 Shizuku 后即可一键冻结"
-                else -> "你常用的应用都很活跃"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
+        Spacer(Modifier.width(OneUiSpacing.CardGap))
+        ChipToggle(
+            text = if (includeSystem) "✓ 含系统" else "含系统应用",
+            selected = includeSystem,
+            onClick = { onIncludeSystemChange(!includeSystem) },
         )
     }
 }
@@ -610,46 +767,34 @@ private fun ChipToggle(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StatusBlock(title: String, subtitle: String) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
-        verticalArrangement = Arrangement.Top,
-    ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap * 2))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        CircularProgressIndicator(
-            modifier = Modifier.size(OneUiSpacing.CardInner * 2),
-            strokeWidth = 3.dp,
-            color = cs.primary,
-        )
-    }
-}
-
-@Composable
-private fun PrimaryCta(text: String, onClick: () -> Unit) {
+private fun PrimaryPillCta(text: String, enabled: Boolean, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
-            .clip(RoundedCornerShape(OneUiRadius.Large))
+            .height(CtaHeight)
+            .clip(RoundedCornerShape(OneUiRadius.Pill))
+            .clickable(enabled = enabled) { onClick() },
+        color = if (enabled) cs.primary else cs.onSurface.copy(alpha = 0.12f),
+        contentColor = if (enabled) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text = text, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+private fun SecondaryPillCta(text: String, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(CtaHeight)
+            .clip(RoundedCornerShape(OneUiRadius.Pill))
             .clickable { onClick() },
-        color = cs.primary,
-        contentColor = cs.onPrimary,
+        color = cs.onSurface.copy(alpha = 0.06f),
+        contentColor = cs.primary,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(text = text, style = MaterialTheme.typography.titleMedium)
@@ -666,42 +811,29 @@ private fun BottomFreezeBar(count: Int, onBatchFreeze: () -> Unit, modifier: Mod
         shadowElevation = OneUiSpacing.CardGap,
     ) {
         Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
-                    .clip(RoundedCornerShape(OneUiRadius.Large))
-                    .clickable { onBatchFreeze() },
-                color = cs.primary,
-                contentColor = cs.onPrimary,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "冻结 $count 个应用",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-            }
+            PrimaryPillCta(
+                text = "冻结 $count 个应用",
+                enabled = true,
+                onClick = onBatchFreeze,
+            )
         }
     }
 }
 
-@Composable
-private fun ListHairline() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-    )
+// ============================================================
+// 颜色 / 尺寸 —— 由 token 派生，0 自由 dp
+// ============================================================
+
+private object FreezeTints {
+    val idle = Color(0xFF7B61FF)
+    val frozen = Color(0xFF1B7A46)
 }
 
-// ============================================================
-// 衍生尺寸 —— 由现有 token 组合得到，不引入裸字面值
-// ============================================================
-
-/** 头像方块 = CardInner × 2 + CardGap (40dp) */
+/** 头像 = CardInner * 2 + CardGap = 40dp */
 private val AvatarSize: Dp = OneUiSpacing.CardInner * 2 + OneUiSpacing.CardGap
 
-/** 风险 chip 内的图标尺寸 = CardGap (8dp) */
+/** 风险 chip 内的图标 = CardGap = 8dp */
 private val RiskIconSize: Dp = OneUiSpacing.CardGap
+
+/** 主 CTA 高度 = CardInner*4 - CardGap = 56dp */
+private val CtaHeight: Dp = OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap
