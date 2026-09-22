@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Memory
@@ -53,6 +54,8 @@ import com.novacare.ui.designsystem.NovaLongPress
 import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
@@ -169,7 +172,7 @@ fun MemoryGuardianScreen(
                             }
                         }
 
-                        // ---- v0.21.0 新增：占用 Top 10 应用 ----
+                        // ---- v0.25 新增：占用 Top 10 应用 改为 OneUiListSection ----
                         if (snap.topAppsBySize.isNotEmpty()) {
                             item {
                                 Spacer(Modifier.height(OneUiSpacing.BlockGap))
@@ -179,14 +182,38 @@ fun MemoryGuardianScreen(
                                 )
                                 Spacer(Modifier.height(OneUiSpacing.CardGap))
                             }
-                            items(items = snap.topAppsBySize, key = { it.packageName }) { entry ->
-                                AppSizeRow(
-                                    entry = entry,
-                                    onClick = { pkg ->
-                                        NovaTap(view)
-                                        onOpenAppDetail(pkg)
-                                    },
-                                )
+                            item {
+                                OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+                                    snap.topAppsBySize.forEachIndexed { index, entry ->
+                                        OneUiListRow(
+                                            icon = Icons.Outlined.Apps,
+                                            iconTint = MemoryTints.engine,
+                                            title = entry.label,
+                                            subtitle = entry.packageName,
+                                            trailing = {
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        text = entry.totalBytes.formatBytes(),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                    if (entry.cacheBytes > 0L) {
+                                                        Text(
+                                                            text = "缓存 ${entry.cacheBytes.formatBytes()}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = NovaCareTheme.colors.healthGood,
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                NovaTap(view)
+                                                onOpenAppDetail(entry.packageName)
+                                            },
+                                            showDivider = index < snap.topAppsBySize.lastIndex,
+                                        )
+                                    }
+                                }
                             }
                         }
                         item { Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap)) }
@@ -541,52 +568,6 @@ private fun ProcessRow(
 }
 
 @Composable
-private fun AppSizeRow(
-    entry: MemoryGuardianViewModel.AppSizeEntry,
-    onClick: (String) -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Small))
-            .background(cs.onSurface.copy(alpha = 0.04f))
-            .clickable { onClick(entry.packageName) }
-            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.CardGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = entry.label,
-                style = MaterialTheme.typography.bodyLarge,
-                color = cs.onSurface,
-                maxLines = 1,
-            )
-            Text(
-                text = entry.packageName,
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = entry.totalBytes.formatBytes(),
-                style = MaterialTheme.typography.titleMedium,
-                color = cs.onSurface,
-            )
-            if (entry.cacheBytes > 0L) {
-                Text(
-                    text = "缓存 ${entry.cacheBytes.formatBytes()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NovaCareTheme.colors.healthGood,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun NoticeBlock(text: String, tone: Color) {
     Row(
         modifier = Modifier
@@ -739,3 +720,8 @@ private fun ReleaseBar(
 }
 
 private val ProgressBarHeight: Dp = OneUiSpacing.CardGap
+
+/** OneUI 9 调色 —— 与 SettingsScreen / Battery Guardian Hero 配色一致 */
+private object MemoryTints {
+    val engine: Color = Color(0xFF2F6FED)
+}
