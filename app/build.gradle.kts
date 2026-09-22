@@ -18,8 +18,8 @@ android {
         // 不是 GitHub 的要求 —— GitHub 只认 tag（用于触发发版 workflow），
         // versionCode/versionName 完全由本文件决定。前几轮改了代码却没推进版本号，
         // 导致一直停在 0.9.0-alpha，这里是纠正。
-        versionCode = 20
-        versionName = "0.22.0-alpha"
+        versionCode = 21
+        versionName = "0.23.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
