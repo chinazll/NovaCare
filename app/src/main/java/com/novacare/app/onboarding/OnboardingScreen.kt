@@ -18,7 +18,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.WavingHand
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,27 +40,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.ui.designsystem.NovaCareTheme
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiSpacing
 
 /**
- * 首次启动引导（Onboarding）。
+ * 首次启动引导（Onboarding）—— OneUI 9 三页重写。
  *
- * OneUI 9 重写后的纪律：
- *   - 三页：欢迎 / 权限 / AI 设置
- *   - 单 CTA：每页只允许一个主操作
- *   - 顶部无 OneUiAppBar —— 全屏页用 windowInsetsPadding 处理系统栏
- *   - 字体档位 ≤5：titleLarge / titleSmall / bodyMedium / labelLarge / labelSmall
- *   - 间距 / 圆角全部从 OneUiSpacing 取值
+ * 纪律：
+ *   - 三页：欢迎 / 权限 / AI 配置
+ *   - 每页：居中 48dp 圆形 tinted icon + 标题 + 描述 + 底部 CTA pill 按钮
+ *   - 权限页与 AI 页用 OneUiListSection 承载列表项
  *   - 跳过的二次确认用 M3 AlertDialog
  *   - 每行点「去开启」触发 OnboardingViewModel.grant，对应真实授权
+ *   - 字体档位 ≤5，间距 / 圆角全部从 OneUiSpacing / OneUiRadius 取值
  */
 @Composable
 fun OnboardingScreen(
@@ -193,6 +204,192 @@ fun OnboardingScreen(
     }
 }
 
+// ============================================================
+// 页内容
+// ============================================================
+
+@Composable
+private fun WelcomePageBody() {
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        PageHero(
+            icon = Icons.Outlined.WavingHand,
+            tint = OnboardingTints.engine,
+            title = "欢迎使用 NovaCare",
+            description = "把存储、内存、电池三件事，讲清楚、做到位。\n\n" +
+                "我们不画饼。给每一个数字都配上来源，给每一条建议都配上依据，" +
+                "做不到的事会直接写出来。",
+        )
+    }
+}
+
+@Composable
+private fun PermissionsPageBody(
+    items: List<OnboardingPermissionItem>,
+    onGrant: (OnboardingPermissionItem) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PageHero(
+            icon = Icons.Outlined.LockOpen,
+            tint = OnboardingTints.shizuku,
+            title = "需要你授权几件事",
+            description = "点「去开启」会跳到系统设置页；回来后会自动重新检查状态。",
+        )
+        Spacer(Modifier.height(OneUiSpacing.CardInner))
+        OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+            items.forEachIndexed { index, item ->
+                OneUiListRow(
+                    icon = Icons.Outlined.LockOpen,
+                    iconTint = if (item.granted) OnboardingTints.engine
+                    else if (item.required) NovaCareTheme.colors.riskCaution
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    title = item.title,
+                    subtitle = if (item.granted) "已开启" else item.consequence,
+                    trailing = {
+                        if (item.granted) {
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = OnboardingTints.engine,
+                                modifier = Modifier.size(OneUiSpacing.CardInner + OneUiSpacing.CardGap / 2),
+                            )
+                        } else {
+                            Text(
+                                text = item.actionLabel,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = NovaCareTheme.colors.accent,
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.small)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        role = Role.Button,
+                                        onClick = { onGrant(item) },
+                                    )
+                                    .padding(
+                                        horizontal = OneUiSpacing.SectionTitleGap,
+                                        vertical = OneUiSpacing.CardGap,
+                                    ),
+                            )
+                        }
+                    },
+                    showDivider = index < items.lastIndex,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiPageBody(cloudAiEnabled: Boolean, apiKeySet: Boolean) {
+    val stateText = when {
+        cloudAiEnabled && apiKeySet -> "已开启 · 已填写 Key"
+        cloudAiEnabled -> "已开启，但还没填 Key —— 此时不会发起任何云端请求"
+        apiKeySet -> "Key 已填写，但云端对话未开启"
+        else -> "未开启 · 未填写 Key"
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PageHero(
+            icon = Icons.Outlined.AutoAwesome,
+            tint = OnboardingTints.engine,
+            title = "AI 助手（可选）",
+            description = "它按固定的顺序工作，每一步你都看得见：\n" +
+                "看本机状态 → 需要时云端查一次 → 结论回本地执行 → 你确认后才动手。\n\n" +
+                "云端对话默认关闭。要开启，请在「设置 → AI → API Key」里填入你自己的 Key。",
+        )
+        Spacer(Modifier.height(OneUiSpacing.CardInner))
+        OneUiListSection(modifier = Modifier.fillMaxWidth()) {
+            OneUiListRow(
+                icon = Icons.Outlined.AutoAwesome,
+                iconTint = OnboardingTints.engine,
+                title = "云端对话",
+                subtitle = if (cloudAiEnabled) "已开启 · 可发起云端多轮对话" else "未开启 —— 仅本地识别固定问法",
+                showDivider = true,
+                trailing = {
+                    StateBadge(
+                        text = if (cloudAiEnabled) "已开启" else "未开启",
+                        granted = cloudAiEnabled,
+                    )
+                },
+            )
+            OneUiListRow(
+                icon = Icons.Outlined.Check,
+                iconTint = OnboardingTints.engine,
+                title = "API Key",
+                subtitle = if (apiKeySet) "已写入 SettingsRepository（未进 Keystore）" else "未设置 —— 不发起任何网络请求",
+                showDivider = false,
+                trailing = {
+                    StateBadge(
+                        text = if (apiKeySet) "已设置" else "未设置",
+                        granted = apiKeySet,
+                    )
+                },
+            )
+        }
+        Spacer(Modifier.height(OneUiSpacing.CardInner))
+        Text(
+            text = "当前：$stateText",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// ============================================================
+// 复用件
+// ============================================================
+
+@Composable
+private fun PageHero(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    description: String,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(HeroIconSize)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(HeroIconGlyph),
+            )
+        }
+        Spacer(Modifier.height(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun StateBadge(text: String, granted: Boolean) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+        color = if (granted) OnboardingTints.engine
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
 @Composable
 private fun PageIndicatorBody(count: Int, selected: Int) {
     val accent = NovaCareTheme.colors.accent
@@ -234,182 +431,37 @@ private fun PrimaryCtaBody(text: String, onClick: () -> Unit) {
         color = cs.primary,
         contentColor = cs.onPrimary,
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
+            )
+            Spacer(Modifier.size(OneUiSpacing.CardGap))
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = null,
+                modifier = Modifier.size(OneUiSpacing.CardInner + OneUiSpacing.CardGap / 2),
             )
         }
     }
 }
 
-@Composable
-private fun WelcomePageBody() {
-    val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "NovaCare",
-            style = MaterialTheme.typography.titleLarge,
-            color = NovaCareTheme.colors.accent,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardInner))
-        Text(
-            text = "把存储、内存、电池三件事，讲清楚、做到位",
-            style = MaterialTheme.typography.titleLarge,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardInner))
-        Text(
-            text = "我们不画饼。给每一个数字都配上来源，给每一条建议都配上依据，" +
-                "做不到的事会直接写出来。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-    }
+// ============================================================
+// 调色 / 衍生尺寸
+// ============================================================
+
+/** OneUI 9 调色 —— 与 SettingsScreen / Battery / Memory / Storage 一致 */
+private object OnboardingTints {
+    val engine: Color = Color(0xFF2F6FED)
+    val shizuku: Color = Color(0xFF1B7A46)
 }
 
-@Composable
-private fun PermissionsPageBody(
-    items: List<OnboardingPermissionItem>,
-    onGrant: (OnboardingPermissionItem) -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val caution = NovaCareTheme.colors.riskCaution
-    val good = NovaCareTheme.colors.healthGood
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "需要你授权几件事",
-            style = MaterialTheme.typography.titleLarge,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
-        Text(
-            text = "点「去开启」会跳到系统设置页；回来后会自动重新检查状态。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardInner))
+/** Hero 图标外圈 48dp = BlockGap * 2 */
+private val HeroIconSize = OneUiSpacing.BlockGap * 2
 
-        items.forEach { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = OneUiSpacing.SectionTitleGap),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = OneUiSpacing.SectionTitleGap)
-                        .size(OneUiSpacing.SectionTitleGap)
-                        .clip(CircleShape)
-                        .background(
-                            if (item.granted) good
-                            else if (item.required) caution
-                            else cs.onSurfaceVariant.copy(alpha = 0.32f),
-                        ),
-                )
-                Spacer(Modifier.size(OneUiSpacing.CardInner))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = cs.onSurface,
-                    )
-                    Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
-                    Text(
-                        text = item.consequence,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (!item.granted && item.required) caution
-                        else cs.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.size(OneUiSpacing.CardInner))
-                Text(
-                    text = item.actionLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (item.granted) good else NovaCareTheme.colors.accent,
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.small)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            role = Role.Button,
-                            onClick = { if (!item.granted) onGrant(item) },
-                        )
-                        .padding(
-                            horizontal = OneUiSpacing.SectionTitleGap,
-                            vertical = OneUiSpacing.CardGap,
-                        ),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AiPageBody(cloudAiEnabled: Boolean, apiKeySet: Boolean) {
-    val cs = MaterialTheme.colorScheme
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "AI 助手",
-            style = MaterialTheme.typography.titleLarge,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
-        Text(
-            text = if (cloudAiEnabled && apiKeySet) {
-                "已配置云端对话 —— 你可以直接问自然语言。"
-            } else {
-                "未配置云端 key 时，助手只能识别固定问法。" +
-                    "配置后获得真正的多轮对话。"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(OneUiSpacing.CardInner))
-
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.large),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
-                BulletBody("云端：流式多轮对话，能看你的设备状态再回答")
-                Spacer(Modifier.height(OneUiSpacing.CardGap))
-                BulletBody("本地：离线、确定性，只识别固定问法")
-                Spacer(Modifier.height(OneUiSpacing.CardGap))
-                BulletBody("两者都不替你执行：所有动作都需你点确认")
-            }
-        }
-
-        Spacer(Modifier.height(OneUiSpacing.CardInner))
-
-        Text(
-            text = "完成后可在 设置 → AI 里开启云端对话 / 填 API Key",
-            style = MaterialTheme.typography.labelLarge,
-            color = NovaCareTheme.colors.accent,
-        )
-    }
-}
-
-@Composable
-private fun BulletBody(text: String) {
-    val cs = MaterialTheme.colorScheme
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            modifier = Modifier
-                .padding(top = OneUiSpacing.SectionTitleGap)
-                .size(OneUiSpacing.SectionTitleGap)
-                .clip(CircleShape)
-                .background(NovaCareTheme.colors.accent),
-        )
-        Spacer(Modifier.size(OneUiSpacing.SectionTitleGap))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurface,
-        )
-    }
-}
+/** Hero 图标字形 28dp = BlockGap + CardGap */
+private val HeroIconGlyph = OneUiSpacing.BlockGap + OneUiSpacing.CardGap
