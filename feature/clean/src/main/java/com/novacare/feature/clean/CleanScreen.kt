@@ -46,7 +46,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -62,20 +64,28 @@ import com.novacare.ui.designsystem.NovaSuccess
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
-/**
- * 清理页 —— OneUI 9.5 重写版。
- *
- * 单一 state machine：所有状态走 [CleanViewModel.UiState] 一个 sealed 分支，
- * 不再为 Idle / Scanning / Failed / Executing / Done 各开一个独立 composable。
- * 5 个 Hero 全删 —— 状态机本身就是 Hero。
- *
- * 进度可视化：单一 [RingChart]（Canvas 绘制圆环 + 中央文字），多状态复用。
- * 底部 CTA：固定位置，行为随 [UiState] 变化（开始扫描 / 释放 / 重试），
- * 不可用时变成"下一步动作"（去授权 / 选择建议项 / 重扫），而不是灰按钮。
- */
+// =========================================================================
+// CleanScreen — OneUI 9 重写版
+//
+// 来源：research/oneui9-ref/components_lists_img-01.png
+//
+// 模式：
+//   - 顶部 OneUiAppBar
+//   - Idle / Failed 状态：单个 squircle card（OneUiListSection），包含一个
+//     OneUiListRow（36dp tinted icon + 标题 + 副文）+ 底部 primary CTA pill
+//   - Scanning / Executing 状态：单个 squircle card，含 loading + 文案
+//   - Done 状态：单个 squircle card，含 hero + primary CTA
+//   - Results 状态：顶部 RingChart 在 card 内 + OneUiListSection 包住建议清单
+//     + sticky bottom CTA（OneUiListSection 风格保持一致）
+//
+// 仅复用 CleanViewModel 状态机；不修改 VM、不修改逻辑，只重写 Compose。
+// =========================================================================
+
 @Composable
 fun CleanScreen(
     rootPath: String,
@@ -118,8 +128,9 @@ fun CleanScreen(
             OneUiAppBar(title = "清理")
 
             when (val s = state) {
-                CleanViewModel.UiState.Idle -> EmptyContent(
+                CleanViewModel.UiState.Idle -> EmptyBody(
                     title = "扫一下，看看你能释放多少空间",
+                    subtitle = "会读取应用缓存、日志、缩略图与残留文件，列清单让你勾选",
                     ctaLabel = "开始扫描",
                     onCta = {
                         NovaTap(view)
@@ -127,12 +138,12 @@ fun CleanScreen(
                     },
                 )
 
-                CleanViewModel.UiState.Scanning -> StatusContent(
+                CleanViewModel.UiState.Scanning -> StatusBody(
                     title = "正在扫描",
                     subtitle = "分析存储、缓存与残留文件",
                 )
 
-                is CleanViewModel.UiState.Failed -> EmptyContent(
+                is CleanViewModel.UiState.Failed -> EmptyBody(
                     title = "扫描失败",
                     subtitle = s.message,
                     ctaLabel = "重试",
@@ -183,7 +194,7 @@ fun CleanScreen(
                     },
                 )
 
-                CleanViewModel.UiState.Executing -> StatusContent(
+                CleanViewModel.UiState.Executing -> StatusBody(
                     title = "正在释放",
                     subtitle = "请保持 NovaCare 在前台",
                 )
@@ -208,7 +219,92 @@ fun CleanScreen(
 }
 
 // ============================================================
-// 主体：单一 ResultsBody —— RingChart + 选择 chip + 列表 + 底部 CTA
+// 单一状态视图：EmptyBody / StatusBody
+// 一个 squircle card + 36dp tinted icon 行 + 底部 primary CTA
+// ============================================================
+
+@Composable
+private fun EmptyBody(
+    title: String,
+    subtitle: String,
+    ctaLabel: String,
+    onCta: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
+    ) {
+        item {
+            OneUiListSection {
+                OneUiListRow(
+                    icon = Icons.Outlined.WarningAmber,
+                    iconTint = CleanTints.idle,
+                    title = title,
+                    subtitle = subtitle,
+                    onClick = null,
+                )
+            }
+        }
+        item {
+            PrimaryPillCta(
+                text = ctaLabel,
+                enabled = true,
+                onClick = onCta,
+            )
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
+    }
+}
+
+@Composable
+private fun StatusBody(title: String, subtitle: String) {
+    val cs = MaterialTheme.colorScheme
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
+    ) {
+        item {
+            OneUiListSection {
+                OneUiListRow(
+                    icon = Icons.Outlined.WarningAmber,
+                    iconTint = cs.primary,
+                    title = title,
+                    subtitle = subtitle,
+                    onClick = null,
+                )
+            }
+        }
+        item {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(OneUiSpacing.CardInner * 3),
+                    strokeWidth = OneUiSpacing.CardGap / 2,
+                    color = cs.primary,
+                )
+            }
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
+    }
+}
+
+// ============================================================
+// Results —— 顶部 RingChart card + 建议清单 + sticky bottom CTA
 // ============================================================
 
 @Composable
@@ -238,88 +334,66 @@ private fun ResultsBody(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = OneUiSpacing.ScreenEdge),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "${selectedKeys.size} / ${plan.advices.size}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
-            }
-
-            Spacer(Modifier.height(OneUiSpacing.BlockGap))
-
-            RingChart(
-                selected = selectedKeys.size,
-                total = plan.advices.size,
-                selectedBytes = selectedBytes,
-                totalBytes = plan.totalReclaimableBytes,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = OneUiSpacing.ScreenEdge),
-            )
-
-            Spacer(Modifier.height(OneUiSpacing.CardInner))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = OneUiSpacing.ScreenEdge),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ChipToggle(
-                    text = if (selectedKeys.size == plan.advices.size) "全不选" else "全选",
-                    selected = false,
-                    onClick = { onSelectAll(selectedKeys.size != plan.advices.size) },
-                )
-                Spacer(Modifier.width(OneUiSpacing.CardGap))
-                ChipToggle(
-                    text = if (includeRisky) "✓ 含需确认" else "含需确认",
-                    selected = includeRisky,
-                    onClick = { onIncludeRiskyChange(!includeRisky) },
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                horizontal = OneUiSpacing.BlockGap,
+                vertical = OneUiSpacing.SectionTitleGap,
+            ),
+            verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap),
+        ) {
+            // 顶部 hero card：单选 / RingChart / 字节数
+            item {
+                OneUiListSection {
+                    Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
+                        RingChart(
+                            selected = selectedKeys.size,
+                            total = plan.advices.size,
+                            selectedBytes = selectedBytes,
+                            totalBytes = plan.totalReclaimableBytes,
+                        )
+                        Spacer(Modifier.height(OneUiSpacing.CardInner))
+                        ChipRow(
+                            allSelected = selectedKeys.size == plan.advices.size && plan.advices.isNotEmpty(),
+                            includeRisky = includeRisky,
+                            onSelectAll = onSelectAll,
+                            onIncludeRiskyChange = onIncludeRiskyChange,
+                        )
+                    }
+                }
             }
 
             if (!engineAvailable && hasAdvices) {
-                Spacer(Modifier.height(OneUiSpacing.CardInner))
-                NoticeBlock(
-                    text = "清理内核不可用：以下只有应用缓存分析，没有文件级垃圾扫描结果",
-                )
+                item {
+                    NoticeBlock(
+                        text = "清理内核不可用：以下只有应用缓存分析，没有文件级垃圾扫描结果",
+                        tone = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             if (!hasAdvices) {
-                Spacer(Modifier.height(OneUiSpacing.CardInner))
-                ReleaseBlockCard(availability = availability)
+                item {
+                    ReleaseBlockCard(availability = availability)
+                }
             }
 
-            Spacer(Modifier.height(OneUiSpacing.CardInner))
+            // 建议清单 —— OneUiListSection + 每条用 OneUiListRow 风格的自定义行
+            item {
+                OneUiListSection {
+                    plan.advices.forEachIndexed { index, advice ->
+                        AdviceRow(
+                            advice = advice,
+                            checked = advice.key() in selectedKeys,
+                            onToggle = { onToggle(advice.key()) },
+                            showDivider = index < plan.advices.lastIndex,
+                        )
+                    }
+                }
+            }
 
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(
-                    horizontal = OneUiSpacing.ScreenEdge,
-                    vertical = OneUiSpacing.SectionTitleGap,
-                ),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-            ) {
-                items(items = plan.advices, key = { it.key() }) { advice ->
-                    AdviceRow(
-                        advice = advice,
-                        checked = advice.key() in selectedKeys,
-                        onToggle = { onToggle(advice.key()) },
-                    )
-                    ListHairline()
-                }
-                item {
-                    Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap))
-                }
+            item {
+                Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap))
             }
         }
 
@@ -338,7 +412,77 @@ private fun ResultsBody(
 }
 
 // ============================================================
-// 单一 Canvas 圆环 —— 替代五个 Hero 的可视化
+// Done —— 单 squircle card + hero + primary CTA + 副 CTA
+// ============================================================
+
+@Composable
+private fun DoneBody(
+    freedBytes: Long,
+    succeededCount: Int,
+    failedCount: Int,
+    needsManualCount: Int,
+    onDone: () -> Unit,
+    onRescan: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val colors = NovaCareTheme.colors
+    val manualOnly = freedBytes == 0L && succeededCount == 0 && needsManualCount > 0
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = OneUiSpacing.BlockGap,
+            vertical = OneUiSpacing.SectionTitleGap,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.BlockGap),
+    ) {
+        item {
+            OneUiListSection {
+                Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
+                    Text(
+                        text = if (manualOnly) "已引导 $needsManualCount 项去系统设置页"
+                        else "已释放 ${freedBytes.formatBytes()}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (manualOnly) cs.onSurface else colors.healthGood,
+                    )
+                    Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
+                    Text(
+                        text = buildString {
+                            if (manualOnly) {
+                                append("Android 不允许第三方应用清理其他应用的缓存")
+                            } else {
+                                append("成功 $succeededCount 项")
+                                if (failedCount > 0) append(" · 失败 $failedCount 项")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                    )
+                    if (needsManualCount > 0) {
+                        Spacer(Modifier.height(OneUiSpacing.CardGap))
+                        Text(
+                            text = "另有 $needsManualCount 项需要你在系统设置页手动完成，" +
+                                "这部分没有释放任何空间，也没有计入上面的数字。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = cs.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            PrimaryPillCta(text = "完成", enabled = true, onClick = onDone)
+        }
+        item {
+            SecondaryPillCta(text = "重新扫描", onClick = onRescan)
+        }
+        item {
+            Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+        }
+    }
+}
+
+// ============================================================
+// RingChart —— OneUI 风格：圆环 + 中央数字 + 右侧文案
 // ============================================================
 
 @Composable
@@ -360,15 +504,15 @@ private fun RingChart(
     )
 
     Row(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier.size(OneUiSpacing.EmptyHeight - OneUiSpacing.BlockGap),
+            modifier = Modifier.size(ChartSize),
             contentAlignment = Alignment.Center,
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeWidth = OneUiSpacing.CardGap.toPx()
+                val strokeWidth = ChartStroke.toPx()
                 val inset = strokeWidth / 2
                 val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
                 drawArc(
@@ -403,13 +547,14 @@ private fun RingChart(
                 )
             }
         }
-        Spacer(Modifier.width(OneUiSpacing.BlockGap - OneUiSpacing.CardGap))
+        Spacer(Modifier.width(OneUiSpacing.BlockGap))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "已选 ${selectedBytes.formatBytes()}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
                 color = cs.onSurface,
             )
+            Spacer(Modifier.height(OneUiSpacing.CardGap))
             Text(
                 text = "共可清 ${totalBytes.formatBytes()}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -420,160 +565,219 @@ private fun RingChart(
 }
 
 // ============================================================
-// 通用块：StatusContent（扫描中 / 执行中）、EmptyContent（Idle / Failed）
+// 复用件
 // ============================================================
 
 @Composable
-private fun StatusContent(title: String, subtitle: String) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
-        verticalArrangement = Arrangement.Top,
+private fun ChipRow(
+    allSelected: Boolean,
+    includeRisky: Boolean,
+    onSelectAll: (Boolean) -> Unit,
+    onIncludeRiskyChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap * 2))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
+        ChipToggle(
+            text = if (allSelected) "全不选" else "全选",
+            selected = false,
+            onClick = { onSelectAll(!allSelected) },
         )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        CircularProgressIndicator(
-            modifier = Modifier.size(OneUiSpacing.CardInner * 2),
-            strokeWidth = 3.dp,
-            color = cs.primary,
+        Spacer(Modifier.width(OneUiSpacing.CardGap))
+        ChipToggle(
+            text = if (includeRisky) "✓ 含需确认" else "含需确认",
+            selected = includeRisky,
+            onClick = { onIncludeRiskyChange(!includeRisky) },
         )
     }
 }
 
 @Composable
-private fun EmptyContent(
-    title: String,
-    ctaLabel: String,
-    onCta: () -> Unit,
-    subtitle: String? = null,
+private fun AdviceRow(
+    advice: CleanAdvice,
+    checked: Boolean,
+    onToggle: () -> Unit,
+    showDivider: Boolean,
 ) {
     val cs = MaterialTheme.colorScheme
-    Column(
+    val tint = advice.risk.tintColor()
+    Row(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
-        verticalArrangement = Arrangement.Top,
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.ListRowVertical),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        if (subtitle != null) {
-            Spacer(Modifier.height(OneUiSpacing.CardGap))
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
+        Box(
+            modifier = Modifier
+                .size(OneUiSpacing.CardInner * 2 + OneUiSpacing.CardGap)
+                .clip(RoundedCornerShape(OneUiRadius.Small))
+                .background(tint.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
             )
         }
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        PrimaryCtaLabel(
-            text = ctaLabel,
-            onClick = onCta,
-        )
-    }
-}
-
-// ============================================================
-// 完成态：DoneBody（不复制 DoneHero）
-// ============================================================
-
-@Composable
-private fun DoneBody(
-    freedBytes: Long,
-    succeededCount: Int,
-    failedCount: Int,
-    needsManualCount: Int,
-    onDone: () -> Unit,
-    onRescan: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val colors = NovaCareTheme.colors
-    val manualOnly = freedBytes == 0L && succeededCount == 0 && needsManualCount > 0
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
-    ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = if (manualOnly) "已引导 $needsManualCount 项去系统设置页"
-            else "已释放 ${freedBytes.formatBytes()}",
-            style = MaterialTheme.typography.titleMedium,
-            color = if (manualOnly) cs.onSurface else colors.healthGood,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = buildString {
-                if (manualOnly) {
-                    append("Android 不允许第三方应用清理其他应用的缓存")
-                } else {
-                    append("成功 $succeededCount 项")
-                    if (failedCount > 0) append(" · 失败 $failedCount 项")
-                }
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        if (needsManualCount > 0) {
+        Spacer(Modifier.width(OneUiSpacing.CardInner))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = advice.targetLabel,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                color = cs.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
             Text(
-                text = "另有 $needsManualCount 项需要你在系统设置页手动完成，" +
-                    "这部分没有释放任何空间，也没有计入上面的数字。",
+                text = advice.summary,
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        PrimaryCtaLabel(text = "完成", onClick = onDone)
-        Spacer(Modifier.height(OneUiSpacing.CardInner))
-        Row(
+        Spacer(Modifier.width(OneUiSpacing.CardInner))
+        Text(
+            text = advice.recommendedBytes.formatBytes(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurface,
+        )
+        Spacer(Modifier.width(OneUiSpacing.CardInner))
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(OneUiRadius.Medium))
-                .clickable { onRescan() }
-                .padding(vertical = OneUiSpacing.SectionTitleGap),
-            horizontalArrangement = Arrangement.Center,
+                .size(OneUiSpacing.CardInner * 2)
+                .clip(CircleShape)
+                .background(if (checked) cs.primary else cs.onSurface.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center,
         ) {
+            if (checked) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = null,
+                    tint = cs.onPrimary,
+                    modifier = Modifier.size(OneUiSpacing.CardInner + OneUiSpacing.CardGap),
+                )
+            }
+        }
+    }
+    if (showDivider) {
+        Spacer(Modifier.height(OneUiSpacing.ListRowVertical))
+        Box(
+            modifier = Modifier
+                .padding(start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap)
+                .fillMaxWidth()
+                .height(OneUiSpacing.CardGap / 2)
+                .background(cs.onSurface.copy(alpha = 0.06f)),
+        )
+    }
+}
+
+@Composable
+private fun ChipToggle(text: String, selected: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(OneUiRadius.Pill))
+            .clickable { onClick() },
+        color = if (selected) cs.primary.copy(alpha = 0.12f)
+        else cs.onSurface.copy(alpha = 0.06f),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) cs.primary else cs.onSurface,
+            modifier = Modifier.padding(
+                horizontal = OneUiSpacing.CardInner,
+                vertical = OneUiSpacing.SectionTitleGap,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun NoticeBlock(text: String, tone: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
+            .background(tone.copy(alpha = 0.08f))
+            .padding(
+                horizontal = OneUiSpacing.CardInner,
+                vertical = OneUiSpacing.CardGap,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ReleaseBlockCard(availability: ReleaseAvailability) {
+    val caution = NovaCareTheme.colors.riskCaution
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(OneUiRadius.Medium))
+            .background(caution.copy(alpha = 0.08f))
+            .padding(
+                horizontal = OneUiSpacing.CardInner,
+                vertical = OneUiSpacing.CardGap,
+            ),
+    ) {
+        Text(
+            text = availability.title,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+            color = caution,
+        )
+        availability.explain?.let { explain ->
+            Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
             Text(
-                text = "重新扫描",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.primary,
+                text = explain,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
-// ============================================================
-// 复用组件
-// ============================================================
-
 @Composable
-private fun PrimaryCtaLabel(text: String, onClick: () -> Unit) {
+private fun PrimaryPillCta(text: String, enabled: Boolean, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
-            .clip(RoundedCornerShape(OneUiRadius.Large))
+            .height(CtaHeight)
+            .clip(RoundedCornerShape(OneUiRadius.Pill))
+            .clickable(enabled = enabled) { onClick() },
+        color = if (enabled) cs.primary else cs.onSurface.copy(alpha = 0.12f),
+        contentColor = if (enabled) cs.onPrimary else cs.onSurface.copy(alpha = 0.38f),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text = text, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+private fun SecondaryPillCta(text: String, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(CtaHeight)
+            .clip(RoundedCornerShape(OneUiRadius.Pill))
             .clickable { onClick() },
-        color = cs.primary,
-        contentColor = cs.onPrimary,
+        color = cs.onSurface.copy(alpha = 0.06f),
+        contentColor = cs.primary,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(text = text, style = MaterialTheme.typography.titleMedium)
@@ -646,8 +850,8 @@ private fun BottomActionBar(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
-                    .clip(RoundedCornerShape(OneUiRadius.Large))
+                    .height(CtaHeight)
+                    .clip(RoundedCornerShape(OneUiRadius.Pill))
                     .clickable {
                         when {
                             availability.canRelease -> onExecute()
@@ -674,165 +878,6 @@ private fun BottomActionBar(
 }
 
 @Composable
-private fun AdviceRow(
-    advice: CleanAdvice,
-    checked: Boolean,
-    onToggle: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .clickable { onToggle() }
-            .padding(vertical = OneUiSpacing.SectionTitleGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(OneUiSpacing.CardInner * 2 + OneUiSpacing.CardGap)
-                .clip(RoundedCornerShape(OneUiRadius.Medium))
-                .background(advice.risk.tintColor().copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = advice.risk.icon(),
-                contentDescription = null,
-                tint = advice.risk.tintColor(),
-                modifier = Modifier.size(OneUiSpacing.BlockGap - OneUiSpacing.SectionTitleGap),
-            )
-        }
-        Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = advice.targetLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = advice.summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
-        Text(
-            text = advice.recommendedBytes.formatBytes(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.width(OneUiSpacing.CardInner - OneUiSpacing.CardGap))
-        Box(
-            modifier = Modifier
-                .size(OneUiSpacing.CardInner * 2)
-                .clip(CircleShape)
-                .background(if (checked) cs.primary else cs.onSurface.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) {
-                Icon(
-                    imageVector = Icons.Outlined.Check,
-                    contentDescription = null,
-                    tint = cs.onPrimary,
-                    modifier = Modifier.size(OneUiSpacing.CardInner + OneUiSpacing.CardGap),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChipToggle(text: String, selected: Boolean, onClick: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Surface(
-        modifier = Modifier
-            .clip(RoundedCornerShape(OneUiRadius.Pill))
-            .clickable { onClick() },
-        color = if (selected) cs.primary.copy(alpha = 0.12f)
-        else cs.onSurface.copy(alpha = 0.06f),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) cs.primary else cs.onSurface,
-            modifier = Modifier.padding(
-                horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.SectionTitleGap,
-            ),
-        )
-    }
-}
-
-@Composable
-private fun NoticeBlock(text: String) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = OneUiSpacing.ScreenEdge)
-            .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .background(cs.onSurface.copy(alpha = 0.04f))
-            .padding(
-                horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardGap,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun ReleaseBlockCard(availability: ReleaseAvailability) {
-    val cs = MaterialTheme.colorScheme
-    val caution = NovaCareTheme.colors.riskCaution
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = OneUiSpacing.ScreenEdge)
-            .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .background(caution.copy(alpha = 0.08f))
-            .padding(
-                horizontal = OneUiSpacing.CardInner,
-                vertical = OneUiSpacing.CardGap,
-            ),
-    ) {
-        Text(
-            text = availability.title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = caution,
-        )
-        availability.explain?.let { explain ->
-            Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
-            Text(
-                text = explain,
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ListHairline() {
-    Box(
-        modifier = Modifier
-            .padding(start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap)
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-    )
-}
-
-@Composable
 private fun CleanRisk.tintColor(): Color {
     val cs = MaterialTheme.colorScheme
     return when (this) {
@@ -842,10 +887,19 @@ private fun CleanRisk.tintColor(): Color {
     }
 }
 
-private fun CleanRisk.icon(): ImageVector = Icons.Outlined.WarningAmber
-
 // ============================================================
-// 衍生尺寸 —— 不引入裸字面值
+// 颜色 / 尺寸 —— 由 token 派生，0 自由 dp
 // ============================================================
 
-/** Int.dp —— 让数字 + token 组合产出 Dp */
+private object CleanTints {
+    val idle = Color(0xFF2F6FED)
+}
+
+/** 圆环外径 = EmptyHeight - BlockGap = 88dp */
+private val ChartSize: Dp = OneUiSpacing.EmptyHeight - OneUiSpacing.BlockGap
+
+/** 圆环描边 = CardGap = 8dp */
+private val ChartStroke: Dp = OneUiSpacing.CardGap
+
+/** 主 CTA 高度 = CardInner*4 - CardGap = 56dp */
+private val CtaHeight: Dp = OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap
