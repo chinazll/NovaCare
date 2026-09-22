@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AutoMode
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -28,12 +30,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novacare.core.model.AutomationRule
@@ -42,21 +50,23 @@ import com.novacare.ui.designsystem.NovaCareTheme
 import com.novacare.ui.designsystem.NovaTap
 import com.novacare.ui.designsystem.NovaToggle
 import com.novacare.ui.designsystem.OneUiAppBar
+import com.novacare.ui.designsystem.OneUiListRow
+import com.novacare.ui.designsystem.OneUiListSection
 import com.novacare.ui.designsystem.OneUiRadius
 import com.novacare.ui.designsystem.OneUiSpacing
 
-/**
- * 自动化页 —— OneUI 9.5 重写。
- *
- * - OneUiAppBar 顶部
- * - 规则列表：每条 = M3 ListItem 风格的卡片，点击进入**规则详情**（新增的
- *   `onOpenRule` 回调，由调用方注入导航逻辑）
- * - Switch 仅作为状态指示器（enabled=false / onCheckedChange=null），
- *   真实开关靠整行 —— 避免"按了没反应"
- * - FAB 添加新规则
- * - 顶部 summary + 通知条仍是同款 Compose，但用 Surface + OneUiRadius 替代
- *   GlassPanel（OneUI 9 不再使用毛玻璃）
- */
+// =========================================================================
+// AutomationScreen — OneUI 9 重写版
+//
+// 模式：
+//   - 顶部 OneUiAppBar
+//   - 全部规则在一个 OneUiListSection 里，每行 = 36dp tinted icon + 规则名
+//     + 描述 + 末次执行 + 启用 pill（小色块表示启用状态）
+//   - 点击行 = 通知 VM startEdit（外部导航到规则编辑页）；展开行内
+//     显示"停用 / 删除" pill
+//   - 右下角小 56dp 圆形 primary FAB
+// =========================================================================
+
 @Composable
 fun AutomationScreen(
     modifier: Modifier = Modifier,
@@ -69,65 +79,96 @@ fun AutomationScreen(
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
     val view = LocalView.current
 
+    var expandedRuleId by remember { mutableStateOf<String?>(null) }
+
+    val openRuleAndCollapse: (String) -> Unit = { id ->
+        expandedRuleId = null
+        NovaTap(view)
+        onOpenRule(id)
+    }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                OneUiAppBar(title = "自动化")
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    horizontal = OneUiSpacing.BlockGap,
+                    vertical = OneUiSpacing.SectionTitleGap,
+                ),
+                verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap),
+            ) {
+                item { OneUiAppBar(title = "自动化") }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = OneUiSpacing.ScreenEdge),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "${rules.count { it.enabled }} / ${rules.size} 已启用",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
+                item {
+                    OneUiListSection {
+                        OneUiListRow(
+                            icon = Icons.Outlined.AutoMode,
+                            iconTint = AutomationTints.idle,
+                            title = "${rules.count { it.enabled }} / ${rules.size} 已启用",
+                            subtitle = "触发器命中后系统在 6 小时维护窗口内执行",
+                            onClick = null,
+                        )
+                    }
                 }
 
-                Spacer(Modifier.height(OneUiSpacing.CardInner))
-
                 if (notice != null) {
-                    NoticeCard(
-                        text = notice!!,
-                        onDismiss = { viewModel.dismissNotice() },
-                    )
-                    Spacer(Modifier.height(OneUiSpacing.CardGap))
+                    item {
+                        NoticeCard(text = notice!!, onDismiss = { viewModel.dismissNotice() })
+                    }
                 }
 
                 if (rules.isEmpty()) {
-                    EmptyHero(onCreate = { NovaTap(view); onCreate() })
+                    item {
+                        OneUiListSection {
+                            Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
+                                Text(
+                                    text = "还没有自动化规则",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
+                                Text(
+                                    text = "新建一条规则，系统会在 6 小时维护窗口内执行，" +
+                                        "不会精确到你设定的分钟。",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Spacer(Modifier.height(OneUiSpacing.EmptyHeight))
+                    }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(
-                            horizontal = OneUiSpacing.ScreenEdge,
-                            vertical = OneUiSpacing.SectionTitleGap,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(OneUiSpacing.CardGap),
-                    ) {
-                        items(items = rules, key = { it.id }) { rule ->
-                            RuleRow(
-                                rule = rule,
-                                onToggle = { enabled ->
-                                    NovaToggle(view.context, enabled)
-                                    viewModel.toggle(rule, enabled)
-                                },
-                                onClick = { NovaTap(view); onOpenRule(rule.id) },
-                                onDelete = { NovaTap(view); viewModel.askDelete(rule) },
-                            )
+                    item {
+                        OneUiListSection {
+                            rules.forEachIndexed { index, rule ->
+                                RuleRow(
+                                    rule = rule,
+                                    expanded = expandedRuleId == rule.id,
+                                    onToggle = { enabled ->
+                                        NovaToggle(view.context, enabled)
+                                        viewModel.toggle(rule, enabled)
+                                    },
+                                    onClick = {
+                                        if (expandedRuleId == rule.id) {
+                                            openRuleAndCollapse(rule.id)
+                                        } else {
+                                            expandedRuleId = rule.id
+                                        }
+                                    },
+                                    onEdit = { openRuleAndCollapse(rule.id) },
+                                    onDelete = { NovaTap(view); viewModel.askDelete(rule) },
+                                    showDivider = index < rules.lastIndex,
+                                )
+                            }
                         }
-                        item {
-                            Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap))
-                        }
+                    }
+                    item {
+                        Spacer(Modifier.height(OneUiSpacing.EmptyHeight + OneUiSpacing.BlockGap))
                     }
                 }
             }
@@ -138,7 +179,7 @@ fun AutomationScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = OneUiSpacing.ScreenEdge, bottom = OneUiSpacing.ScreenEdge),
+                    .padding(end = OneUiSpacing.BlockGap, bottom = OneUiSpacing.BlockGap),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Add,
@@ -179,46 +220,9 @@ fun AutomationScreen(
     }
 }
 
-@Composable
-private fun EmptyHero(onCreate: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = OneUiSpacing.ScreenEdge),
-    ) {
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Text(
-            text = "还没有自动化规则",
-            style = MaterialTheme.typography.titleMedium,
-            color = cs.onSurface,
-        )
-        Spacer(Modifier.height(OneUiSpacing.CardGap))
-        Text(
-            text = "新建一条规则，系统会在 6 小时维护窗口内执行，" +
-                "不会精确到你设定的分钟。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = cs.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(OneUiSpacing.BlockGap))
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(OneUiSpacing.CardInner * 4 - OneUiSpacing.CardGap)
-                .clip(RoundedCornerShape(OneUiRadius.Large))
-                .clickable { onCreate() },
-            color = cs.primary,
-            contentColor = cs.onPrimary,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "新建第一条规则",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-        }
-    }
-}
+// ============================================================
+// 复用件
+// ============================================================
 
 @Composable
 private fun NoticeCard(text: String, onDismiss: () -> Unit) {
@@ -226,9 +230,8 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = OneUiSpacing.ScreenEdge)
             .clip(RoundedCornerShape(OneUiRadius.Medium))
-            .background(cs.primary.copy(alpha = 0.08f))
+            .background(cs.primary.copy(alpha = 0.10f))
             .clickable { onDismiss() }
             .padding(
                 horizontal = OneUiSpacing.CardInner,
@@ -238,7 +241,7 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = cs.onSurface,
             modifier = Modifier.weight(1f),
         )
@@ -248,123 +251,156 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
 @Composable
 private fun RuleRow(
     rule: AutomationRule,
+    expanded: Boolean,
     onToggle: (Boolean) -> Unit,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
+    showDivider: Boolean,
 ) {
     val cs = MaterialTheme.colorScheme
-    val accent = NovaCareTheme.colors.accent
-    val dangerColor = NovaCareTheme.colors.riskRisky
+    val colors = NovaCareTheme.colors
+    val accent = if (rule.enabled) AutomationTints.enabled else AutomationTints.disabled
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(OneUiRadius.Large))
-            .clickable { onClick() },
-        shape = RoundedCornerShape(OneUiRadius.Large),
-        color = cs.surfaceContainer,
-    ) {
-        Column(modifier = Modifier.padding(OneUiSpacing.CardInner)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = rule.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = cs.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
-                    Text(
-                        text = rule.describe(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = cs.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                SwitchStatusOnly(checked = rule.enabled)
-            }
-
-            Spacer(Modifier.height(OneUiSpacing.SectionTitleGap))
-            Row(
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(horizontal = OneUiSpacing.CardInner, vertical = OneUiSpacing.ListRowVertical),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 36dp 圆形 tinted icon（用规则名的首字）
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                    .size(AvatarSize)
+                    .clip(CircleShape)
+                    .background(accent.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
             ) {
+                Text(
+                    text = rule.name.firstOrNull()?.uppercase() ?: "?",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W600),
+                    color = accent,
+                )
+            }
+            Spacer(Modifier.width(OneUiSpacing.CardInner))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = rule.name,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                    color = cs.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
+                Text(
+                    text = rule.describe(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(OneUiSpacing.CardGap / 2))
                 Text(
                     text = rule.lastRunEpochMs?.let { "上次执行：${formatRelativeTime(it)}" } ?: "尚未执行",
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
                 )
-                Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(OneUiRadius.Pill))
-                        .clickable { onToggle(!rule.enabled) },
-                    color = accent.copy(alpha = 0.12f),
-                ) {
-                    Text(
-                        text = if (rule.enabled) "停用" else "启用",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accent,
-                        modifier = Modifier.padding(
-                            horizontal = OneUiSpacing.SectionTitleGap,
-                            vertical = OneUiSpacing.CardGap / 2,
-                        ),
-                    )
-                }
-                Spacer(Modifier.size(OneUiSpacing.CardGap))
-                Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(OneUiRadius.Pill))
-                        .clickable { onDelete() },
-                    color = dangerColor.copy(alpha = 0.12f),
-                ) {
-                    Text(
-                        text = "删除",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = dangerColor,
-                        modifier = Modifier.padding(
-                            horizontal = OneUiSpacing.SectionTitleGap,
-                            vertical = OneUiSpacing.CardGap / 2,
-                        ),
+            }
+            Spacer(Modifier.width(OneUiSpacing.CardInner))
+            // 状态指示器：启用 = 实心圆点 / 停用 = 空心
+            Box(
+                modifier = Modifier
+                    .size(StatusDotSize)
+                    .clip(CircleShape)
+                    .background(
+                        if (rule.enabled) cs.primary
+                        else cs.onSurface.copy(alpha = 0.12f),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (rule.enabled) {
+                    Box(
+                        modifier = Modifier
+                            .size(StatusDotInner)
+                            .clip(CircleShape)
+                            .background(cs.onPrimary),
                     )
                 }
             }
         }
+
+        if (expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap,
+                        end = OneUiSpacing.CardInner,
+                        bottom = OneUiSpacing.ListRowVertical,
+                    ),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PillAction(
+                        text = if (rule.enabled) "停用" else "启用",
+                        tint = if (rule.enabled) colors.riskCaution else colors.healthGood,
+                        onClick = { onToggle(!rule.enabled) },
+                    )
+                    Spacer(Modifier.size(OneUiSpacing.CardGap))
+                    PillAction(
+                        text = "编辑",
+                        tint = cs.primary,
+                        onClick = onEdit,
+                    )
+                    Spacer(Modifier.size(OneUiSpacing.CardGap))
+                    PillAction(
+                        text = "删除",
+                        tint = colors.riskRisky,
+                        onClick = onDelete,
+                    )
+                }
+            }
+        }
+
+        if (showDivider) {
+            Spacer(Modifier.height(OneUiSpacing.ListRowVertical))
+            Box(
+                modifier = Modifier
+                    .padding(start = OneUiSpacing.CardInner * 3 + OneUiSpacing.CardGap)
+                    .fillMaxWidth()
+                    .height(OneUiSpacing.CardGap / 2)
+                    .background(cs.onSurface.copy(alpha = 0.06f)),
+            )
+        }
     }
 }
 
-/**
- * Switch 仅作为状态指示器（绿=启用 / 灰=停用）。
- * 整行的"启用/停用" chip 是真实操作 —— 这样视觉和操作分离：
- * 用户看到一眼就知道这条规则跑不跑，但不会去戳 Switch 没反应。
- */
 @Composable
-private fun SwitchStatusOnly(checked: Boolean) {
-    val cs = MaterialTheme.colorScheme
-    Box(
+private fun PillAction(
+    text: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Surface(
         modifier = Modifier
-            .size(OneUiSpacing.CardInner * 2)
-            .clip(CircleShape)
-            .background(
-                if (checked) cs.primary
-                else cs.onSurface.copy(alpha = 0.08f),
-            ),
-        contentAlignment = Alignment.Center,
+            .clip(RoundedCornerShape(OneUiRadius.Pill))
+            .clickable { onClick() },
+        color = tint.copy(alpha = 0.18f),
     ) {
-        if (checked) {
-            // 用一个圆点表示"启用"
-            Box(
-                modifier = Modifier
-                    .size(OneUiSpacing.CardGap)
-                    .clip(CircleShape)
-                    .background(cs.onPrimary),
-            )
-        } else {
-            // 停用态留空
-        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = tint,
+            modifier = Modifier.padding(
+                horizontal = OneUiSpacing.CardInner,
+                vertical = OneUiSpacing.CardGap,
+            ),
+        )
     }
 }
 
@@ -392,3 +428,22 @@ private fun formatRelativeTime(epochMs: Long): String {
         else -> "${delta / 86400} 天前"
     }
 }
+
+// ============================================================
+// 颜色 / 尺寸 —— 由 token 派生，0 自由 dp
+// ============================================================
+
+private object AutomationTints {
+    val idle = Color(0xFFD18BFE)
+    val enabled = Color(0xFF2F6FED)
+    val disabled = Color(0xFF7B7B7B)
+}
+
+/** 头像 = CardInner * 2 + CardGap = 40dp */
+private val AvatarSize: Dp = OneUiSpacing.CardInner * 2 + OneUiSpacing.CardGap
+
+/** 状态指示器 = CardInner * 2 = 32dp */
+private val StatusDotSize: Dp = OneUiSpacing.CardInner * 2
+
+/** 状态指示器内圆点 = CardGap = 8dp */
+private val StatusDotInner: Dp = OneUiSpacing.CardGap
